@@ -143,6 +143,12 @@ def flow_tools(spec) -> list[dict]:
             "exact_time": {"type": "string", "description": "Exact time they asked for."},
             "time_range": {"type": "string", "description": "When to call back, in their words."},
             "reason": {"type": "string", "description": "Why not serviceable / why they want a person."},
+            "readiness": {
+                "type": "object",
+                "description": "Ladder / water / light answers the customer gave in this turn: true = they have it, "
+                               "false = they don't. Only items they actually mentioned.",
+                "properties": {i["id"]: {"type": "boolean"} for i in spec.policies["readiness_items"]},
+            },
             "language": {"type": "string", "enum": spec.policies["languages"]},
         },
         "required": ["intent"],

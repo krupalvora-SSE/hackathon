@@ -258,6 +258,52 @@ def test_identity_questions_never_count_as_unclear():
     assert not r.end
 
 
+def test_several_answers_at_once_skip_the_questions_already_answered():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("affirm", {"readiness": {"ladder": True, "water": True}})     # yes + ladder + water
+    assert call.state == "READINESS_CHECK" and "light" in r.speak[-1] and "ladder" not in r.speak[-1].lower()
+    assert call.ctx["readiness"] == {"ladder": True, "water": True}
+    r = call.handle("affirm")                                                     # light -> recap
+    assert call.state == "RECAP"
+    assert [e["key"] for e in events if e["type"] == "slot" and e["key"].endswith("_available")] == [
+        "ladder_available", "water_source_available", "light_available"]
+
+
+def test_all_three_answered_at_once_goes_straight_to_the_recap():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("affirm", {"readiness": {"ladder": True, "water": True, "light": True}})
+    assert call.state == "RECAP" and "confirm" in r.speak[-1]
+    assert not call.ctx["missing_items"]
+
+
+def test_answers_given_mid_checklist_skip_the_following_questions():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")                                                         # asked about the ladder
+    r = call.handle("affirm", {"readiness": {"water": True}})                     # "yes, and water too"
+    assert call.state == "READINESS_CHECK" and "light" in r.speak[0]
+    assert call.ctx["readiness"] == {"ladder": True, "water": True}
+
+
+def test_a_missing_item_given_up_front_still_leads_to_the_hold_flow():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm", {"readiness": {"ladder": False, "water": True}})        # no ladder, has water
+    r = call.handle("affirm")                                                     # light
+    assert call.state == "ASK_READY_DATE" and call.ctx["missing_items"] == ["ladder"]
+    assert call.ctx["readiness"] == {"ladder": False, "water": True, "light": True}
+
+
+def test_junk_readiness_entities_are_ignored():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("affirm", {"readiness": {"roof": True, "water": "maybe", "light": False}})
+    assert call.ctx["known_readiness"] == {"light": False}      # "roof" and the non-boolean "water" are dropped
+    assert call.ctx["readiness"] == {} and "ladder" in r.speak[-1].lower()  # the ladder is still asked
+
+
 def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")

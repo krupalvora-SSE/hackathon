@@ -2,6 +2,9 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.6.0 (2026-11-26, SSE-15539)
+- Several answers in one turn: `customer_said` takes a `readiness` entity ({ladder, water, light} booleans). READINESS_CHECK records those items (including missing ones and the dashboard events) and only asks the rest; if all are answered it goes straight on, and a missing item still leads to the hold flow. Unknown items and non-boolean values are ignored.
+
 ## 0.5.0 (2026-11-26, SSE-15538)
 - New global intents `who_are_you`, `number_source` and `is_robot` ("kaun bol raha hai?", "number kahan se mila?", "aap robot ho?"): short honest answers (SolarSquare and the maintenance topic; number comes from the service records; yes, an AI voice assistant), then the current question is repeated. No prices or promises.
 
