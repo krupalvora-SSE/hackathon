@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createOffguard } from './offguard.js';
@@ -98,4 +98,29 @@ test('calls work without a capture hook', () => {
   const calls = createCalls(store);
   const { call } = calls.create({ bookingId: 'BK-1', mode: 'browser' });
   assert.ok(calls.addEvent(call.id, { type: 'offguard', text: 'x', kind: 'unclear' }).event);
+});
+
+test('intents that only deflect cannot be taught, so a question is never taught to be brushed off', () => {
+  const o = createOffguard();
+  const { item } = o.capture(q('Light kitni door chahiye?'));
+  for (const bad of ['price_or_offtopic', 'unclear', 'known_question']) {
+    assert.equal(o.update(item.id, { teachIntent: bad }).error, 'intent_not_teachable');
+  }
+  assert.equal(o.list()[0].status, 'new');
+  assert.equal(o.update(item.id, { teachIntent: 'wants_human' }).item.status, 'taught');
+});
+
+test('an old taught row for a deflecting intent is ignored when the bot reads the knowledge', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'og-'));
+  const file = join(dir, 'offguard.json');
+  const a = createOffguard({ file });
+  const bad = a.capture(q('Light kitni door chahiye?')).item;
+  const good = a.capture(q('manager se baat karao')).item;
+  a.update(good.id, { teachIntent: 'wants_human' });
+  const rows = JSON.parse(readFileSync(file, 'utf8'));
+  rows.find((r) => r.id === bad.id).status = 'taught';                       // as saved before the rule existed
+  rows.find((r) => r.id === bad.id).teachIntent = 'price_or_offtopic';
+  writeFileSync(file, JSON.stringify(rows));
+  assert.deepEqual(createOffguard({ file }).knowledge().intents, { wants_human: ['manager se baat karao'] });
+  rmSync(dir, { recursive: true });
 });

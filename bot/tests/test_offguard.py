@@ -100,10 +100,30 @@ def test_without_anything_taught_the_prompt_has_no_approved_section():
     assert "Approved answers: when" not in prompt and "faq_id=" not in prompt
 
 
-def test_the_tool_accepts_a_faq_id():
+def test_the_model_can_only_pick_known_question_with_a_real_faq_id():
     from agent.tools import flow_tools
 
-    assert "faq_id" in flow_tools(SPEC)[0]["properties"]
+    tool = flow_tools(SPEC, TAUGHT)[0]["properties"]
+    assert "known_question" in tool["intent"]["enum"] and tool["faq_id"]["enum"] == ["f1"]
+
+
+def test_with_nothing_taught_known_question_and_faq_id_do_not_exist_for_the_model():
+    from agent.tools import flow_tools
+
+    for taught in (None, {}, {"faqs": [], "intents": {"wants_human": ["x"]}}):
+        tool = flow_tools(SPEC, taught)[0]["properties"]
+        assert "known_question" not in tool["intent"]["enum"] and "faq_id" not in tool
+    prompt = flow_system_prompt(call_with())
+    assert not any(line.startswith("- known_question") for line in prompt.splitlines())
+    assert any(line.startswith("- known_question") for line in flow_system_prompt(call_with(TAUGHT)).splitlines())
+
+
+def test_the_allowed_intents_the_model_is_told_hide_known_question_until_something_is_taught():
+    e = FlowEngine("E", BOOKING)
+    assert "known_question" not in e.dispatch("customer_said", {"intent": "affirm"}).result["allowed_intents"]
+    t = FlowEngine("T", BOOKING, knowledge=TAUGHT)
+    assert "known_question" in t.dispatch("customer_said", {"intent": "affirm"}).result["allowed_intents"]
+    assert t.tools[0]["properties"]["faq_id"]["enum"] == ["f1"]
 
 
 # ---- reading what the admin taught

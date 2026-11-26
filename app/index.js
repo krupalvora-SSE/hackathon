@@ -17,7 +17,7 @@ const calls = createCalls(store, {
 });
 const PUBLIC = join(import.meta.dirname, 'public');
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.ttf': 'font/ttf' };
-const STATUS = { empty_text: 400, invalid_question: 400, invalid_answer: 400, invalid_intent: 400, invalid_update: 400, not_found: 404, already_decided: 409, invalid_mode: 400, invalid_event: 400, exotel_not_configured: 503, exotel_failed: 502, number_not_allowed: 403 };
+const STATUS = { empty_text: 400, invalid_question: 400, invalid_answer: 400, invalid_intent: 400, intent_not_teachable: 400, invalid_update: 400, not_found: 404, already_decided: 409, invalid_mode: 400, invalid_event: 400, exotel_not_configured: 503, exotel_failed: 502, number_not_allowed: 403 };
 
 const json = (res, code, body) => {
   res.writeHead(code, { 'content-type': 'application/json' });

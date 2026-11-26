@@ -92,7 +92,10 @@ def flow_system_prompt(call) -> str:
     spec = call.spec
     persona = spec.policies["persona"]
     lines = []
+    taught_faqs = (getattr(call, "knowledge", None) or {}).get("faqs", [])
     for name, i in {**spec.global_intents, **spec.local_intents}.items():
+        if name == "known_question" and not taught_faqs:
+            continue                                    # nothing approved yet: the model must not pick it
         ex = (i or {}).get("examples") or {}
         taught = (getattr(call, "knowledge", None) or {}).get("intents", {}).get(name, [])    # phrases an admin taught us
         sample = "; ".join([*ex.get("hi", [])[:6], *ex.get("en", [])[:3], *taught[:6]])
@@ -145,7 +148,8 @@ Correcting an earlier answer at the recap ("mere paas ladder nahi hai", "light n
 corrects_readiness with the readiness entity (false = they don't have it), not change_date or change_time.
 For "when will it be ready?" put the customer's own words in the date entity, including "1 mahine baad" or "after 2 weeks".
 "Do you charge / is it free / kitne paise" is asks_price. A question that matches an "Approved answers" entry is
-known_question with its faq_id, checked before price_or_offtopic. Other things we can't answer (generation, savings, subsidy,
+known_question with its faq_id (only when an "Approved answers" list is shown below), checked before
+price_or_offtopic. Other things we can't answer (generation, savings, subsidy,
 inverter problems) are price_or_offtopic. A plain "haan, boliye / haan bolo" at the greeting is affirm: the customer
 saying yes, not household_member (that needs a relationship: brother, son, wife...).
 A death, funeral, accident or serious emergency in the family is ALWAYS sensitive_situation (never personal_reason,

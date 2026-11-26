@@ -62,7 +62,7 @@ class FlowEngine:
         self.call = FlowCall(call_id=call_id, booking=booking, spec=spec, on_event=on_event,
                              today=today or N.today_ist(), knowledge=knowledge or {})
         self._start = self.call.start()     # runs PRE_CALL (context fetch, eligibility)
-        self.tools = flow_tools(spec)
+        self.tools = flow_tools(spec, knowledge)
 
     @property
     def outcome(self):
@@ -83,8 +83,10 @@ class FlowEngine:
         if step.error:
             return Action(result={"ok": False, "error": step.error, "state": step.state,
                                   "allowed_intents": step.allowed}, run_llm=True)
+        has_faqs = bool(self.call.knowledge.get("faqs"))
+        allowed = [i for i in step.allowed if i != "known_question" or has_faqs]
         return Action(result={"ok": True, "state": step.state, "bot_said": step.speak,
-                              "allowed_intents": step.allowed, "ended": step.end},
+                              "allowed_intents": allowed, "ended": step.end},
                       speak=step.speak, end=step.end, run_llm=False, idle_timeout=step.idle_timeout,
                       offguard=step.offguard)
 

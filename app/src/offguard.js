@@ -6,6 +6,8 @@ import { randomBytes } from 'node:crypto';
 // shortcut: one JSON file rewritten on every change; fine for hundreds of rows, move to a database beyond that.
 export const KINDS = ['deflected', 'not_understood', 'unclear', 'other_language'];
 export const STATUSES = ['new', 'answered', 'taught', 'ignored'];
+// Intents whose behaviour is "I can't help": teaching a phrase to one of them makes the bot deflect that question forever.
+export const NOT_TEACHABLE = ['unclear', 'known_question', 'price_or_offtopic'];
 
 const norm = (t) => String(t ?? '').replace(/\s+/g, ' ').trim();
 const same = (a, b) => norm(a).toLowerCase() === norm(b).toLowerCase();
@@ -56,6 +58,7 @@ export function createOffguard({ file } = {}) {
       Object.assign(item, { answer: a, teachIntent: null, status: 'answered' });
     } else if ('teachIntent' in patch) {
       if (!/^[a-z_]{2,40}$/.test(String(patch.teachIntent))) return { error: 'invalid_intent' };
+      if (NOT_TEACHABLE.includes(patch.teachIntent)) return { error: 'intent_not_teachable' };
       Object.assign(item, { teachIntent: patch.teachIntent, answer: null, status: 'taught' });
     } else if (patch.status === 'ignored' || patch.status === 'new') {
       Object.assign(item, { status: patch.status, answer: null, teachIntent: null });
@@ -70,7 +73,7 @@ export function createOffguard({ file } = {}) {
   function knowledge() {
     const faqs = items.filter((x) => x.status === 'answered').map((x) => ({ id: x.id, question: x.question, answer: x.answer }));
     const intents = {};
-    for (const x of items.filter((y) => y.status === 'taught')) (intents[x.teachIntent] ??= []).push(x.question);
+    for (const x of items.filter((y) => y.status === 'taught' && !NOT_TEACHABLE.includes(y.teachIntent))) (intents[x.teachIntent] ??= []).push(x.question);
     return { faqs, intents };
   }
 
