@@ -6,6 +6,9 @@ _global:
   didnt_catch: "Sorry, I didn't catch that."
   repeat_lead: "Sure, let me say that again."
   hold_ack: "Sure, I'm on the line, take your time."
+  identity_who: "This is {bot_name} from SolarSquare, calling about your solar system maintenance."
+  identity_source: "Your number is in SolarSquare's records for your solar system service."
+  identity_robot: "Yes, I'm SolarSquare's AI voice assistant."
 
 GREET:
   main: "Hello, am I speaking with {name}? This is {bot_name} from SolarSquare. This call is being recorded."
