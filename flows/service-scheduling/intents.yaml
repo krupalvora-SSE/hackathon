@@ -10,6 +10,7 @@
 global:
 
   not_serviceable:
+    label: Not available / site not ready
     goto: SITE_ON_HOLD
     entities: [hold_reason, hold_until]
     examples:
@@ -17,6 +18,7 @@ global:
       en: ["I'm out of town", "we are moving house", "roof repair is going on"]
 
   call_later:
+    label: Busy, call later
     goto: RECALL
     entities: [recall_window]
     examples:
@@ -24,6 +26,7 @@ global:
       en: ["I'm busy, call me later", "call me in the evening"]
 
   wants_human:
+    label: Wants a person
     goto: ESCALATE_RM
     set: {rm_callback_reason: customer_asked_for_human}
     examples:
@@ -31,18 +34,31 @@ global:
       en: ["let me talk to a person", "connect me to your senior"]
 
   do_not_call:
+    label: Don't call me
     goto: DNC_CLOSE
     examples:
       hi: ["call mat karo", "pareshan mat karo", "DND pe daalo", "band karo yeh calls"]
       en: ["don't call me again", "stop calling", "unsubscribe me"]
 
   wrong_person:
+    label: Someone else answered
     goto: WRONG_PERSON
     examples:
       hi: ["main unka beta bol raha hoon", "wo ghar pe nahi hain", "galat number hai"]
       en: ["this is his son", "she's not here", "wrong number"]
 
+  unclear:
+    label: Not clear
+    goto: $stay
+    say: didnt_catch
+    escalate_after: 2              # this many unclear turns in a row on one step...
+    escalate_to: ESCALATE_RM       # ...then hand over (reason: repeated_misunderstanding)
+    examples:
+      hi: ["hmm", "kya?", "(noise)", "(answer unrelated to the question)"]
+      en: ["what?", "(noise)", "(answer unrelated to the question)"]
+
   price_or_offtopic:
+    label: Asks price or something else
     goto: $stay
     say: deflection
     examples:
@@ -52,60 +68,71 @@ global:
 local:
 
   affirm:
+    label: Yes
     examples:
       hi: ["haan", "ji haan", "theek hai", "chalega", "ho jayega", "sab ready hai"]
       en: ["yes", "okay", "that works", "everything is ready"]
 
   deny:
+    label: No
     examples:
       hi: ["nahi", "us din nahi ho payega", "ladder nahi hai", "nahi chalega"]
       en: ["no", "I'm not available that day", "we don't have a ladder"]
 
   ask_time:
+    label: Asks the time
     examples:
       hi: ["kitne baje aayenge", "time kya hoga", "subah aayenge ya shaam ko"]
       en: ["what time will they come", "morning or evening?"]
 
   wants_exact_time:
+    label: Wants exact time
     entities: [preferred_exact_time]
     examples:
       hi: ["exact time batao", "theek 10 baje aana", "mujhe fix time chahiye"]
       en: ["I need an exact time", "come at 10 sharp"]
 
   wants_other_band:
+    label: Wants another time
     entities: [preferred_band]
     examples:
       hi: ["subah nahi, shaam ko aa sakte ho", "dopahar mein bhejo"]
       en: ["not morning, can they come in the evening", "afternoon works better"]
 
   household_member:
+    label: Family member, can decide
     examples:
       hi: ["main unki wife hoon, mujhe bata do", "haan ghar ka hi hoon, bolo"]
       en: ["I'm his wife, you can tell me", "I live here, go ahead"]
 
   customer_unavailable:
+    label: Customer not home
     examples:
       hi: ["wo abhi nahi hain, baad mein call karo", "mere bete se baat karna"]
       en: ["he isn't here, call later", "talk to my son"]
 
   date_given:
+    label: Gives a date
     entities: [hold_until]
     examples:
       hi: ["agle hafte tak ho jayega", "15 tareekh ke baad", "Diwali ke baad"]
       en: ["by next week", "after the 15th"]
 
   time_range_given:
+    label: Gives a time
     entities: [recall_window]
     examples:
       hi: ["kal shaam 5 se 7", "do ghante baad", "Sunday subah"]
       en: ["tomorrow 5 to 7 pm", "in two hours"]
 
   change_date:
+    label: Change day
     examples:
       hi: ["date badalni hai", "us din nahi, koi aur din"]
       en: ["can we change the date", "a different day"]
 
   change_time:
+    label: Change time
     examples:
       hi: ["time badal do", "shaam ka kar do"]
       en: ["change the time", "make it evening"]

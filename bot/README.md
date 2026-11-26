@@ -1,6 +1,9 @@
 # visit-bot (Python, Pipecat 1.17)
 
-Voice agent that confirms a solar panel cleaning visit and collects 4 keys:
+Voice agent for solar maintenance visits. Two call engines, picked with `CALL_FLOW` in `.env`:
+
+- **`service-scheduling` (default):** runs the YAML flow in `../flows/service-scheduling/` (SSE-15527). Offers the Beat Plan primary slot, 4-hour bands, backup days, checks ladder / water / light, puts sites on hold with consent, recall, RM callback, and posts a Beat Plan comment after every call. The LLM only classifies what the customer said (`customer_said(intent, …)`); `agent/flow.py` picks the next step and the exact line to speak. Change behaviour by editing the YAML, not Python.
+- **`checklist`:** the original engine. Collects 4 keys
 `visit_date`, `visit_time_slot`, `ladder_available`, `water_source_available`.
 The Node app in `../app` owns bookings, calls and the dashboard. This bot owns the call audio.
 
@@ -16,7 +19,7 @@ uv sync
 uv run uvicorn server:app --port 7860
 cd ../app && npm start          # http://localhost:3000 → "Browser" button = mic test
 uv run pytest -q                # engine tests
-uv run python simulate.py       # text-mode call (or --auto "persona")
+uv run python simulate.py       # text-mode call (or --auto "persona", --booking BK-1003, --flow checklist)
 ```
 
 ## Cloned voice
@@ -43,6 +46,9 @@ interrupt the bot*, or raise the Sarvam VAD threshold and min speech. Schema: `a
 ## Where things live
 | File | Role |
 |---|---|
+| `agent/engine.py` | Picks the engine from `CALL_FLOW`; `bot.py` and `simulate.py` only talk to this |
+| `agent/flow.py` | Runs a YAML flow: transitions, readiness checklist, alternate-day offers, Hindi/English lines, call record |
+| `agent/beatplan.py` | Beat Plan / Zeus actions. `MockBeatPlan` reads `beatPlan` from `app/data/bookings.json` and reports every write as a `beatplan` event |
 | `agent/slots.py` | Slot config + `CallState` guard. A call can't end `confirmed` until all 4 keys are saved, read back and confirmed. Any change re-triggers the read-back. |
 | `agent/normalize.py` | Hinglish, Devanagari and Marathi parsers for dates, time slots and yes/no |
 | `agent/tools.py` | LLM tool schemas + `dispatch()`. The system (not the LLM) speaks the read-back and goodbyes |
@@ -54,4 +60,5 @@ interrupt the bot*, or raise the Sarvam VAD threshold and min speech. Schema: `a
 | `server.py` | `/exotel` websocket, `/api/offer` WebRTC, `/voice` page + `/api/voices` + `/api/config`, `/health` |
 | `static/voice.html` | Voice Studio: record, clone, preview, choose the bot's voice |
 
-Outcomes: `confirmed`, `callback`, `do_not_call`, `wrong_number` (agent); `no_answer`, `handed_to_human`, `hung_up` (system).
+Outcomes, flow mode: see `flows/service-scheduling/README.md` (`slot_confirmed`, `site_on_hold`, `rm_callback`, …, plus `hung_up`).
+Outcomes, checklist mode: `confirmed`, `callback`, `do_not_call`, `wrong_number` (agent); `no_answer`, `handed_to_human`, `hung_up` (system).

@@ -43,9 +43,9 @@ from pipecat.turns.user_turn_strategies import UserTurnStrategies, default_user_
 
 from . import config as call_config
 from .events import Emitter, save_result
-from .prompts import HANDOVER_BROWSER_NOTE, greeting, system_prompt
-from .slots import CallState
-from .tools import TOOLS, Action, dispatch, on_silence
+from .engine import make_engine
+from .prompts import HANDOVER_BROWSER_NOTE
+from .tools import Action
 from .voice import SarvamCloneTTSService, active_voice_id
 
 # Rough INR rates for the cost-per-call estimate; override in .env with real contract prices.
@@ -56,7 +56,7 @@ RATE = {
     "llm_per_m_out": float(os.getenv("COST_LLM_INR_PER_M_OUT", "51")),
     "tel_per_min": float(os.getenv("COST_TELEPHONY_INR_PER_MIN", "0.6")),
 }
-KEYTERMS = ["SolarSquare", "seedhi", "paani", "nal", "subah", "dopahar", "shaam", "tarikh",
+KEYTERMS = ["SolarSquare", "seedhi", "ladder", "light", "paani", "nal", "subah", "dopahar", "shaam", "tarikh",
             "Somvar", "Mangalvar", "Budhvar", "Guruvar", "Shukravar", "Shanivar", "haan", "nahi"]
 
 
@@ -162,8 +162,8 @@ async def run_bot(transport, *, call_id: str, **kwargs) -> None:
 async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, sample_rate: int,
                    call_sid: str | None = None) -> None:
     emitter = Emitter(call_id)
-    state = CallState(call_id=call_id, booking=booking, on_event=emitter.emit)
-    logger.info(f"call {call_id} booking={booking.get('id')} telephony={telephony}")
+    engine = make_engine(call_id, booking, on_event=emitter.emit)  # CALL_FLOW picks YAML flow or checklist
+    logger.info(f"call {call_id} booking={booking.get('id')} telephony={telephony} flow={engine.name}")
 
     cfg = call_config.load()  # read per call: /voice page edits apply from the next call
     logger.info(f"call {call_id} config {cfg}")
@@ -205,10 +205,9 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
 
     tools = ToolsSchema(standard_tools=[
         FunctionSchema(name=t["name"], description=t["description"], properties=t["properties"],
-                       required=t["required"]) for t in TOOLS
+                       required=t["required"]) for t in engine.tools
     ])
-    context = LLMContext(messages=[{"role": "system", "content": system_prompt(booking, state.today)}],
-                         tools=tools)
+    context = LLMContext(messages=[{"role": "system", "content": engine.system_prompt()}], tools=tools)
     aggregators = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
@@ -239,23 +238,22 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if finished:
             return
         finished = True
-        if not state.outcome:
-            state.outcome = "hung_up"  # customer or network dropped before an outcome
-        record = {**state.record(), "latency": metrics.latency_summary(),
+        engine.hang_up()  # no-op if the call already reached an outcome; flows still log to Beat Plan
+        record = {**engine.record(), "latency": metrics.latency_summary(),
                   "cost_inr": metrics.metrics()["cost_inr"], "mode": "phone" if telephony else "browser"}
         if call_sid:
             record["call_sid"] = call_sid
         save_result(record)
         emitter.emit(metrics.metrics())
         emitter.emit({"type": "result", "record": record})
-        emitter.emit({"type": "status", "status": "ended", "outcome": state.outcome})
+        emitter.emit({"type": "status", "status": "ended", "outcome": engine.outcome})
         logger.info(f"call {call_id} ended ({reason}): {record}")
         await emitter.close()
 
     async def perform(action: Action) -> None:
         frames: list[Frame] = [TTSSpeakFrame(t, append_to_context=True) for t in action.speak]
         if action.end:
-            if state.outcome == "handed_to_human" and not telephony:
+            if engine.outcome == "handed_to_human" and not telephony:
                 emitter.emit({"type": "transcript", "role": "agent", "text": HANDOVER_BROWSER_NOTE})
             frames.append(EndFrame())  # queued after the goodbye, so it is spoken in full
         if frames:
@@ -263,26 +261,26 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
 
     async def handle_tool(params: FunctionCallParams) -> None:
         args = dict(params.arguments or {})
-        action = dispatch(state, params.function_name, args)
+        action = engine.dispatch(params.function_name, args)
         logger.info(f"tool {params.function_name}({args}) -> {action.result}")
         await perform(action)
         await params.result_callback(
             action.result, properties=FunctionCallResultProperties(run_llm=action.run_llm))
 
-    for t in TOOLS:
+    for t in engine.tools:
         llm.register_function(t["name"], handle_tool, cancel_on_interruption=True)
 
     @aggregators.user().event_handler("on_user_turn_stopped")
     async def _user_said(_agg, _strategy, message):
         if getattr(message, "content", None):
-            state.silences = 0
+            engine.heard_customer()
             emitter.emit({"type": "transcript", "role": "customer", "text": message.content})
 
     @aggregators.user().event_handler("on_user_turn_idle")
     async def _silence(_agg):
-        if state.outcome:
+        if engine.outcome:
             return
-        await perform(on_silence(state))
+        await perform(engine.on_silence())
 
     @aggregators.assistant().event_handler("on_assistant_turn_stopped")
     async def _agent_said(_agg, message):
@@ -295,7 +293,10 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if call_sid:
             status["call_sid"] = call_sid
         emitter.emit(status)
-        await worker.queue_frames([TTSSpeakFrame(greeting(booking), append_to_context=True)])
+        if engine.outcome:  # blocked before dialling (DNC / allowlist / hours): say nothing, hang up
+            await worker.queue_frames([EndFrame()])
+            return
+        await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
 
     @transport.event_handler("on_client_disconnected")
     async def _disconnected(_t, _client):

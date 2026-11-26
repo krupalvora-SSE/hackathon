@@ -54,3 +54,25 @@ test('result updates booking, and re-calls are allowed', () => {
   assert.equal(calls.get(b.id).status, 'ended');
   assert.equal(calls.get(b.id).outcome, 'confirmed');
 });
+
+test('YAML flow outcomes: slot_confirmed* counts as confirmed, hold is kept', () => {
+  const { calls, bookings } = setup();
+  const a = calls.create({ bookingId: 'BK-1', mode: 'browser' }).call;
+  const slots = { visit_date: '2026-12-03', visit_time_slot: 'evening', ladder_available: true, water_source_available: true, light_available: true };
+  calls.addEvent(a.id, { type: 'result', record: { outcome: 'slot_confirmed_alt_day', slots } });
+  let bk = bookings.get('BK-1');
+  assert.equal(bk.status, 'confirmed');
+  assert.equal(bk.outcome, 'slot_confirmed_alt_day');
+  assert.equal(bk.visitSlot, 'evening');
+  assert.equal(bk.light, true);
+
+  const b = calls.create({ bookingId: 'BK-1', mode: 'browser' }).call;
+  const hold = { reason: 'prerequisites_missing', missing_items: ['ladder'], until: '2026-12-05', consent: true };
+  calls.addEvent(b.id, { type: 'result', record: { outcome: 'site_on_hold', slots: {}, hold } });
+  bk = bookings.get('BK-1');
+  assert.equal(bk.status, 'site_on_hold');
+  assert.deepEqual(bk.hold, hold);
+  const c = calls.create({ bookingId: 'BK-1', mode: 'browser' }).call;
+  calls.addEvent(c.id, { type: 'result', record: { outcome: 'slot_confirmed', slots } });
+  assert.equal(bookings.get('BK-1').hold, null);
+});
