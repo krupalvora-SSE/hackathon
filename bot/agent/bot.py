@@ -101,9 +101,11 @@ class CallMetrics(FrameProcessor):
         await super().process_frame(frame, direction)
         if isinstance(frame, BotStartedSpeakingFrame):
             self._bot_speaking = True
+            self._speaking_since = time.monotonic()
         elif isinstance(frame, BotStoppedSpeakingFrame):
             self._bot_speaking = False
-        elif isinstance(frame, InterruptionFrame) and self._bot_speaking and self._on_cut_in:
+        elif (isinstance(frame, InterruptionFrame) and self._bot_speaking and self._on_cut_in
+              and time.monotonic() - self._speaking_since >= 1.0):  # not a clipped first word
             self._on_cut_in()  # the customer cut the bot off mid-sentence
         if isinstance(frame, (VADUserStoppedSpeakingFrame, UserStoppedSpeakingFrame)):
             self._user_stopped_at = self._user_stopped_at or time.monotonic()
@@ -275,12 +277,14 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             **({"user_turn_strategies": ts} if (ts := _turn_strategies(cfg)) else {}),
         ),
     )
-    yielded = {"at": 0.0, "n": 0}
+    yielded = {"at": 0.0, "n": 0, "turns": 0}
 
     def yield_floor() -> None:
         """Customer cut in: say a short "sorry, go ahead" like a person would (at most every 15 s)."""
         now = time.monotonic()
-        if engine.outcome or now - yielded["at"] < 15 or os.getenv("YIELD_ON_INTERRUPT", "1") == "0":
+        # not during the hello exchange (first two customer turns), nor right after our own "sorry"
+        if (engine.outcome or yielded["turns"] < 2 or now - yielded["at"] < 15
+                or os.getenv("YIELD_ON_INTERRUPT", "1") == "0"):
             return
         yielded["at"] = now
         line = YIELD_LINES[yielded["n"] % len(YIELD_LINES)]
@@ -365,6 +369,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     async def _user_said(_agg, _strategy, message):
         if getattr(message, "content", None):
             engine.heard_customer()
+            yielded["turns"] += 1
             emitter.emit({"type": "transcript", "role": "customer", "text": message.content})
 
     @aggregators.user().event_handler("on_user_turn_idle")
