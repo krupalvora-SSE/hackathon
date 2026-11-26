@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cost calculator</title>
+  <link rel="stylesheet" href="/tokens.css">
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <style>
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--bg-page); color: var(--fg-1); font-family: var(--font-sans); }
+    header { display:flex; align-items:center; justify-content:space-between; gap:var(--space-4); height:72px; padding:0 clamp(20px,4vw,56px); background:var(--bg-surface); border-bottom:1px solid var(--border-2); position:sticky; top:0; z-index:5; }
+    .brand { display:flex; align-items:center; gap:14px; }
+    .brand img { height:28px; }
+    .brand-divider { width:1px; height:28px; background:var(--border-2); }
+    .brand-name { font-weight:700; color:var(--navy, var(--blue-900)); }
+    .header-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .header-link { display:inline-flex; align-items:center; gap:6px; color:var(--fg-2); font-size:var(--text-xs); font-weight:700; text-decoration:none; padding:8px 12px; border:1px solid var(--border-1); border-radius:999px; background:var(--bg-surface); }
+    .header-link:hover { color:var(--fg-1); border-color:var(--border-2); }
+    .header-link svg { width:14px; height:14px; }
+    main { max-width:1180px; margin:0 auto; padding:36px clamp(20px,4vw,40px) 80px; }
+    .eyebrow { color:var(--blue-600); font-size:var(--text-xs); text-transform:uppercase; letter-spacing:.08em; font-weight:800; }
+    h1 { margin:8px 0 6px; font-size:clamp(30px,4.5vw,44px); color:var(--navy, var(--blue-900)); }
+    .sub { margin:0 0 24px; max-width:720px; color:var(--fg-3); font-size:var(--text-sm); line-height:1.6; }
+    .layout { display:grid; grid-template-columns:minmax(0,420px) minmax(0,1fr); gap:20px; align-items:start; }
+    .card { background:var(--bg-surface); border:1px solid var(--border-2); border-radius:18px; box-shadow:var(--shadow-sm); padding:22px; }
+    h2 { margin:0 0 4px; font-size:18px; color:var(--navy, var(--blue-900)); }
+    h3 { margin:22px 0 8px; font-size:var(--text-xs); text-transform:uppercase; letter-spacing:.07em; color:var(--fg-3); }
+    .hint { font-size:var(--text-xs); color:var(--fg-3); line-height:1.5; }
+    .hint a { color:var(--blue-600); }
+    label { display:block; font-size:var(--text-xs); font-weight:700; color:var(--fg-2); margin:12px 0 4px; }
+    input[type=number], input[type=text] { width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid var(--border-1); border-radius:10px; background:#fff; color:var(--fg-1); font:var(--text-sm) var(--font-sans); }
+    input:focus { outline:2px solid var(--blue-300); outline-offset:1px; }
+    .unit { position:relative; }
+    .unit input { padding-right:44px; }
+    .unit em { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-style:normal; color:var(--fg-3); font-size:var(--text-sm); pointer-events:none; }
+    .unit.pre input { padding-left:28px; padding-right:12px; }
+    .unit.pre em { right:auto; left:12px; }
+    .chan { display:grid; grid-template-columns:minmax(0,1fr) 140px; gap:10px; align-items:end; }
+    .chan label { margin-top:12px; }
+    button.link { border:0; background:none; padding:0; color:var(--blue-600); font:600 var(--text-xs) var(--font-sans); cursor:pointer; text-decoration:underline; }
+    .seg { display:flex; gap:14px; margin:6px 0 2px; font-size:var(--text-sm); }
+    .seg label { display:flex; align-items:center; gap:6px; margin:0; font-weight:500; cursor:pointer; }
+    .saved { float:right; font-size:var(--text-xs); color:var(--leaf-600); }
+    .row { display:grid; grid-template-columns:150px minmax(0,1fr) 110px; gap:12px; align-items:center; padding:10px 0; border-bottom:1px solid var(--border-2); }
+    .row:last-of-type { border-bottom:0; }
+    .row .name { font-weight:600; font-size:var(--text-sm); }
+    .row .name small { display:block; font-weight:400; color:var(--fg-3); font-size:var(--text-xs); }
+    .track { height:16px; border-radius:999px; background:var(--ink-100); overflow:hidden; }
+    .fill { display:block; height:100%; border-radius:999px; background:var(--blue-300); min-width:3px; }
+    .row.ai .fill { background:var(--blue-500); }
+    .row.best .fill { background:var(--leaf-600); }
+    .val { text-align:right; font-weight:700; font-size:18px; color:var(--navy, var(--blue-900)); }
+    .val.none { font-size:var(--text-xs); font-weight:500; color:var(--fg-3); }
+    .badge { display:inline-block; margin-left:6px; padding:1px 8px; border-radius:999px; background:#E8F6EC; color:var(--leaf-600); font-size:11px; font-weight:700; vertical-align:2px; }
+    .formula { margin:14px 0 0; padding:12px 14px; border-radius:12px; background:var(--bg-sunken); font-size:var(--text-sm); line-height:1.6; color:var(--fg-2); }
+    .formula b { color:var(--navy, var(--blue-900)); }
+    .be { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px; }
+    .be li { border:1px solid var(--border-2); border-radius:12px; padding:10px 14px; font-size:var(--text-sm); line-height:1.5; }
+    .be li.win { background:#E8F6EC; border-color:transparent; }
+    .be li.lose { background:#FBEAE4; border-color:transparent; }
+    .empty { padding:36px 12px; text-align:center; color:var(--fg-3); font-size:var(--text-sm); }
+    @media (max-width: 900px) { .layout { grid-template-columns:1fr; } .brand-name { display:none; } .row { grid-template-columns:1fr 100px; } .row .track { grid-column:1 / -1; order:3; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <img src="https://cdn.solarsquare.in/blog/wp-content/uploads/2025/11/05101757/logo.webp" alt="SolarSquare">
+      <span class="brand-divider"></span>
+      <span class="brand-name">AMC operations</span>
+    </div>
+    <div class="header-actions">
+      <a class="header-link" href="/"><i data-lucide="layout-dashboard"></i>Dashboard</a>
+      <a class="header-link" href="/logs.html"><i data-lucide="scroll-text"></i>Call logs</a>
+      <a class="header-link" href="/questions.html"><i data-lucide="message-circle-question"></i>Questions</a>
+    </div>
+  </header>
+  <main>
+    <div class="eyebrow">Does AI calling pay off?</div>
+    <h1>Cost per conversion</h1>
+    <p class="sub">For the other channels you enter what a converted customer costs on average. For AI calling it is worked out: the cost of the calls it takes to reach a customer, divided by how many customers convert. Change the conversion rate to see where AI calling beats each channel.</p>
+    <div class="layout">
+      <section class="card" aria-label="Inputs">
+        <span class="saved" id="saved" hidden>Saved</span>
+        <h2>AI calling</h2>
+        <div class="hint">Cost comes from your call logs. Conversion rate is yours to set.</div>
+
+        <label for="rate">Conversion rate</label>
+        <div class="unit"><input id="rate" type="number" min="0.1" max="100" step="0.1" placeholder="e.g. 35"><em>%</em></div>
+        <div class="hint" id="obs-rate"></div>
+
+        <label>Cost per call</label>
+        <div class="seg" role="radiogroup" aria-label="Where the cost per call comes from">
+          <label><input type="radio" name="costmode" value="logs" checked> From the call logs</label>
+          <label><input type="radio" name="costmode" value="manual"> Enter it</label>
+        </div>
+        <div class="unit pre" id="cost-box" hidden><input id="cost" type="number" min="0" step="0.01" placeholder="e.g. 1.50"><em>₹</em></div>
+        <div class="hint" id="obs-cost"></div>
+
+        <label for="attempts">Calls per customer</label>
+        <input id="attempts" type="number" min="1" max="10" step="0.1" value="1">
+        <div class="hint">Average calls it takes to deal with one customer (no answer, call back later, retries). 1 means one call each.</div>
+
+        <h3>Other channels</h3>
+        <div id="channels"></div>
+        <div class="hint" style="margin-top:10px">Average cost of one converted customer through that channel. Rename a channel if it is something else.</div>
+      </section>
+
+      <section class="card" aria-label="Result" aria-live="polite">
+        <h2>Cost of one converted customer</h2>
+        <div class="hint" id="result-hint"></div>
+        <div id="rows"></div>
+        <p class="formula" id="formula" hidden></p>
+        <h3>When does AI calling win?</h3>
+        <ul class="be" id="be"></ul>
+      </section>
+    </div>
+  </main>
+  <script type="module">
+    import { breakEvenPct, costPerConversion, observed, rank } from './calculator.js';
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const inr = (n) => `₹${n >= 100 ? Math.round(n).toLocaleString('en-IN') : Number(n.toFixed(6)).toFixed(2)}`;   // 3.0749999 shows as 3.08, not 3.07
+    const pct = (n) => `${n % 1 ? n.toFixed(1) : n}%`;
+    const num = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+
+    let s = null;            // the saved settings
+    let obs = observed([]);  // what the call logs say
+
+    // ---- inputs <-> settings
+    function fill() {
+      $('rate').value = s.aiConversionPct ?? '';
+      $('attempts').value = s.attempts;
+      $('cost').value = s.aiCostPerCall ?? '';
+      document.querySelector(`input[name=costmode][value=${s.aiCostMode}]`).checked = true;
+      $('cost-box').hidden = s.aiCostMode !== 'manual';
+      $('channels').innerHTML = s.channels.map((c, i) => `
+        <div class="chan">
+          <div><label for="cn-${i}">Channel ${i + 1}</label><input id="cn-${i}" data-i="${i}" data-f="name" type="text" maxlength="40" value="${esc(c.name)}"></div>
+          <div><label for="cc-${i}">Cost per conversion</label>
+            <div class="unit pre"><input id="cc-${i}" data-i="${i}" data-f="cost" type="number" min="0" step="0.5" value="${c.costPerConversion ?? ''}" placeholder="enter"><em>₹</em></div></div>
+        </div>`).join('');
+    }
+    function read() {
+      return {
+        aiConversionPct: num($('rate').value), attempts: num($('attempts').value) ?? 1,
+        aiCostMode: document.querySelector('input[name=costmode]:checked').value, aiCostPerCall: num($('cost').value),
+        channels: s.channels.map((c, i) => ({ name: $(`cn-${i}`).value.trim() || c.name, costPerConversion: num($(`cc-${i}`).value) })),
+      };
+    }
+
+    // ---- what the numbers say
+    const costPerCall = () => (s.aiCostMode === 'manual' ? s.aiCostPerCall : obs.costPerCall);
+
+    function renderRefs() {
+      $('obs-rate').innerHTML = obs.finished
+        ? `The call logs show <b>${pct(+(obs.confirmedRate * 100).toFixed(1))}</b> confirmed (${obs.confirmed} of ${obs.finished} finished calls). <button class="link" id="use-rate">Use ${pct(+(obs.confirmedRate * 100).toFixed(1))}</button>`
+        : 'No finished calls in the call logs yet.';
+      $('obs-cost').innerHTML = s.aiCostMode === 'logs'
+        ? (obs.costPerCall != null ? `Average of <b>${inr(obs.costPerCall)}</b> over ${obs.costCalls} finished call${obs.costCalls === 1 ? '' : 's'}. <a href="/logs.html">See the call logs</a>`
+          : 'No finished call has a cost yet. Make a call, or choose “Enter it”.') : '';
+    }
+
+    function render() {
+      renderRefs();
+      const cpc = costPerCall(), att = s.attempts, rate = s.aiConversionPct;
+      const ai = costPerConversion({ costPerCall: cpc, attempts: att, conversionPct: rate });
+      const rows = rank([
+        { name: 'AI calling', ai: true, cost: ai, sub: ai == null ? (cpc == null ? 'needs a cost per call' : 'enter a conversion rate') : `${inr(cpc)} × ${att} ÷ ${pct(rate)}` },
+        ...s.channels.map((c) => ({ name: c.name, cost: c.costPerConversion, sub: c.costPerConversion == null ? 'enter its cost' : 'average you entered' })),
+      ]);
+      const known = rows.filter((r) => r.cost != null), max = Math.max(...known.map((r) => r.cost), 0);
+      const best = known.length > 1 ? known[0] : null;
+      $('result-hint').textContent = known.length > 1 ? 'Lower is better. Cheapest first.' : 'Enter a number for AI calling and for at least one other channel to compare.';
+      $('rows').innerHTML = rows.map((r) => `
+        <div class="row ${r.ai ? 'ai' : ''} ${best === r ? 'best' : ''}">
+          <div class="name">${esc(r.name)}${best === r ? '<span class="badge">Cheapest</span>' : ''}<small>${esc(r.sub)}</small></div>
+          <div class="track" aria-hidden="true"><span class="fill" style="width:${r.cost != null && max ? (r.cost / max) * 100 : 0}%"></span></div>
+          <div class="val ${r.cost == null ? 'none' : ''}">${r.cost == null ? '–' : inr(r.cost)}</div>
+        </div>`).join('');
+      $('formula').hidden = ai == null;
+      if (ai != null) $('formula').innerHTML = `AI calling: <b>${inr(cpc)}</b> per call × <b>${att}</b> call${att === 1 ? '' : 's'} per customer ÷ <b>${pct(rate)}</b> conversion = <b>${inr(ai)}</b> for each converted customer.`;
+      const others = s.channels.filter((c) => c.costPerConversion != null);
+      $('be').innerHTML = !others.length ? '<li>Enter a cost for another channel to see the conversion rate AI calling needs to beat it.</li>'
+        : others.map((c) => {
+          const be = breakEvenPct({ costPerCall: cpc, attempts: att, otherCost: c.costPerConversion });
+          if (be == null) return `<li>${esc(c.name)}: needs a cost per call first.</li>`;
+          if (be > 100) return `<li class="lose"><b>${esc(c.name)}</b> (${inr(c.costPerConversion)}): AI calling cannot beat it at ${inr(cpc)} per call and ${att} call${att === 1 ? '' : 's'} per customer, even at 100% conversion.</li>`;
+          const state = rate == null ? '' : rate > be ? 'win' : 'lose';
+          return `<li class="${state}"><b>${esc(c.name)}</b> (${inr(c.costPerConversion)}): AI calling is cheaper above <b>${pct(+be.toFixed(1))}</b> conversion.${rate == null ? '' : rate > be ? ` You are at ${pct(rate)}, so it wins.` : ` You are at ${pct(rate)}, so it does not yet.`}</li>`;
+        }).join('');
+    }
+
+    // ---- saving
+    let timer;
+    function changed() {
+      s = { ...s, ...read() };
+      $('cost-box').hidden = s.aiCostMode !== 'manual';
+      render();
+      clearTimeout(timer);
+      timer = setTimeout(save, 500);
+    }
+    async function save() {
+      const r = await fetch('/api/calculator', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(s) });
+      const ok = r.ok;
+      $('saved').textContent = ok ? 'Saved' : `Not saved: ${(await r.json().catch(() => ({}))).field ?? r.status} is out of range`;
+      $('saved').style.color = ok ? '' : 'var(--rust-600)';
+      $('saved').hidden = false;
+      if (ok) setTimeout(() => { $('saved').hidden = true; }, 1500);
+    }
+    document.addEventListener('input', (e) => { if (e.target.matches('input')) changed(); });
+    document.addEventListener('change', (e) => { if (e.target.matches('input[type=radio]')) changed(); });
+    document.addEventListener('click', (e) => {
+      if (e.target.id === 'use-rate') { $('rate').value = +(obs.confirmedRate * 100).toFixed(1); changed(); }
+    });
+
+    (async () => {
+      [s, obs] = await Promise.all([
+        fetch('/api/calculator').then((r) => r.json()),
+        fetch('/api/calls').then((r) => r.json()).then(observed).catch(() => observed([])),
+      ]);
+      fill(); render(); window.lucide?.createIcons();
+    })();
+  </script>
+</body>
+</html>
