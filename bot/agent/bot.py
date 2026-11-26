@@ -16,7 +16,9 @@ from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import (
     BotStartedSpeakingFrame,
+    BotStoppedSpeakingFrame,
     EndFrame,
+    InterruptionFrame,
     Frame,
     FunctionCallResultProperties,
     LLMContextFrame,
@@ -58,6 +60,7 @@ RATE = {
     "llm_per_m_out": float(os.getenv("COST_LLM_INR_PER_M_OUT", "51")),
     "tel_per_min": float(os.getenv("COST_TELEPHONY_INR_PER_MIN", "0.6")),
 }
+YIELD_LINES = ["जी, sorry, आप बोलिए।", "ओह sorry जी, please go ahead।", "जी जी, बोलिए।"]
 KEYTERMS = ["SolarSquare", "seedhi", "ladder", "light", "paani", "nal", "subah", "dopahar", "shaam", "tarikh",
             "Somvar", "Mangalvar", "Budhvar", "Guruvar", "Shukravar", "Shanivar", "haan", "nahi"]
 
@@ -83,10 +86,12 @@ class GreetingGate(FrameProcessor):
 class CallMetrics(FrameProcessor):
     """Sits at the end of the pipeline: per-turn voice-to-voice latency + usage for cost."""
 
-    def __init__(self, emitter: Emitter, telephony: bool):
+    def __init__(self, emitter: Emitter, telephony: bool, on_cut_in=None):
         super().__init__()
         self.emitter = emitter
         self.telephony = telephony
+        self._on_cut_in = on_cut_in
+        self._bot_speaking = False
         self.started = time.monotonic()
         self.latencies: list[int] = []
         self._user_stopped_at: float | None = None
@@ -94,6 +99,12 @@ class CallMetrics(FrameProcessor):
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
+        if isinstance(frame, BotStartedSpeakingFrame):
+            self._bot_speaking = True
+        elif isinstance(frame, BotStoppedSpeakingFrame):
+            self._bot_speaking = False
+        elif isinstance(frame, InterruptionFrame) and self._bot_speaking and self._on_cut_in:
+            self._on_cut_in()  # the customer cut the bot off mid-sentence
         if isinstance(frame, (VADUserStoppedSpeakingFrame, UserStoppedSpeakingFrame)):
             self._user_stopped_at = self._user_stopped_at or time.monotonic()
         elif isinstance(frame, BotStartedSpeakingFrame) and self._user_stopped_at:
@@ -264,7 +275,19 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             **({"user_turn_strategies": ts} if (ts := _turn_strategies(cfg)) else {}),
         ),
     )
-    metrics = CallMetrics(emitter, telephony)
+    yielded = {"at": 0.0, "n": 0}
+
+    def yield_floor() -> None:
+        """Customer cut in: say a short "sorry, go ahead" like a person would (at most every 15 s)."""
+        now = time.monotonic()
+        if engine.outcome or now - yielded["at"] < 15 or os.getenv("YIELD_ON_INTERRUPT", "1") == "0":
+            return
+        yielded["at"] = now
+        line = YIELD_LINES[yielded["n"] % len(YIELD_LINES)]
+        yielded["n"] += 1
+        asyncio.create_task(worker.queue_frames([TTSSpeakFrame(line, append_to_context=False)]))
+
+    metrics = CallMetrics(emitter, telephony, on_cut_in=yield_floor)
 
     async def speak_opening() -> None:
         await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
