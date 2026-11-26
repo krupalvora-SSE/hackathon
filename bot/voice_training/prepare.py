@@ -117,31 +117,48 @@ def norm(t: str) -> str:
     return re.sub(r"[^ऀ-ॿ]", "", t).replace("।", "")
 
 
-def align(texts: list[str], script: list[tuple[str, str]]):
-    """Greedy in reading order. Returns [(line_idx, first_piece, last_piece, score)], dropped piece idxs."""
+REANCHOR_AFTER = 5   # pieces in a row matching nothing near the expected line: search the whole script
+REANCHOR_MATCH = 0.82  # ... but only jump on a confident match
+
+
+def align(texts: list[str], script: list[tuple[str, str]], ptr: int = 0):
+    """Greedy in reading order from script line `ptr` (carry it across recordings read in order).
+
+    Returns ([(line_idx, first_piece, last_piece, score)], dropped piece idxs, next ptr). After
+    REANCHOR_AFTER misses in a row it searches the whole script, so a skipped block or a recording
+    that starts elsewhere doesn't lose every line after it."""
     lines = [norm(t) for _, t in script]
     hyp = [norm(t) for t in texts]
-    out, dropped, i, ptr = [], [], 0, 0
-    while i < len(hyp):
+    out, dropped, i, misses = [], [], 0, 0
+
+    def best_at(i: int, lo: int, hi: int):
         best = (0.0, None, None)
         for span in range(1, MAX_SPAN + 1):
             if i + span > len(hyp):
                 break
             h = "".join(hyp[i:i + span])
-            for j in range(max(0, ptr - LOOK_BACK), min(len(lines), ptr + LOOK_AHEAD)):
+            for j in range(lo, hi):
                 if not 0.8 <= len(h) / max(1, len(lines[j])) <= 1.3:
                     continue             # half a line (or two lines) under one line's text: bad data
-                s = difflib.SequenceMatcher(None, h, lines[j], autojunk=False).ratio()
-                if s > best[0]:
-                    best = (s, span, j)
-        score, span, j = best
+                sc = difflib.SequenceMatcher(None, h, lines[j], autojunk=False).ratio()
+                if sc > best[0]:
+                    best = (sc, span, j)
+        return best
+
+    while i < len(hyp):
+        score, span, j = best_at(i, max(0, ptr - LOOK_BACK), min(len(lines), ptr + LOOK_AHEAD))
+        if not (span and score >= MATCH) and misses >= REANCHOR_AFTER:
+            g = best_at(i, 0, len(lines))
+            if g[1] and g[0] >= REANCHOR_MATCH:
+                score, span, j = g
         if span and score >= MATCH:
             out.append((j, i, i + span - 1, score))
-            i, ptr = i + span, j + 1
+            i, ptr, misses = i + span, j + 1, 0
         else:
             dropped.append(i)
             i += 1
-    return out, dropped
+            misses += 1
+    return out, dropped, ptr
 
 
 def tidy(clip: np.ndarray) -> np.ndarray:
@@ -153,12 +170,17 @@ def tidy(clip: np.ndarray) -> np.ndarray:
 
 
 def main():
+    global MATCH
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("audio", nargs="+", type=Path, help="recordings, in the order they were read")
     ap.add_argument("--name", required=True, help="speaker name, used for the output folder")
+    ap.add_argument("--min-match", type=float, default=MATCH,
+                    help=f"similarity a clip needs to be kept (default {MATCH}). Raise to ~0.8 when many script lines "
+                         "share a template (only the name/date differs), so a clip can't take a sibling line's text")
     ap.add_argument("--script", type=Path, default=HERE / "script_hinglish.txt",
                     help="script that was read (default: the Hinglish one; script_hi.txt for the older pure-Hindi set)")
     a = ap.parse_args()
+    MATCH = a.min_match
 
     from dotenv import load_dotenv
     load_dotenv(HERE.parent / ".env")
@@ -170,7 +192,7 @@ def main():
     script = [tuple(l.split("|", 1)) for l in a.script.read_text().splitlines() if "|" in l]
 
     kept: dict[int, tuple] = {}
-    dropped_log, total = [], 0.0
+    dropped_log, total, ptr = [], 0.0, 0
     for path in a.audio:
         print(f"{path.name}: decoding")
         x = load(path.expanduser())
@@ -178,7 +200,7 @@ def main():
         segs = pieces(x)
         print(f"  {len(segs)} pieces, transcribing with local Whisper")
         texts = transcribe_all(x, segs, out / "stt_cache.json")
-        matches, dropped = align(texts, script)
+        matches, dropped, ptr = align(texts, script, ptr)  # files continue the reading order
         for j, f, l, score in matches:
             if j in kept:
                 dropped_log.append((path.name, segs[kept[j][1]][0] / SR, "re-read later, kept the last take",
