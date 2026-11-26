@@ -109,11 +109,11 @@
     <ul class="tips">
       <li>Quiet room, phone-call distance from the mic, no music or other voices.</li>
       <li>Read it the way you'd talk to a customer: warm, normal pace. The clone copies your pace and tone.</li>
-      <li>Aim for 12–30 seconds.</li>
+      <li>Aim for 12–15 seconds. Sarvam clones from the first 15 seconds only, so recording stops at 15.</li>
     </ul>
     <div class="row" style="margin-top:14px">
       <button class="rec primary" id="recBtn">● Start recording</button>
-      <span class="timer" id="timer">0:00</span>
+      <span class="timer" id="timer">0:00</span><span class="muted">/ 0:15</span>
       <div class="meter"><div id="level"></div></div>
     </div>
     <div class="row" style="margin-top:10px">
@@ -165,17 +165,15 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const SCRIPTS = {
+const SCRIPTS = {  // ~14 s read aloud: Sarvam clones from the first 15 s only
   m: ["Namaste ji, main SolarSquare se bol raha hoon.",
-      "Aapke solar panels ki saal bhar ki cleaning ka time aa gaya hai, isliye aapko call kiya.",
-      "Bataiye, is hafte kaunsa din aapke liye theek rahega? Subah nau se barah, dopahar barah se teen, ya shaam teen se chhe?",
-      "Achha, aur chhat tak jaane ke liye ghar pe seedhi hai na? Aur paani ka nal bhi paas mein hai?",
-      "Theek hai, main ek baar confirm kar leta hoon. Bahut dhanyavaad ji, aapka din shubh ho!"],
+      "Aapke solar panel cleaning visit ke liye call kiya hai.",
+      "Kya Somvar subah das baje ka time theek rahega?",
+      "Haan, bilkul, koi baat nahi. Bahut dhanyavaad ji!"],
   f: ["Namaste ji, main SolarSquare se bol rahi hoon.",
-      "Aapke solar panels ki saal bhar ki cleaning ka time aa gaya hai, isliye aapko call kiya.",
-      "Bataiye, is hafte kaunsa din aapke liye theek rahega? Subah nau se barah, dopahar barah se teen, ya shaam teen se chhe?",
-      "Achha, aur chhat tak jaane ke liye ghar pe seedhi hai na? Aur paani ka nal bhi paas mein hai?",
-      "Theek hai, main ek baar confirm kar leti hoon. Bahut dhanyavaad ji, aapka din shubh ho!"],
+      "Aapke solar panel cleaning visit ke liye call kiya hai.",
+      "Kya Somvar subah das baje ka time theek rahega?",
+      "Haan, bilkul, koi baat nahi. Bahut dhanyavaad ji!"],
 };
 let gender = "m";
 const scriptKey = () => `voiceScript.${gender}`;
@@ -207,6 +205,7 @@ const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(
 // ---------------------------------------------------------------- recording -> 16 kHz mono WAV
 const TARGET_RATE = 16000;
 let rec = null;      // {ctx, stream, node, chunks, start, tick}
+const MAX_SECS = 15;  // Sarvam uses only the first 15 s of the sample
 let clip = null;     // {blob, seconds, name}
 
 async function startRec() {
@@ -227,7 +226,7 @@ async function startRec() {
   const tick = setInterval(() => {
     const s = (performance.now() - start) / 1000;
     $("timer").textContent = fmt(s);
-    if (s >= 60) stopRec();
+    if (s >= MAX_SECS) stopRec();
   }, 200);
   rec = { ctx, stream, node, chunks, start, tick };
   $("recBtn").textContent = "■ Stop"; $("recBtn").classList.add("on");
@@ -283,7 +282,7 @@ async function setClip(blob, name) {
   });
   clip = { blob, seconds, name };
   if (seconds < 8) msg("recMsg", `Only ${seconds.toFixed(1)}s. Record at least 12 seconds for a good clone.`, "bad");
-  else if (seconds > 60) msg("recMsg", `${seconds.toFixed(0)}s is long. Sarvam works best with 12–30 seconds.`, "bad");
+  else if (seconds > MAX_SECS + 0.5) msg("recMsg", `${seconds.toFixed(0)}s is long. Sarvam only uses the first ${MAX_SECS} seconds; trim the clip so it starts with your best, most fluent part.`, "bad");
   else msg("recMsg", `Got ${seconds.toFixed(1)}s. Play it back; if it sounds clean, go to step 2.`, "ok");
   updateCreate();
 }
