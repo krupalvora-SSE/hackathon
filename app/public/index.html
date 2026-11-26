@@ -68,23 +68,113 @@
     .lat span { font-family: var(--font-mono); font-size: var(--text-xs); padding: 2px 6px; border-radius: var(--radius-sm); background: var(--bg-page); border: 1px solid var(--border-2); }
     .lat span.slow { color: var(--rust-600); }
     pre { margin: 0; padding: var(--space-3); background: var(--bg-page); border: 1px solid var(--border-2); border-radius: var(--radius-md); font: var(--text-xs)/1.5 var(--font-mono); overflow-x: auto; }
+    :root { --lime:#B8F36B; --mint:#EAF7D7; --ink-green:#183126; }
+    body {
+      margin:0;
+      min-height:100vh;
+      background:
+        radial-gradient(circle at 88% 8%, rgba(184,243,107,.48), transparent 24%),
+        linear-gradient(135deg,#F7FAF2 0%,#EDF7E4 55%,#F8F5ED 100%);
+    }
+    header { height:72px; padding:0 clamp(20px,4vw,56px); background:rgba(248,250,245,.78)!important; backdrop-filter:blur(18px); position:sticky; top:0; z-index:10; }
+    .brand { display:flex; align-items:center; gap:12px; }
+    .brand-divider { width:1px; height:24px; background:var(--border-1); }
+    .brand-name { color:var(--ink-green); font-size:var(--text-sm); font-weight:700; }
+    .header-actions { display:flex; align-items:center; }
+    .live-pill { display:flex; align-items:center; gap:8px; border:1px solid var(--border-1); border-radius:999px; background:rgba(255,255,255,.82); padding:8px 12px; color:var(--fg-2); font-size:var(--text-xs); font-weight:700; }
+    .live-dot { width:8px; height:8px; border-radius:50%; background:var(--leaf-500); box-shadow:0 0 0 4px rgba(43,168,74,.10); }
+    main { max-width:1180px!important; padding:44px 24px 64px!important; }
+    .hero { display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:28px; }
+    .hero h1 { margin:8px 0 8px; max-width:760px; color:var(--ink-green); font-size:clamp(38px,5vw,58px); }
+    .hero .sub { margin:0; max-width:620px; }
+    .hero-label { color:var(--leaf-600); font-size:var(--text-xs); text-transform:uppercase; letter-spacing:.08em; font-weight:800; }
+    .sync { display:flex; align-items:center; gap:8px; color:var(--fg-3); font-size:var(--text-xs); white-space:nowrap; }
+    .kpis { gap:14px!important; margin-bottom:18px!important; }
+    .kpi { position:relative; overflow:hidden; background:rgba(255,255,255,.78)!important; border-radius:20px!important; border-color:rgba(24,49,38,.09)!important; padding:18px 20px!important; }
+    .kpi::after { content:""; position:absolute; right:-18px; bottom:-28px; width:90px; height:90px; border-radius:50%; background:var(--mint); opacity:.72; }
+    .kpi-top { display:flex; align-items:center; justify-content:space-between; position:relative; z-index:1; }
+    .kpi small { color:var(--fg-3)!important; font-weight:700; }
+    .kpi b { display:block; margin-top:5px; color:var(--ink-green); font-size:34px!important; line-height:1; position:relative; z-index:1; }
+    .kpi-icon { width:34px; height:34px; display:grid; place-items:center; border-radius:50%; background:var(--mint); color:var(--ink-green); }
+    .kpi-icon svg { width:17px; height:17px; }
+    .card { background:rgba(255,255,255,.88)!important; border-radius:20px!important; border-color:rgba(24,49,38,.10)!important; }
+    .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 18px; border-bottom:1px solid var(--border-2); }
+    .filters { display:flex; gap:8px; }
+    .filter { border:1px solid transparent; background:transparent; color:var(--fg-3); border-radius:999px; padding:8px 12px; cursor:pointer; font:700 var(--text-xs) var(--font-sans); }
+    .filter.active { background:var(--ink-green); color:white; }
+    .search { display:flex; align-items:center; gap:8px; width:min(280px,35%); border:1px solid var(--border-1); background:white; border-radius:10px; padding:9px 11px; }
+    .search svg { width:16px; height:16px; color:var(--fg-4); }
+    .search input { border:0; outline:0; width:100%; background:transparent; font:var(--text-sm) var(--font-sans); color:var(--fg-1); }
+    th { background:transparent!important; padding:12px 18px!important; color:var(--fg-4)!important; }
+    td { padding:16px 18px!important; border-bottom:1px solid #F1F2EC!important; }
+    tbody tr { transition:background 120ms; }
+    tbody tr:hover { background:#FBFDF7; }
+    tr.active td { background:#F3F8E9!important; }
+    .customer { display:flex; align-items:center; gap:11px; }
+    .avatar { width:38px; height:38px; display:grid; place-items:center; border-radius:50%; background:var(--mint); color:var(--ink-green); font-weight:800; }
+    .customer-name { display:block; color:var(--fg-1); font-weight:700; }
+    .phone { display:block; margin-top:2px; color:var(--fg-4); font-size:var(--text-xs); }
+    .slot { display:flex; align-items:center; gap:8px; }
+    .slot-icon { width:30px; height:30px; display:grid; place-items:center; border-radius:10px; background:var(--sun-50); color:var(--sun-700); }
+    .slot-icon svg { width:15px; height:15px; }
+    .chip { display:inline-flex; align-items:center; gap:7px; padding:5px 9px!important; border-radius:999px!important; font-size:var(--text-xs)!important; font-weight:800!important; }
+    .chip::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+    button.action { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; border:1px solid var(--border-1); border-radius:10px; background:white; color:var(--fg-2); padding:7px 10px; cursor:pointer; font:800 var(--text-xs) var(--font-sans); }
+    button.action.primary { border-color:var(--ink-green); background:var(--ink-green); color:white; }
+    button.action.danger { color:var(--rust-600); }
+    button.action svg { width:14px; height:14px; }
+    @media (max-width:760px) {
+      header { height:64px; padding:0 16px!important; }
+      .brand-divider,.brand-name { display:none; }
+      main { padding:28px 16px 48px!important; }
+      .hero { align-items:flex-start; flex-direction:column; margin-bottom:22px; }
+      .hero h1 { font-size:38px; }
+      .sync { display:none; }
+      .kpis { grid-template-columns:1fr!important; }
+      .toolbar { align-items:stretch; flex-direction:column-reverse; }
+      .search { width:auto; }
+      .filters { overflow-x:auto; }
+    }
   </style>
 </head>
 <body>
   <header>
-    <img src="https://cdn.solarsquare.in/blog/wp-content/uploads/2025/11/05101757/logo.webp" alt="SolarSquare">
-    <span>AMC cleaning · voice agent</span>
+    <div class="brand">
+      <img src="https://cdn.solarsquare.in/blog/wp-content/uploads/2025/11/05101757/logo.webp" alt="SolarSquare">
+      <span class="brand-divider"></span>
+      <span class="brand-name">AMC operations</span>
+    </div>
+    <div class="header-actions">
+      <span class="live-pill"><i class="live-dot"></i><span id="service-status">Service online</span></span>
+    </div>
   </header>
   <main>
-    <h3>Cleaning slot confirmations</h3>
-    <p class="sub">The agent calls each customer to confirm their slot. Statuses update automatically.</p>
+    <section class="hero">
+      <div>
+        <span class="hero-label">Solar maintenance</span>
+        <h1>Cleaning slot confirmations</h1>
+        <p class="sub">Manage customer calls, collect visit details, and keep every AMC booking on track.</p>
+      </div>
+      <div class="sync"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i>Live updates</div>
+    </section>
     <div id="banner"></div>
     <div class="kpis" id="kpis"></div>
     <div class="card">
-      <table>
-        <thead><tr><th>Customer</th><th>SSE ID</th><th>Slot</th><th>Status</th><th></th></tr></thead>
-        <tbody id="rows"><tr><td colspan="5" class="empty">Loading bookings…</td></tr></tbody>
-      </table>
+      <div class="toolbar">
+        <div class="filters" id="filters">
+          <button class="filter active" data-filter="all">All bookings</button>
+          <button class="filter" data-filter="pending">Pending</button>
+          <button class="filter" data-filter="confirmed">Confirmed</button>
+          <button class="filter" data-filter="other">Other</button>
+        </div>
+        <label class="search"><i data-lucide="search"></i><input id="search" type="search" placeholder="Search customer or ID…" aria-label="Search bookings"></label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Customer</th><th>SSE ID</th><th>Scheduled slot</th><th>Status</th><th></th></tr></thead>
+          <tbody id="rows"><tr><td colspan="5" class="empty">Loading bookings…</td></tr></tbody>
+        </table>
+      </div>
     </div>
 
     <section id="live" class="card" hidden>
@@ -133,36 +223,66 @@
     ];
     let botUrl = 'http://localhost:7860';
     let active = null; // { callId, bookingId, mode, es, pc, mic }
+    let allBookings = [];
+    let bookingFilter = 'all';
+    let bookingQuery = '';
     fetch('/api/config').then((r) => r.json()).then((c) => { botUrl = c.botUrl; }).catch(() => {});
 
     const banner = (el, html, kind = '') => { $(el).innerHTML = html ? `<div class="banner ${kind}">${html}</div>` : ''; };
 
     async function load() {
       const bookings = await fetch('/api/bookings').then((r) => r.json());
+      allBookings = bookings;
       const count = (pred) => bookings.filter(pred).length;
-      const k = [['Pending', (b) => b.status === 'pending'], ['Confirmed', (b) => b.status === 'confirmed'], ['Other outcomes', (b) => !['pending', 'confirmed'].includes(b.status)]];
-      $('kpis').innerHTML = k.map(([l, p]) => `<div class="kpi"><small>${l}</small><b>${count(p)}</b></div>`).join('');
+      const k = [
+        ['Pending', (b) => b.status === 'pending', 'clock-3'],
+        ['Confirmed', (b) => b.status === 'confirmed', 'circle-check'],
+        ['Other outcomes', (b) => !['pending', 'confirmed'].includes(b.status), 'phone-call'],
+      ];
+      $('kpis').innerHTML = k.map(([l, p, icon]) => `<div class="kpi"><div class="kpi-top"><small>${l}</small><span class="kpi-icon"><i data-lucide="${icon}"></i></span></div><b>${count(p)}</b></div>`).join('');
+      renderBookings();
+    }
+
+    function renderBookings() {
       const busy = !!active?.live;
-      $('rows').innerHTML = bookings.map((b) => {
+      const visible = allBookings.filter((b) => {
+        const matchesFilter = bookingFilter === 'all'
+          || (bookingFilter === 'other' ? !['pending', 'confirmed'].includes(b.status) : b.status === bookingFilter);
+        const haystack = `${b.customerName} ${b.sseId} ${b.phone} ${b.status}`.toLowerCase();
+        return matchesFilter && haystack.includes(bookingQuery);
+      });
+      $('rows').innerHTML = visible.length ? visible.map((b) => {
         const slot = b.status === 'confirmed' && b.visitDate ? `${fmtDate(b.visitDate)} · ${WINDOWS[b.visitSlot] ?? b.visitSlot}` : `${fmtDate(b.date)} · ${WINDOWS[b.window] ?? b.window}`;
+        const initials = b.customerName.split(/\s+/).map((p) => p[0]).slice(0,2).join('').toUpperCase();
         return `
         <tr class="${active?.bookingId === b.id ? 'active' : ''}">
-          <td>${esc(b.customerName)}</td>
+          <td><div class="customer"><span class="avatar">${esc(initials)}</span><span><span class="customer-name">${esc(b.customerName)}</span><span class="phone">${esc(b.phone)}</span></span></div></td>
           <td class="mono">${esc(b.sseId)}</td>
-          <td class="mono">${esc(slot)}</td>
+          <td><div class="slot"><span class="slot-icon"><i data-lucide="calendar-days"></i></span><span class="mono">${esc(slot)}</span></div></td>
           <td><span class="chip ${esc(b.status)}" title="${esc(b.rejectReason)}">${LABEL[b.status] ?? esc(b.status)}</span></td>
           <td><div class="actions">
-            <button data-call="${esc(b.id)}" data-mode="phone" ${busy ? 'disabled' : ''} title="Call the customer's phone via Exotel"><i data-lucide="phone"></i>Call</button>
-            <button class="ghost" data-call="${esc(b.id)}" data-mode="browser" ${busy ? 'disabled' : ''} title="Test with your microphone"><i data-lucide="mic"></i>Browser</button>
+            <button class="action primary" data-call="${esc(b.id)}" data-mode="phone" ${busy ? 'disabled' : ''} title="Call the customer's phone via Exotel"><i data-lucide="phone"></i>Call</button>
+            <button class="action" data-call="${esc(b.id)}" data-mode="browser" ${busy ? 'disabled' : ''} title="Test with your microphone"><i data-lucide="mic"></i>Browser</button>
           </div></td>
         </tr>`;
-      }).join('');
+      }).join('') : `<tr><td colspan="5" class="empty">No bookings match this view.</td></tr>`;
       window.lucide?.createIcons();
     }
 
     $('rows').addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-call]');
       if (btn) startCall(btn.dataset.call, btn.dataset.mode);
+    });
+    $('filters').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-filter]');
+      if (!btn) return;
+      bookingFilter = btn.dataset.filter;
+      document.querySelectorAll('.filter').forEach((el) => el.classList.toggle('active', el === btn));
+      renderBookings();
+    });
+    $('search').addEventListener('input', (e) => {
+      bookingQuery = e.target.value.trim().toLowerCase();
+      renderBookings();
     });
     $('hangup').addEventListener('click', () => hangup());
 
