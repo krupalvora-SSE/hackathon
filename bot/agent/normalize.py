@@ -282,6 +282,23 @@ NO = {"nahi", "nahin", "nai", "nahi", "no", "nope", "false", "naa", "mat", "nahi
       "नहीं", "नही", "ना", "नाही", "नको", "galat", "wrong"}
 
 
+# A yes strong enough to commit a booking on. YES above also counts weak tokens ("है", "जी", "ho")
+# that show up inside misheard audio, so commit points (agent/bot.py) need one of these instead.
+CLEAR_YES = {"haan", "han", "haa", "haanji", "hanji", "yes", "yeah", "yep", "ok", "okay", "theek", "thik",
+             "bilkul", "sahi", "correct", "confirm", "chalega", "pakka", "done", "sure",
+             "हाँ", "हां", "हा", "हाँजी", "ठीक", "बिल्कुल", "सही", "कन्फर्म", "कन्फ़र्म", "चलेगा", "पक्का", "ओके",
+             "ओक", "श्योर", "डन"}
+CLEAR_YES_PHRASES = ("kar do", "kar dijiye", "कर दो", "कर दीजिए", "कर दीजिये", "go ahead")
+
+
+def clear_yes(text: str) -> bool:
+    """True when the customer plainly said yes, not just a yes-ish token in garbled audio."""
+    t = _clean(text)
+    if parse_bool(t) is False:
+        return False
+    return any(tok in CLEAR_YES for tok in t.split()) or any(p in t for p in CLEAR_YES_PHRASES)
+
+
 def parse_bool(text: str) -> bool | None:
     t = _clean(text)
     if not t:

@@ -47,6 +47,7 @@ from pipecat.turns.user_start import TranscriptionUserTurnStartStrategy, VADUser
 from pipecat.turns.user_turn_strategies import UserTurnStrategies, default_user_turn_stop_strategies
 
 from . import config as call_config
+from . import normalize as N
 from .events import Emitter, save_result
 from .engine import make_engine
 from .filler import Filler
@@ -180,6 +181,28 @@ def _llm(cfg: dict):
     )
 
 
+# Steps where a "yes" writes to Beat Plan (books the slot / pauses the site): it must be a clear yes.
+COMMIT_STATES = {"RECAP", "HOLD_CONSENT"}
+KEEP_ON_UNSURE = {"unclear", "other_language", "repeat_request"}  # already the safe reading
+
+
+def _ask_again(args: dict, stt, engine) -> str | None:
+    """Why the customer should be asked again instead of acting on the LLM's reading, or None.
+
+    Precision over speed: a misheard answer that books the wrong slot costs more than one re-ask.
+    """
+    intent = args.get("intent")
+    if intent in KEEP_ON_UNSURE:
+        return None
+    if getattr(stt, "turn_unsure", False):
+        return "Whisper unsure of the transcript"
+    state = getattr(getattr(engine, "call", None), "state", None)
+    heard = " ".join(h["text"] for h in getattr(stt, "turn_heard", []))
+    if state in COMMIT_STATES and intent == "affirm" and heard and not N.clear_yes(heard):
+        return f"no clear yes at {state}"
+    return None
+
+
 def _turn_strategies(cfg: dict) -> UserTurnStrategies:
     """Local Silero VAD + Smart Turn decide when the customer starts and stops: neither local STT streams."""
     interrupt = cfg["barge_in"]
@@ -245,7 +268,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         raise RuntimeError(f"no local STT available: {whisper_status()['message']}")
     await asyncio.to_thread(warm_up)  # no-op once loaded
     logger.info(f"call {call_id} config {cfg}")
-    stt = make_whisper_stt()
+    stt = make_whisper_stt(call_id, record=cfg["record_stt_audio"])
     tts = _piper_tts(cfg, call_id, sample_rate)
     llm = _llm(cfg)
 
@@ -368,6 +391,9 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     async def handle_tool(params: FunctionCallParams) -> None:
         filler.cancel()  # the LLM has answered; the real line follows in a moment
         args = dict(params.arguments or {})
+        if params.function_name == "customer_said" and (why := _ask_again(args, stt, engine)):
+            logger.info(f"call {call_id} asking again ({why}): heard {stt.turn_heard}, LLM said {args}")
+            args = {"intent": "unclear", "language": args.get("language", "hi")}
         action = engine.dispatch(params.function_name, args)
         logger.info(f"tool {params.function_name}({args}) -> {action.result}")
         if action.ask_next:
@@ -387,6 +413,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     @aggregators.user().event_handler("on_user_turn_started")
     async def _user_started(_agg, _strategy):
         filler.cancel()
+        stt.start_turn()
 
     @aggregators.user().event_handler("on_user_turn_stopped")
     async def _user_said(_agg, _strategy, message):

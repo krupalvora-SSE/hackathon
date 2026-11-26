@@ -13,6 +13,11 @@ the bot runs with HF_HUB_OFFLINE=1 and never downloads it.
 from __future__ import annotations
 
 import asyncio
+import json
+import re
+import os
+import wave
+from pathlib import Path
 import importlib.util
 import platform
 import threading
@@ -32,6 +37,19 @@ NO_SPEECH_PROB = 0.6  # drop segments Whisper thinks are noise (stops "धन्
 EN_MIN_PROB = 0.6     # CPU path: transcribe as English only above this; everything else is Hindi
 EN_PLAUSIBLE = 0.3    # MLX path: also try English when Whisper gives it at least this much
 EN_MARGIN = 0.15      # ... and keep English only if its avg log-prob beats Hindi's by this much
+# Unsure transcript: the call asks the customer again instead of acting on it (agent/bot.py).
+# Calibrated on eval/corpus (224 speech clips + noise, with VOCAB_PROMPT): at -0.35 it flags 19% of wrong
+# transcripts and every noise clip, and 1% (1/123) of right ones. Whisper's stock -1.0 flagged none here.
+UNSURE_LOGPROB = float(os.getenv("WHISPER_UNSURE_LOGPROB", "-0.35"))
+UNSURE_COMPRESSION = 2.4    # gzip ratio above this: a repetition loop ("कर दो कर दो कर दो ...")
+# What Whisper writes for noise, echo or silence (measured on eval/corpus noise clips and seen on live
+# calls): dropped as if nothing was said, so the bot doesn't answer a cough.
+HALLUCINATIONS = {"thank you", "thanks for watching", "thank you for watching", "झाल", "धन्यवाद",
+                  "सब्सक्राइब", "subscribe", "you", "bye", "the end", "हम्म"}
+# Words customers say on this call, given to Whisper as prior context (its `prompt`). Short, in the
+# script Whisper should answer in; it nudges "हजी" towards "हाँ जी" and "झाल" towards real words.
+VOCAB_PROMPT = os.getenv("WHISPER_PROMPT", "हाँ जी, ठीक है, नहीं जी, चलेगा, कर दो। शनिवार सुबह, सोमवार शाम। "
+                                           "सीढ़ी है, पानी है, light है। SolarSquare, slot, confirm.")
 
 _warm = threading.Lock()
 _warmed = False
@@ -74,24 +92,46 @@ def warm_up() -> None:
         logger.info(f"Whisper ready ({'MLX ' + MLX_MODEL if use_mlx() else 'CPU ' + CPU_MODEL})")
 
 
+def _keep(text: str) -> str:
+    """The transcript, or "" when it is only one of Whisper's noise phrases."""
+    text = text.strip()
+    bare = re.sub(r"[।॥.,!?;:'\"()\-]", " ", text).lower()
+    return "" if " ".join(bare.split()) in HALLUCINATIONS else text
+
+
+def is_unsure(r: dict) -> bool:
+    """True when Whisper itself isn't confident in the transcript (see UNSURE_*)."""
+    return bool(r["text"]) and (r["avg_logprob"] < UNSURE_LOGPROB or r["compression_ratio"] > UNSURE_COMPRESSION)
+
+
 def transcribe(audio, mlx: bool | None = None) -> tuple[str, str]:
     """16 kHz float32 mono -> (text, "hi" | "en"). Blocking; call off the event loop."""
+    r = transcribe_detailed(audio, mlx)
+    return r["text"], r["lang"]
+
+
+def transcribe_detailed(audio, mlx: bool | None = None, prompt: str | None = VOCAB_PROMPT) -> dict:
+    """16 kHz float32 mono -> {text, lang, avg_logprob, compression_ratio, no_speech_prob}. Blocking."""
     mlx = use_mlx() if mlx is None else mlx
     if mlx:
-        return _transcribe_mlx(audio)
+        return _transcribe_mlx(audio, prompt)
 
     def run(language):
-        segs, info = _cpu_model().transcribe(audio, language=language, beam_size=1,
-                                             condition_on_previous_text=False)
-        return [(s.text, s.no_speech_prob) for s in segs], info.language
+        segs, info = _cpu_model().transcribe(audio, language=language, beam_size=1, condition_on_previous_text=False,
+                                             initial_prompt=prompt if language == "hi" else None)
+        return list(segs), info
 
-    segs, info = _cpu_model().transcribe(audio, language=None, beam_size=1, condition_on_previous_text=False)
+    _, info = _cpu_model().transcribe(audio, language=None, beam_size=1, condition_on_previous_text=False)
     lang = "en" if info.language == "en" and info.language_probability >= EN_MIN_PROB else "hi"
     segs, _ = run(lang)
-    return "".join(t for t, p in segs if p < NO_SPEECH_PROB).strip(), lang
+    kept = [s for s in segs if s.no_speech_prob < NO_SPEECH_PROB]
+    return {"text": _keep("".join(s.text for s in kept)), "lang": lang,
+            "avg_logprob": min((s.avg_logprob for s in kept), default=0.0),
+            "compression_ratio": max((s.compression_ratio for s in kept), default=0.0),
+            "no_speech_prob": max((s.no_speech_prob for s in segs), default=1.0)}
 
 
-def _transcribe_mlx(audio) -> tuple[str, str]:
+def _transcribe_mlx(audio, prompt: str | None = None) -> dict:
     """One encoder pass shared by language detection and decoding (mlx_whisper.transcribe with no
     language encodes twice: ~1.9 s instead of ~1.1 s a reply). Replies are under Whisper's 30 s window."""
     import mlx.core as mx
@@ -107,7 +147,8 @@ def _transcribe_mlx(audio) -> tuple[str, str]:
 
     def run(language):
         r = decode(model, features, DecodingOptions(language=language, temperature=0.0, without_timestamps=True,
-                                                    fp16=True, sample_len=max_tokens))
+                                                    fp16=True, sample_len=max_tokens,
+                                                    prompt=prompt if language == "hi" and prompt else None))
         return r[0] if isinstance(r, list) else r
 
     # Language detection alone is unreliable on short replies: "हाँ जी" / "ठीक है" are taken for
@@ -120,7 +161,9 @@ def _transcribe_mlx(audio) -> tuple[str, str]:
         en = run("en")
         if en.avg_logprob > hi.avg_logprob + EN_MARGIN or (hi.compression_ratio > 2.4 >= en.compression_ratio):
             best, lang = en, "en"
-    return (best.text.strip() if best.no_speech_prob < NO_SPEECH_PROB else ""), lang
+    return {"text": _keep(best.text) if best.no_speech_prob < NO_SPEECH_PROB else "", "lang": lang,
+            "avg_logprob": float(best.avg_logprob), "compression_ratio": float(best.compression_ratio),
+            "no_speech_prob": float(best.no_speech_prob)}
 
 
 _cpu = None
@@ -135,8 +178,28 @@ def _cpu_model():
     return _cpu
 
 
+RECORDINGS = Path(__file__).resolve().parent.parent / "recordings"  # git-ignored, stays on this machine
+
+
 class WhisperHiEnSTTService(SegmentedSTTService):
-    """pipecat STT service: local Whisper, Hindi or English per reply. Needs VAD in the pipeline."""
+    """pipecat STT service: local Whisper, Hindi or English per reply. Needs VAD in the pipeline.
+
+    turn_unsure: True once any segment of the customer's current turn was an unsure transcript;
+    agent/bot.py resets it when a turn starts and asks again instead of acting on such a turn.
+    With record=True every segment is saved as recordings/<call_id>/NNN.wav, with what Whisper
+    made of it in segments.jsonl, to diagnose mishearing on real calls.
+    """
+
+    def __init__(self, *, call_id: str | None = None, record: bool = False, **kwargs):
+        super().__init__(**kwargs)
+        self.turn_unsure = False
+        self.turn_heard: list[dict] = []
+        self._dir = RECORDINGS / call_id if (record and call_id) else None
+        self._n = 0
+
+    def start_turn(self) -> None:
+        self.turn_unsure = False
+        self.turn_heard = []
 
     @property
     def wants_wav_segments(self) -> bool:
@@ -153,6 +216,23 @@ class WhisperHiEnSTTService(SegmentedSTTService):
     async def _handle_transcription(self, transcript: str, is_final: bool, language: Language | None = None):
         """Tracing hook for a final transcript (pipecat services each declare their own)."""
 
+    def _record(self, audio: bytes, r: dict, unsure: bool, secs: float) -> None:
+        try:
+            self._dir.mkdir(parents=True, exist_ok=True)
+            self._n += 1
+            name = f"{self._n:03d}.wav"
+            with wave.open(str(self._dir / name), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(16000)
+                w.writeframes(audio)
+            with open(self._dir / "segments.jsonl", "a", encoding="utf-8") as f:
+                f.write(json.dumps({"file": name, "audio_s": round(len(audio) / 32000, 2), "stt_s": round(secs, 2),
+                                    "unsure": unsure, **{k: (round(v, 3) if isinstance(v, float) else v)
+                                                         for k, v in r.items()}}, ensure_ascii=False) + "\n")
+        except OSError as e:
+            logger.warning(f"could not record STT segment: {e}")
+
     async def run_stt(self, audio: bytes) -> AsyncGenerator[Frame, None]:
         import numpy as np
 
@@ -160,19 +240,26 @@ class WhisperHiEnSTTService(SegmentedSTTService):
         t = time.monotonic()
         try:
             x = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
-            text, lang = await asyncio.to_thread(transcribe, x)
+            r = await asyncio.to_thread(transcribe_detailed, x)
         except Exception as e:  # noqa: BLE001
             logger.exception("Whisper transcription failed")
             yield ErrorFrame(f"Whisper: {e}")
             return
         finally:
             await self.stop_processing_metrics()
-        logger.debug(f"Whisper {len(audio) / 32000:.1f}s audio -> {time.monotonic() - t:.2f}s [{lang}]: [{text}]")
+        text, lang, unsure = r["text"], r["lang"], is_unsure(r)
+        secs = time.monotonic() - t
+        if self._dir:
+            self._record(audio, r, unsure, secs)
+        logger.debug(f"Whisper {len(audio) / 32000:.1f}s audio -> {secs:.2f}s [{lang}] "
+                     f"lp={r['avg_logprob']:.2f} cr={r['compression_ratio']:.2f}{' UNSURE' if unsure else ''}: [{text}]")
         if text:
+            self.turn_unsure = self.turn_unsure or unsure
+            self.turn_heard.append({"text": text, "unsure": unsure})
             language = Language.EN_IN if lang == "en" else Language.HI_IN
             await self._handle_transcription(text, True, language)
             yield TranscriptionFrame(text, self._user_id, time_now_iso8601(), language)
 
 
-def make_whisper_stt():
-    return WhisperHiEnSTTService()
+def make_whisper_stt(call_id: str | None = None, record: bool = False):
+    return WhisperHiEnSTTService(call_id=call_id, record=record)

@@ -23,6 +23,12 @@ FIELDS: list[dict[str, Any]] = [
              "stream: the Silero settings below decide when the customer has finished, then the whole "
              "reply is transcribed (about 1 s)."},
 
+    {"key": "record_stt_audio", "group": "Speech to text", "type": "bool", "default": True,
+     "env": "RECORD_STT_AUDIO", "label": "Record what speech recognition hears",
+     "help": "Saves each customer segment and Whisper's transcript + confidence to bot/recordings/<call>/ "
+             "(git-ignored, stays on this machine). For diagnosing mishearing and building a test set from "
+             "real calls; turn off when you don't need it."},
+
     # ---- Interruptions: the usual cause of the bot going quiet mid-sentence
     {"key": "barge_in", "group": "Interruptions", "type": "bool", "default": True,
      "env": "BARGE_IN", "label": "Customer can interrupt the bot",
@@ -55,7 +61,8 @@ FIELDS: list[dict[str, Any]] = [
     {"key": "piper_voice", "group": "Bot voice", "type": "select", "default": "hi_IN-jasir-medium",
      "env": "PIPER_VOICE", "label": "Piper speaker",
      "options": [["hi_IN-pratham-medium", "Pratham (male, Hindi)"], ["hi_IN-rohan-medium", "Rohan (male, Hindi)"],
-                 ["hi_IN-jasir-medium", "Jasir (male, Hindi, trained on our recordings)"]],
+                 ["hi_IN-jasir-medium", "Jasir (male, Hindi, trained on our recordings)"],
+                 ["hi_IN-krupal-medium", "Krupal (male, Hinglish, trained on our recordings)"]],
      "help": "Male Hindi voices; the bot is a male telecaller. Jasir is our own fine-tuned voice "
              "(bot/voice_training). Voices load only from ~/.cache/pipecat/piper/ (the .onnx and .onnx.json "
              "files); nothing is downloaded, so copy a voice there before picking it."},

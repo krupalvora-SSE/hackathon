@@ -34,7 +34,8 @@ def test_known_words_names_and_mai():
 
 def test_piper_voices_are_male_and_only_local_engines():
     f = config.BY_KEY["piper_voice"]
-    assert [o[0] for o in f["options"]] == ["hi_IN-pratham-medium", "hi_IN-rohan-medium", "hi_IN-jasir-medium"]
+    assert [o[0] for o in f["options"]] == ["hi_IN-pratham-medium", "hi_IN-rohan-medium", "hi_IN-jasir-medium",
+                                         "hi_IN-krupal-medium"]
     tts = config.BY_KEY["tts_provider"]
     assert [o[0] for o in tts["options"]] == ["piper", "piper_clone"] and tts["default"] == "piper"
 
@@ -78,3 +79,13 @@ def test_bilingual_piper_picks_voice_by_language():
     assert tts._pick("Shall I confirm it for Saturday?")[0] == "en_US-ryan-medium"
     assert tts._pick("क्या मैं यह पक्का कर दूँ?")[0] == "hi_IN-pratham-medium"
     assert tts._pick("Hello?")[0] == "hi_IN-pratham-medium"
+
+
+def test_hinglish_words_get_real_spellings_not_letter_by_letter():
+    # the phonetic fallback read these as तेच्निचिअन / सोर्र्य / बोओकिङ्ग / चोम्प्लैन्त on live calls
+    assert to_devanagari("Sorry, technician कल आएगा, booking confirm है।") == "सॉरी, टेक्नीशियन कल आएगा, बुकिंग कन्फ़र्म है।"
+    assert to_devanagari("complaint price") == "कंप्लेंट प्राइस"
+    script = open(config.Path(__file__).resolve().parents[1] / "voice_training/script_hinglish.txt").read()
+    from agent.devanagari import WORDS
+    unknown = {w for w in re.findall(r"[A-Za-z][A-Za-z'’-]*", script) if w.lower() not in WORDS}
+    assert not unknown, f"training script words without a real spelling: {unknown}"

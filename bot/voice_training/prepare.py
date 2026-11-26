@@ -1,15 +1,20 @@
-"""Turn a long read-aloud recording of script_hi.txt into a Piper training dataset.
+"""Turn a long read-aloud recording of the script into a Piper training dataset.
 
-    uv run python voice_training/prepare.py ~/Downloads/jasir-voice-traning-data-1.mp3 --name jasir
+    uv run --extra whisper python voice_training/prepare.py ~/Downloads/krupal-1.m4a ~/Downloads/krupal-2.m4a --name krupal
+
+The script is voice_training/script_hinglish.txt (make_hinglish_script.py): Hinglish lines as the bot speaks
+them. Several recordings are fine; pass them in reading order.
 
 1. Decode to 22,050 Hz mono and cut at pauses (energy based).
 2. Transcribe every piece with local Whisper (agent/stt_whisper.py; cached, so re-runs are instant).
 3. Match pieces to script lines in reading order. A line read with a pause in it spans several
    pieces; stumbles and noise match nothing and are dropped; a re-read line keeps the last take.
-4. Write data/<name>/wavs/<line>.wav (trimmed, loudness-evened) + metadata.csv (`0001.wav|text`),
-   report.md (what was kept / dropped and why) and data/<name>.zip for Colab.
+4. Write data/<name>/wavs/<line>.wav (trimmed, loudness-evened) + metadata.csv (`0001.wav|text`, where
+   text is to_devanagari(line): exactly what Piper is given at call time), report.md (what was kept /
+   dropped and why) and data/<name>.zip for Colab.
 
-Recordings never leave this machine. data/ is git-ignored.
+Everything here runs on this machine; data/ is git-ignored. The zip leaves it only when you upload it
+to Google Drive for the Colab training notebook.
 """
 from __future__ import annotations
 
@@ -151,7 +156,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("audio", nargs="+", type=Path, help="recordings, in the order they were read")
     ap.add_argument("--name", required=True, help="speaker name, used for the output folder")
-    ap.add_argument("--script", type=Path, default=HERE / "script_hi.txt")
+    ap.add_argument("--script", type=Path, default=HERE / "script_hinglish.txt",
+                    help="script that was read (default: the Hinglish one; script_hi.txt for the older pure-Hindi set)")
     a = ap.parse_args()
 
     from dotenv import load_dotenv
@@ -188,7 +194,7 @@ def main():
         clip = tidy(x[max(0, segs[f][0] - pad): min(len(x), segs[l][1] + pad)].copy())
         lid, text = script[j]
         sf.write(out / "wavs" / f"{lid}.wav", clip, SR, subtype="PCM_16")
-        meta.append(f"{lid}.wav|{text}")
+        meta.append(f"{lid}.wav|{to_devanagari(text)}")  # exactly what Piper gets at call time
         secs += len(clip) / SR
     (out / "metadata.csv").write_text("\n".join(meta) + "\n")
 
