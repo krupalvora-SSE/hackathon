@@ -399,6 +399,8 @@ class Flow:
                 if bool(flags[flag]) == str(when).startswith("!"):
                     continue
             ctx.update(tr.get("set") or {})
+            for k, v in (tr.get("set_default") or {}).items():
+                ctx.setdefault(k, v)
             return tr["to"]
         return None
 

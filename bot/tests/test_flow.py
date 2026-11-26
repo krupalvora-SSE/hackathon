@@ -918,3 +918,38 @@ def test_hold_within_limit_still_asks_consent():
     call.handle("affirm")
     r = call.handle("not_serviceable", {"reason": "out of town", "date": "2026-12-18"})
     assert call.state == "HOLD_CONSENT" and "18 दिसंबर" in r.speak[0]
+
+
+# GAP-15 (v0.10.1): after a detour, "yes" keeps the day the customer already chose.
+@pytest.mark.parametrize("detour", [
+    [("missed_visit_complaint", {"issue": "pichhli baar koi nahi aaya"})],
+    [("not_needed_now", {})],
+    [("frustrated", {"issue": "bill galat hai", "reason": "billing"}), ("affirm", {})],
+    [("wrong_person", {}), ("household_member", {})],
+    [("change_time", {})],
+], ids=["missed_visit", "not_needed", "support_ticket", "family_handover", "change_time"])
+def test_chosen_day_survives_a_detour(detour):
+    call, _, events = live()
+    call.handle("affirm")
+    call.handle("deny")                          # not Saturday 28
+    call.handle("affirm", {"option": 1})         # Monday 30
+    _ = [call.handle("affirm") for _ in range(3)]
+    assert call.state == "RECAP"
+    spoken = []
+    for intent, ent in detour:
+        spoken += call.handle(intent, ent).speak
+    for _ in range(6):
+        if call.outcome:
+            break
+        spoken += call.handle("affirm").speak
+    assert call.outcome == "slot_confirmed_alt_day", " > ".join(call.path)
+    assert call.record()["confirmed_slot"]["date"] == "2026-11-30"
+    assert beatplan(events, "confirm_slot")[-1]["date"] == "2026-11-30"
+    assert not any("28 नवंबर" in ln for ln in spoken), "bot must never offer the old day after the customer moved it"
+
+
+def test_yes_to_planned_date_still_books_it():
+    call, _, _ = live()
+    for _ in range(6):
+        call.handle("affirm")
+    assert call.outcome == "slot_confirmed" and call.record()["confirmed_slot"]["date"] == "2026-11-28"

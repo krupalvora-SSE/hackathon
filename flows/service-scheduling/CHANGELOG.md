@@ -2,6 +2,10 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.10.1 (2026-11-26, SSE-15556)
+- Fix GAP-15 (found by the QA plan's state × intent matrix): after the customer chose another day, a detour (missed-visit complaint, "not needed yet" pitch, support ticket, family hand-over, time change) led the bot to ask about the chosen day and then book the planned one. "Yes to the planned date" now uses `set_default:` (new transition key, supported by the engine and flowcheck), so it only picks the planned slot when no day has been chosen yet.
+- 5 scenarios and 6 live tests cover the detours; they fail on 0.10.0.
+
 ## 0.10.0 (2026-11-26, SSE-15556)
 P0 gaps from the QA test plan (142 cases), each with a scenario tagged with its QA case id:
 - RECAP: a plain "no" now offers other days (readiness already answered is not asked again), and "actually ladder nahi hai" (`readiness_changed`) goes to the ready date and site hold.

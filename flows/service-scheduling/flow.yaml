@@ -19,6 +19,8 @@
 #     about time (intents with `shares_time: true`). Otherwise the bot never mentions a time window,
 #     which keeps the team free to move the slot within the day.
 #   - `set:` stores values in call context (e.g. which slot the customer picked).
+#   - `set_default:` stores a value only if the call has none yet. Used for "yes to the planned date" so a
+#     yes after a detour (complaint, not-needed pitch, hand-over) keeps the day the customer already chose.
 #   - Global intents (intents.yaml, scope: global) work in every `conversation`
 #     state unless the state lists them in `disable_global`.
 #
@@ -28,7 +30,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.10.0
+version: 0.10.1
 title: Service scheduling call flow
 ticket: SSE-15539
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -209,7 +211,7 @@ states:
     transitions:
       - on: affirm
         to: READINESS_CHECK
-        set: {selected_slot: primary_slot, slot_source: primary}
+        set_default: {selected_slot: primary_slot, slot_source: primary}   # keep a day already chosen
       - on: ask_time
         to: TIME_BAND
       - on: deny
@@ -231,7 +233,7 @@ states:
     transitions:
       - on: affirm
         to: READINESS_CHECK
-        set: {selected_slot: primary_slot, slot_source: primary}
+        set_default: {selected_slot: primary_slot, slot_source: primary}   # keep a day already chosen
       - on: wants_exact_time
         when: "!exact_time_limit_reached"
         to: TIME_BAND
@@ -295,7 +297,7 @@ states:
     transitions:
       - on: affirm
         to: READINESS_CHECK
-        set: {selected_slot: primary_slot, slot_source: primary}
+        set_default: {selected_slot: primary_slot, slot_source: primary}   # keep a day already chosen
       - on: ask_time
         to: TIME_BAND
       - on: deny
@@ -453,7 +455,7 @@ states:
     transitions:
       - on: affirm
         to: READINESS_CHECK
-        set: {selected_slot: primary_slot, slot_source: primary}
+        set_default: {selected_slot: primary_slot, slot_source: primary}   # keep a day already chosen
       - on: ask_time
         to: TIME_BAND
       - on: deny

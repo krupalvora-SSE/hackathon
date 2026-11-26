@@ -296,3 +296,26 @@
 - name: "[A16] not ready and refuses the hold"
   steps: [context_ready, affirm, affirm, deny, {on: date_given, flags: {hold_too_long: false, reschedule_after_ready_date: false}}, deny]
   expect: hold_declined
+
+# ---------------------------------------------------------------------------------------------
+# v0.10.1 (SSE-15556, GAP-15): a day already chosen survives a detour back to "yes to the planned date".
+
+- name: "[J21] picks another day, complains about the missed visit at the recap, still books that day"
+  steps: [context_ready, affirm, deny, affirm, affirm, missed_visit_complaint, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed_alt_day
+
+- name: "[J22] picks another day, says not needed yet at the recap, agrees, still books that day"
+  steps: [context_ready, affirm, deny, affirm, affirm, not_needed_now, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed_alt_day
+
+- name: "[J23] picks another day, raises a complaint at the recap, agrees to the visit, still books that day"
+  steps: [context_ready, affirm, deny, affirm, affirm, frustrated, affirm, affirm, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed_alt_day
+
+- name: "[D05] picks another day, phone handed to family at the recap, they agree, still books that day"
+  steps: [context_ready, affirm, deny, affirm, affirm, wrong_person, household_member, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed_alt_day
+
+- name: "[A19] picks another day, changes the time at the recap, still books that day"
+  steps: [context_ready, affirm, deny, affirm, affirm, change_time, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed_alt_day

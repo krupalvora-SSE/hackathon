@@ -358,6 +358,11 @@ class FlowCall:
         return None
 
     def _apply_set(self, src: dict) -> None:
+        for k, v in (src.get("set_default") or {}).items():   # only if not already chosen in this call
+            if self.ctx.get(k) is None:
+                self.ctx[k] = self.context.get(v, v) if isinstance(v, str) else v
+                if k == "selected_slot" and isinstance(self.ctx[k], dict):
+                    self._emit_slot()
         for k, v in (src.get("set") or {}).items():
             self.ctx[k] = self.context.get(v, v) if isinstance(v, str) else v
             if k == "selected_slot" and isinstance(self.ctx[k], dict):
