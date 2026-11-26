@@ -143,6 +143,19 @@ def speak_slot(slot: dict, policies: dict, lang: str, with_time: bool = True) ->
     return f"{day}, {(HI_PART if lang == 'hi' else EN_PART)[slot['band']]}" if with_time else day
 
 
+HI_DIGIT = ["शून्य", "एक", "दो", "तीन", "चार", "पाँच", "छह", "सात", "आठ", "नौ"]
+EN_DIGIT = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+
+
+def speak_phone(number: str, lang: str) -> str:
+    """Digit by digit in groups of five ("98300 03000" -> "nine eight three zero zero, zero three ..."),
+    so the customer can write it down."""
+    digits = [int(c) for c in str(number) if c.isdigit()]
+    words = HI_DIGIT if lang == "hi" else EN_DIGIT
+    groups = [digits[i:i + 5] for i in range(0, len(digits), 5)]
+    return ", ".join(" ".join(words[d] for d in g) for g in groups)
+
+
 def parse_band(text: str, policies: dict) -> str | None:
     """Customer's words -> morning/afternoon/evening, using the policy's band hours."""
     t = (text or "").strip().lower()
@@ -179,6 +192,7 @@ class Step:
     error: str | None = None
     state: str | None = None
     allowed: list[str] = field(default_factory=list)
+    tone: dict | None = None      # {"name", "pace", "pitch", "loudness"} for the voice, from policies.tones
 
 
 @dataclass
@@ -202,6 +216,7 @@ class FlowCall:
     streaks: dict = field(default_factory=dict)   # same global intent N times in a row (unclear, cant_hear)
     prefixed: set = field(default_factory=set)    # states whose prefix_if line was already spoken
     asked_lang: str | None = None
+    acked: set = field(default_factory=set)       # states where "I understand" was already said
     readiness_idx: int = 0
     backup_queue: list | None = None
     offered: list = field(default_factory=list)
@@ -360,12 +375,14 @@ class FlowCall:
                     lines.append(self._line(target, pre["key"]))
                 if st.get("checklist") and say is None:
                     self.readiness_idx = 0
-                    lines.append(self._line(target, "main"))
+                    if not self._short():
+                        lines.append(self._line(target, "main"))
                     lines.append(self._checklist_question())
                     key = f"ask_{self.policies[st['checklist']][0]['id']}"
                 else:
-                    lines.append(self._line(target, say or self._main_key(st)))
                     key = say or self._main_key(st)
+                    short = self._line(target, f"repeat_{key}") if self._short() else ""
+                    lines.append(short or self._line(target, key))
                 self.last_line, self.last_ref = lines[-1], (target, key)
                 return lines
 
@@ -381,8 +398,26 @@ class FlowCall:
             return lines
 
     def _step(self, lines: list[str], track: bool = True) -> Step:
+        st = self.spec.states.get(self.state) or {}
+        mood = (self.policies.get("moods") or {}).get(self.ctx.get("mood") or "calm") or {}
+        if (mood.get("acknowledge") and lines and st.get("tone") != "empathetic"
+                and self.state not in self.acked and not self.outcome):
+            self.acked.add(self.state)
+            lines = [f"{self._global_line('empathy_ack')} {lines[0]}".strip()] + lines[1:]
         return Step(speak=lines, end=bool(self.outcome), state=self.state,
-                    allowed=self.spec.allowed_intents(self.state))
+                    allowed=self.spec.allowed_intents(self.state), tone=self._tone())
+
+    def _tone(self) -> dict | None:
+        """How the bot should sound now: the state's own tone, else the customer's mood, else warm."""
+        tones = self.policies.get("tones") or {}
+        st = self.spec.states.get(self.state) or {}
+        mood = (self.policies.get("moods") or {}).get(self.ctx.get("mood") or "calm") or {}
+        name = st.get("tone") or mood.get("tone") or "warm"
+        return {"name": name, **tones[name]} if name in tones else None
+
+    def _short(self) -> bool:
+        mood = (self.policies.get("moods") or {}).get(self.ctx.get("mood") or "calm") or {}
+        return bool(mood.get("short_lines"))
 
     def _global(self, name: str, gi: dict) -> Step:
         if name == "unclear":
@@ -436,6 +471,10 @@ class FlowCall:
             d = N.parse_date(e["date"], self.today)
             if d:
                 self.ctx["_date"] = d
+        if e.get("mood") in (self.policies.get("moods") or {}):
+            self.ctx["mood"] = e["mood"]
+        if on == "missed_visit_complaint":
+            self.ctx["missed_visit_complaint"] = e.get("issue") or "previous visit missed"
         if on == "site_issue" and e.get("issue"):
             self.ctx["site_issues"].append(e["issue"])
         if on == "frustrated":
@@ -609,10 +648,12 @@ class FlowCall:
             v["hold_until_spoken"] = speak_day(d, self.lang)
         v["recall_window_spoken"] = self.ctx.get("recall_window") or ""
         num = str(self.policies.get("support_number") or "").strip()
+        v["support_number_spoken"] = speak_phone(num, self.lang) if num else (
+            "हमारी website पर दिया number" if self.lang == "hi" else "the number on our website")
         if self.lang == "hi":
-            v["support_line"] = f" हमारी helpline {num} पर" if num else " हमारी helpline पर"
+            v["support_line"] = f" हमारी helpline {speak_phone(num, 'hi')} पर" if num else " हमारी helpline पर"
         else:
-            v["support_line"] = f" our helpline on {num}" if num else " our helpline"
+            v["support_line"] = f" our helpline on {speak_phone(num, 'en')}" if num else " our helpline"
         dur = str(self.policies.get("visit_duration") or "").strip()
         v["visit_duration_spoken"] = ((f", लगभग {dur} लगता है" if self.lang == "hi" else f"; it takes about {dur}")
                                       if dur else "")
@@ -669,6 +710,10 @@ class FlowCall:
             parts.append(f"Asked for exact time: {c['preferred_exact_time']}.")
         if c.get("recall_window"):
             parts.append(f"Call back: {c['recall_window']}.")
+        if c.get("missed_visit_complaint"):
+            parts.append(f"Previous visit missed: {c['missed_visit_complaint']}.")
+        if c.get("mood") and c["mood"] != "calm":
+            parts.append(f"Customer mood: {c['mood']}.")
         if c.get("site_issues"):
             parts.append(f"Site issues: {'; '.join(c['site_issues'])}.")
         if c.get("support_ticket"):
@@ -714,6 +759,8 @@ class FlowCall:
             "site_issues": c.get("site_issues", []),
             "readiness_notes": c.get("readiness_notes", {}),
             "support_ticket": c.get("support_ticket"),
+            "missed_visit_complaint": c.get("missed_visit_complaint"),
+            "mood": c.get("mood"),
             "summary": self.summary(),
             "path": self.path,
             "slots": {

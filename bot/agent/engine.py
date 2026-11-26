@@ -85,7 +85,7 @@ class FlowEngine:
                                   "allowed_intents": step.allowed}, run_llm=True)
         return Action(result={"ok": True, "state": step.state, "bot_said": step.speak,
                               "allowed_intents": step.allowed, "ended": step.end},
-                      speak=step.speak, end=step.end, run_llm=False)
+                      speak=step.speak, end=step.end, run_llm=False, tone=step.tone)
 
     def dispatch(self, name: str, args: dict) -> Action:
         if self.call.outcome:

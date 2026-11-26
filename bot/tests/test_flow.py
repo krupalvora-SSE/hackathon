@@ -412,36 +412,105 @@ def test_backup_days_offered_without_time_of_day_unless_asked():
 
 # ---------- from call samples 5-7 and the script review (v0.4.0)
 
-def test_upset_customer_gets_apology_ticket_and_helpline():
+def test_upset_customer_gets_apology_ticket_and_helpline_digit_by_digit():
     call, _, events = live()
     call.handle("affirm")
-    r = call.handle("frustrated", {"issue": "pichle mahine bhi koi nahi aaya", "reason": "missed_visit"})
+    r = call.handle("frustrated", {"issue": "bill galat aaya hai", "reason": "billing"})
     assert call.state == "FRUSTRATED"
     line = r.speak[0]
-    assert "माफ़ी" in line and "support ticket" in line and "helpline" in line
+    assert "माफ़ी" in line and "support ticket" in line and "pen" in line
+    assert "नौ आठ तीन शून्य शून्य, शून्य तीन शून्य शून्य शून्य" in line and "note कर लिया" in line
+    assert r.tone["name"] == "empathetic" and r.tone["pace"] < 1
     t = beatplan(events, "create_support_ticket")[0]
-    assert t["category"] == "missed_visit" and t["customer_words"] == "pichle mahine bhi koi nahi aaya"
+    assert t["category"] == "billing" and t["customer_words"] == "bill galat aaya hai"
     assert "frustrated" not in r.allowed                      # one apology, no loop
-    r = call.handle("deny")
-    assert call.outcome == "support_ticket" and "ticket" in r.speak[0]
-    assert call.record()["support_ticket"]["category"] == "missed_visit"
+    r = call.handle("deny")                                   # didn't note it
+    assert r.speak[0].count("नौ आठ तीन") == 2 and r.tone["name"] == "slow_clear"
+    r = call.handle("deny")                                   # doesn't want the visit now
+    assert call.outcome == "support_ticket" and "नौ आठ तीन" in r.speak[0]
+    assert call.record()["support_ticket"]["category"] == "billing"
 
 
-def test_upset_customer_can_still_book():
+def test_upset_customer_notes_number_then_books():
     call, _, _ = live()
     call.handle("affirm")
-    call.handle("frustrated", {"issue": "baar baar phone"})
+    call.handle("frustrated", {"issue": "service bekaar"})
+    r = call.handle("affirm")                                 # noted the number
+    assert call.state == "AFTER_TICKET" and "visit fix" in r.speak[0]
     r = call.handle("affirm")
     assert call.state == "OFFER_PRIMARY" and "शनिवार" in r.speak[0]
 
 
-def test_helpline_number_is_spoken_when_set():
-    spec = FlowSpec.load()
-    spec.policies["support_number"] = "1800 000 0000"
-    call = FlowCall(call_id="H", booking=BOOKING, spec=spec, today=TODAY)
-    call.start()
+def test_helpline_number_is_spoken_in_groups_of_five():
+    from agent.flow import speak_phone
+    assert speak_phone("9830003000", "en") == "nine eight three zero zero, zero three zero zero zero"
+    assert speak_phone("98300 03000", "hi") == "नौ आठ तीन शून्य शून्य, शून्य तीन शून्य शून्य शून्य"
+
+
+def test_nobody_came_last_time_gets_apology_and_the_date():
+    call, _, _ = live()
     call.handle("affirm")
-    assert "1800 000 0000" in call.handle("frustrated").speak[0]
+    r = call.handle("missed_visit_complaint", {"issue": "pichle mahine koi nahi aaya"})
+    assert call.state == "MISSED_VISIT" and "माफ़ी" in r.speak[0] and "शनिवार" in r.speak[0]
+    assert r.tone["name"] == "empathetic"
+    call.handle("affirm")
+    assert call.state == "READINESS_CHECK"
+    for _ in range(4):
+        call.handle("affirm")
+    rec = call.record()
+    assert call.outcome == "slot_confirmed" and rec["missed_visit_complaint"] == "pichle mahine koi nahi aaya"
+
+
+def test_off_script_goes_to_supervisor():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("off_script", {"issue": "naya panel lagwana hai"})
+    assert call.outcome == "rm_callback" and "supervisor" in r.speak[-1]
+    assert beatplan(events, "create_rm_callback")[0]["reason"] == "off_script"
+
+
+def test_abusive_gets_calm_firm_supervisor_close():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("abusive", {"mood": "abusive"})
+    assert call.outcome == "rm_callback" and r.tone["name"] == "calm_firm"
+    assert beatplan(events, "create_rm_callback")[0]["reason"] == "abusive"
+
+
+def test_busy_customer_gets_short_questions_and_brisk_voice():
+    call, _, _ = live()
+    r = call.handle("affirm", {"mood": "busy"})
+    assert r.speak == ["शनिवार, 28 नवंबर को आप available हैं?"]
+    assert r.tone["name"] == "brisk" and r.tone["pace"] > 1
+    r = call.handle("affirm", {"mood": "busy"})
+    assert len(r.speak) == 1                                   # no intro line before the ladder question
+
+
+def test_confused_customer_gets_slow_clear_voice():
+    call, _, _ = live()
+    r = call.handle("affirm", {"mood": "confused"})
+    assert r.tone["name"] == "slow_clear" and r.tone["pace"] < 1
+
+
+def test_annoyed_customer_hears_i_understand_once_per_step():
+    call, _, _ = live()
+    r = call.handle("affirm", {"mood": "annoyed"})
+    assert r.speak[0].startswith("मैं समझ सकता हूँ।") and r.tone["name"] == "empathetic"
+    r = call.handle("price_or_offtopic", {"mood": "annoyed"})
+    assert not r.speak[0].startswith("मैं समझ सकता हूँ।")
+
+
+def test_calm_customer_gets_warm_default_voice():
+    call, _, _ = live()
+    r = call.handle("affirm")
+    assert r.tone == {"name": "warm", "pace": 1.0, "pitch": 0.0, "loudness": 1.0}
+
+
+def test_flow_action_carries_tone_for_the_voice():
+    from agent.engine import FlowEngine
+    eng = FlowEngine("T1", BOOKING, today=TODAY)
+    a = eng.dispatch("customer_said", {"intent": "affirm", "mood": "angry"})
+    assert a.tone["name"] == "empathetic"
 
 
 def test_missed_last_visit_gets_an_apology_once():

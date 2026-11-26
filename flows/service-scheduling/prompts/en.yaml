@@ -14,6 +14,7 @@ _global:
   someone_home: "Yes, someone needs to be home at the time of the visit so the hero can get to the roof."
   can_you_hear: "Hello, can you hear me?"
   same_day: "A visit today isn't possible; it needs to be booked at least a day ahead."
+  empathy_ack: "I understand."
   service_hours: "Our visits happen only between 9 am and 6 pm."
   didnt_catch: "Sorry, I didn't catch that."
   repeat_lead: "Sure, let me say that again."
@@ -99,7 +100,7 @@ NO_SLOT_CLOSE:
   main: "Sorry, we don't have any other slots right now. Our team will reach out as soon as a new slot opens. Thank you!"
 
 RM_CLOSE:
-  main: "I'll arrange a callback from our senior, they'll speak with you soon. Thank you!"
+  main: "For this, I'll arrange a call from our supervisor; they'll speak with you soon. Thank you!"
 
 RECALL_CLOSE:
   main: "Sure, we'll call you {recall_window_spoken}. Thank you!"
@@ -123,11 +124,21 @@ REQUEST_CLOSE:
   main: "I've noted your request for {requested_date_spoken}, {requested_band_spoken}. The date isn't fixed yet and may change with technician availability. Our team will confirm with you. Thank you!"
 
 FRUSTRATED:
-  main: "I understand, you've had trouble more than once, and I'm sorry. I've raised a support ticket for you, and our support team will contact you soon. You can also reach{support_line}. Meanwhile, shall I fix your maintenance visit?"
-  repeat_main: "Shall I fix the visit meanwhile?"
+  main: "I understand, you've had trouble, and I'm sorry. I've raised a support ticket for you, and our support team will contact you soon. You can also call our helpline, so please take a pen. The number is: {support_number_spoken}. Have you noted it down?"
+  repeat_main: "The helpline number is: {support_number_spoken}. Have you noted it?"
+
+AFTER_TICKET:
+  main: "Thank you. Meanwhile, shall I fix your maintenance visit?"
+  number_again: "No problem, I'll say it slowly: {support_number_spoken}. Once more: {support_number_spoken}. Meanwhile, shall I fix your maintenance visit?"
+  repeat_main: "Shall I fix the visit?"
+  repeat_number_again: "Shall I fix the visit?"
+
+MISSED_VISIT:
+  main: "I'm really sorry nobody came last time; that shouldn't have happened. This time I'll make sure your visit happens. Would {weekday}, {date_spoken} work for you?"
+  repeat_main: "Would {weekday}, {date_spoken} work?"
 
 TICKET_CLOSE:
-  main: "Okay. Your ticket is raised and our support team will contact you. Thank you."
+  main: "Okay. Your ticket is raised and our support team will contact you. The helpline again: {support_number_spoken}. Thank you."
 
 LINE_ISSUE_CLOSE:
   main: "It seems you can't hear me; we'll call you back shortly. Thank you."

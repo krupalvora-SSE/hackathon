@@ -25,6 +25,7 @@ from pipecat.frames.frames import (
     LLMFullResponseStartFrame,
     MetricsFrame,
     TTSSpeakFrame,
+    TTSUpdateSettingsFrame,
     UserStoppedSpeakingFrame,
     VADUserStoppedSpeakingFrame,
 )
@@ -354,8 +355,19 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         logger.info(f"call {call_id} ended ({reason}): {record}")
         await emitter.close()
 
+    voice_tone = {"name": "warm"}
+
+    def tone_frames(tone: dict | None) -> list[Frame]:
+        """Pace / pitch / loudness for the next lines (bulbul:v4-flash). TONE_CONTROL=0 turns it off."""
+        if not tone or os.getenv("TONE_CONTROL", "1") == "0" or tone.get("name") == voice_tone["name"]:
+            return []
+        voice_tone["name"] = tone.get("name")
+        delta = SarvamTTSService.Settings(**{k: tone[k] for k in ("pace", "pitch", "loudness") if k in tone})
+        return [TTSUpdateSettingsFrame(delta=delta)]
+
     async def perform(action: Action) -> None:
-        frames: list[Frame] = [TTSSpeakFrame(t, append_to_context=True) for t in action.speak]
+        frames: list[Frame] = tone_frames(getattr(action, "tone", None))
+        frames += [TTSSpeakFrame(t, append_to_context=True) for t in action.speak]
         if action.end:
             if engine.outcome == "handed_to_human" and not telephony:
                 emitter.emit({"type": "transcript", "role": "agent", "text": HANDOVER_BROWSER_NOTE})

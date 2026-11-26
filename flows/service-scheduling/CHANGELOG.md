@@ -2,6 +2,12 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.5.0 (2026-11-26, SSE-15527)
+- Helpline 9830003000, read out digit by digit in groups of five ("nine eight three zero zero, zero three zero zero zero"), after "please take a pen". The bot asks whether it was noted; if not, it repeats it twice slowly, and says it once more when the call ends.
+- "Nobody came last time" (`missed_visit_complaint`) is no longer a dead end: the bot owns the miss, apologises and offers the planned date again (MISSED_VISIT). Other complaints still go to the support ticket.
+- Anything outside this call (`off_script`: new panels, loans, refunds…) and abuse (`abusive`) → "I'll arrange a call from our supervisor" (ESCALATE_RM / RM_CLOSE now say supervisor).
+- Emotion-aware delivery: the LLM reports the customer's `mood` each turn (calm, busy, confused, annoyed, angry, abusive). `policies.moods` picks a voice `tone` (pace, pitch, loudness for Sarvam bulbul:v4-flash), short questions for busy/confused customers, and one "I understand" per step for annoyed/angry ones. States can force a tone (`tone:` in flow.yaml), e.g. the helpline is always slow and clear. Set `TONE_CONTROL=0` to turn voice changes off.
+
 ## 0.4.0 (2026-11-26, SSE-15527)
 From 3 more sample calls (upset customers, repeated calls, a bad line) and a call-script review:
 - Upset or complaining customers (`frustrated`): the bot stops the script, apologises once, raises a support ticket (`create_support_ticket`), gives the helpline (`support_number` in policies.yaml, empty until confirmed) and asks once whether to fix the visit. No → `support_ticket`.

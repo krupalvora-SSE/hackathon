@@ -54,6 +54,7 @@ class Action:
     end: bool = False                # end the call after speaking
     run_llm: bool = True             # let the LLM respond to the result
     ask_next: str | None = None      # spoken after this turn's tool calls (skips a 2nd LLM round trip)
+    tone: dict | None = None         # voice delivery for these lines: pace / pitch / loudness (flow mode)
 
 
 ACKS = ["Theek hai.", "Ji, bilkul.", "Achha ji."]
@@ -145,6 +146,8 @@ def flow_tools(spec) -> list[dict]:
             "language": {"type": "string", "enum": spec.policies["languages"] + ["other"],
                          "description": "Language the customer speaks or asks for; 'other' for e.g. Marathi."},
             "issue": {"type": "string", "description": "Problem at the site or complaint, in their words."},
+            "mood": {"type": "string", "enum": list((spec.policies.get("moods") or {"calm": {}}).keys()),
+                     "description": "How the customer sounds right now."},
         },
         "required": ["intent"],
     }]

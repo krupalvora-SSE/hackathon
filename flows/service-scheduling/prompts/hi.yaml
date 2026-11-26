@@ -21,6 +21,7 @@ _global:
   someone_home: "जी, visit के समय घर पर किसी का होना ज़रूरी है ताकि hero छत तक जा सकें।"
   can_you_hear: "हैलो, क्या आपको मेरी आवाज़ आ रही है?"
   same_day: "आज की visit नहीं हो पाएगी, कम से कम एक दिन पहले book करनी होती है।"
+  empathy_ack: "मैं समझ सकता हूँ।"
   service_hours: "हमारी visits सुबह 9 से शाम 6 बजे के बीच ही होती हैं।"
   didnt_catch: "माफ़ कीजिए, ठीक से सुनाई नहीं दिया।"
   repeat_lead: "जी, फिर से बता देता हूँ।"
@@ -106,7 +107,7 @@ NO_SLOT_CLOSE:
   main: "माफ़ कीजिए, अभी हमारे पास और slots नहीं हैं। नया slot खुलते ही हमारी team आपसे संपर्क करेगी। धन्यवाद!"
 
 RM_CLOSE:
-  main: "मैं हमारे senior से आपको callback arrange करवा देता हूँ, वो जल्द ही आपसे बात करेंगे। धन्यवाद!"
+  main: "इसके लिए मैं हमारे supervisor से आपको call arrange करवा देता हूँ, वो जल्द ही आपसे बात करेंगे। धन्यवाद!"
 
 RECALL_CLOSE:
   main: "ठीक है, हम आपको {recall_window_spoken} call करेंगे। धन्यवाद!"
@@ -130,11 +131,21 @@ REQUEST_CLOSE:
   main: "मैंने आपकी {requested_date_spoken}, {requested_band_spoken} की request note कर ली है। यह date अभी fix नहीं है, technician की availability के हिसाब से बदल भी सकती है। हमारी team आपसे confirm कर लेगी। धन्यवाद!"
 
 FRUSTRATED:
-  main: "मैं समझ सकता हूँ, आपको बार बार परेशानी हुई, इसके लिए माफ़ी चाहता हूँ। मैंने आपके लिए support ticket बना दिया है, हमारी support team जल्द आपसे संपर्क करेगी। आप चाहें तो{support_line} भी बात कर सकते हैं। क्या तब तक मैं आपकी maintenance visit fix कर दूँ?"
-  repeat_main: "क्या तब तक visit fix कर दूँ?"
+  main: "मैं समझ सकता हूँ, आपको परेशानी हुई, इसके लिए माफ़ी चाहता हूँ। मैंने आपके लिए support ticket बना दिया है, हमारी support team जल्द आपसे संपर्क करेगी। आप हमारी helpline पर भी बात कर सकते हैं, एक pen ले लीजिए। Number है: {support_number_spoken}। क्या आपने number note कर लिया?"
+  repeat_main: "Helpline number है: {support_number_spoken}। Note कर लिया?"
+
+AFTER_TICKET:
+  main: "धन्यवाद। क्या तब तक मैं आपकी maintenance visit fix कर दूँ?"
+  number_again: "कोई बात नहीं, मैं धीरे से फिर बोलता हूँ: {support_number_spoken}। एक बार और: {support_number_spoken}। क्या तब तक मैं आपकी maintenance visit fix कर दूँ?"
+  repeat_main: "क्या visit fix कर दूँ?"
+  repeat_number_again: "क्या visit fix कर दूँ?"
+
+MISSED_VISIT:
+  main: "पिछली बार कोई नहीं आ पाया, इसके लिए सच में माफ़ी चाहता हूँ, ऐसा नहीं होना चाहिए था। इस बार मैं आपकी visit पक्की करवा देता हूँ। क्या {weekday}, {date_spoken} आपके लिए ठीक रहेगा?"
+  repeat_main: "क्या {weekday}, {date_spoken} ठीक रहेगा?"
 
 TICKET_CLOSE:
-  main: "ठीक है। आपका ticket बन गया है, हमारी support team आपसे संपर्क करेगी। धन्यवाद।"
+  main: "ठीक है। आपका ticket बन गया है, हमारी support team आपसे संपर्क करेगी। Helpline फिर से: {support_number_spoken}। धन्यवाद।"
 
 LINE_ISSUE_CLOSE:
   main: "लगता है आपको मेरी आवाज़ नहीं आ रही, हम थोड़ी देर में दोबारा call करेंगे। धन्यवाद।"

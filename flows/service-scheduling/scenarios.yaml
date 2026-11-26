@@ -147,11 +147,11 @@
   expect: date_requested
 
 - name: upset customer, ticket raised, still books the visit
-  steps: [context_ready, affirm, frustrated, affirm, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, frustrated, affirm, affirm, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: upset customer, ticket raised, ends the call
-  steps: [context_ready, affirm, frustrated, deny]
+  steps: [context_ready, affirm, frustrated, deny, deny]
   expect: support_ticket
 
 - name: customer can't hear the bot twice -> call back
@@ -165,3 +165,15 @@
 - name: ladder not needed counts as ready
   steps: [context_ready, affirm, affirm, not_required, affirm, action_ok]
   expect: slot_confirmed
+
+- name: nobody came last time -> apology, still books the planned date
+  steps: [context_ready, affirm, missed_visit_complaint, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: asks for something outside this call -> supervisor call
+  steps: [context_ready, affirm, off_script, action_ok]
+  expect: rm_callback
+
+- name: abusive -> supervisor call
+  steps: [context_ready, affirm, abusive, action_ok]
+  expect: rm_callback

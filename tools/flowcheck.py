@@ -257,6 +257,14 @@ class Flow:
                 for k in keys:
                     if k not in ((p or {}).get("READINESS_CHECK") or {}):
                         self.err(f"prompts/{lang}.yaml: READINESS_CHECK.{k} missing for readiness item")
+        # tones: every state tone and mood tone must be defined in policies.tones
+        tones = self.policies.get("tones") or {}
+        for n, st in self.states.items():
+            if st.get("tone") and st["tone"] not in tones:
+                self.err(f"{n}: tone '{st['tone']}' is not in policies.tones")
+        for m, cfg in (self.policies.get("moods") or {}).items():
+            if (cfg or {}).get("tone") not in tones:
+                self.err(f"policies.moods.{m}: tone '{(cfg or {}).get('tone')}' is not in policies.tones")
         # prefix_if: its prompt key must exist in every language
         for n, st in self.states.items():
             pre = st.get("prefix_if")

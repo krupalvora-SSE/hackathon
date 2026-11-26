@@ -47,13 +47,38 @@ global:
       hi: ["mai unka beta bol raha hoon", "wo ghar pe nahi hain", "galat number hai"]
       en: ["this is his son", "she's not here", "wrong number"]
 
+  missed_visit_complaint:
+    label: Nobody came last time
+    goto: MISSED_VISIT
+    entities: [issue]
+    examples:
+      hi: ["pichle mahine bhi koi nahi aaya", "ek hafta ho gaya koi nahi aaya", "kal bhi time diya tha, koi nahi aaya", "roz yahi kahani sunate ho"]
+      en: ["nobody came last month", "you gave me a time last week and nobody came"]
+
   frustrated:
-    label: Upset or complaint
+    label: Upset or other complaint
     goto: FRUSTRATED
     entities: [issue, reason]
     examples:
-      hi: ["roz yahi kahani sunate ho", "ek hafta ho gaya koi nahi aaya", "pichle mahine bhi nahi aaye", "baar baar phone kyun karte ho", "bill galat aaya hai", "subsidy abhi tak nahi mili", "aapki service bekaar hai"]
-      en: ["nobody came last time", "you keep calling me", "your service is terrible", "I have a complaint"]
+      hi: ["bill galat aaya hai", "subsidy abhi tak nahi mili", "aapki service bekaar hai", "baar baar phone kyun karte ho", "main bahut pareshan hoon"]
+      en: ["I have a complaint", "your service is terrible", "you keep calling me"]
+
+  off_script:
+    label: Something outside this call
+    goto: ESCALATE_RM
+    set: {rm_callback_reason: off_script}
+    entities: [issue]
+    examples:
+      hi: ["naya panel lagwana hai", "loan ke baare mai poochna tha", "refund chahiye", "mere dost ke ghar bhi lagwana hai", "system shift karna hai"]
+      en: ["I want to add more panels", "I need a refund", "can you help with my loan"]
+
+  abusive:
+    label: Abusive
+    goto: ESCALATE_RM
+    set: {rm_callback_reason: abusive}
+    examples:
+      hi: ["(gaali)", "dimaag kharab mat karo, bewakoof"]
+      en: ["(abuse)", "shut up, you idiot"]
 
   cant_hear:
     label: Can't hear the bot
@@ -90,7 +115,7 @@ global:
     say: site_issue_noted
     entities: [issue]
     examples:
-      hi: ["ek panel toot gaya hai", "inverter mai error aa raha hai", "chhat se paani tapakta hai", "panel pe chidiya ka ghonsla hai"]
+      hi: ["ek panel toot gaya hai", "inverter mai error aa raha hai", "generation kam ho raha hai", "chhat se paani tapakta hai", "panel pe chidiya ka ghonsla hai"]
       en: ["one panel is cracked", "the inverter shows an error"]
 
   who_is_this:
@@ -161,12 +186,12 @@ global:
       en: ["sorry, what?", "can you repeat that", "say that again", "I didn't get that"]
 
   price_or_offtopic:
-    label: Asks price or something else
+    label: Asks about price
     goto: $stay
     say: deflection
     examples:
-      hi: ["kitna charge lagega", "generation kam ho raha hai", "inverter mai error aa raha hai"]
-      en: ["how much will it cost", "my generation is low"]
+      hi: ["kitna charge lagega", "paise lagenge kya", "free hai na"]
+      en: ["how much will it cost", "is it free"]
 
 local:
 
