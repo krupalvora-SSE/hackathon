@@ -5,7 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.165.0",
     "httpx>=0.28.1",
-    "pipecat-ai[google,openai,runner,sarvam,silero,webrtc]>=1.17.0",
+    "pipecat-ai[google,openai,rnnoise,runner,sarvam,silero,webrtc]>=1.17.0",
     "pytest>=9.2.0",
     "python-dotenv>=1.2.4",
     "python-multipart>=0.0.34",
