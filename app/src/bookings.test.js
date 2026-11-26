@@ -25,3 +25,22 @@ test('flow results the dashboard shows are stored, and cleared by a later call',
   assert.deepEqual(s.get('A').willArrange, []);
   assert.equal(s.get('A').status, 'confirmed');
 });
+
+test('what was confirmed is kept whatever the outcome: readiness, hold, call back, who we spoke to', () => {
+  const s = createStore([{ id: 'A' }]);
+  s.applyCallResult('A', {
+    outcome: 'site_on_hold', call_id: 'c1', spoke_to: 'family_member', recall_window: null,
+    hold: { reason: 'prerequisites_missing', until: '2026-12-10', consent: true },
+    slots: { ladder_available: false, water_source_available: true, light_available: true },
+  });
+  const b = s.get('A');
+  assert.equal(b.status, 'site_on_hold');
+  assert.deepEqual(b.readiness, { ladder: false, water: true, light: true });
+  assert.equal(b.hold.until, '2026-12-10');
+  assert.equal(b.spokeTo, 'family_member');
+  s.applyCallResult('A', { outcome: 'recall_requested', call_id: 'c2', recall_window: 'kal shaam 5 se 7', spoke_to: { name: 'x' }, slots: {} });
+  assert.equal(s.get('A').recallWindow, 'kal shaam 5 se 7');
+  assert.equal(s.get('A').spokeTo, 'customer');                            // an old record shape still works
+  assert.deepEqual(s.get('A').readiness, { ladder: null, water: null, light: null });
+  assert.equal(s.get('A').hold, null);                                     // a later call clears the earlier hold
+});

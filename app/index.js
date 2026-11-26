@@ -11,7 +11,10 @@ try { process.loadEnvFile(); } catch {} // .env is optional (git-ignored)
 const port = process.env.PORT || 3000;
 const store = createStore();
 const offguard = createOffguard({ file: process.env.OFFGUARD_FILE || join(import.meta.dirname, 'data', 'offguard.json') });
-const calls = createCalls(store, { onOffguard: (x) => offguard.capture(x) });
+const calls = createCalls(store, {
+  onOffguard: (x) => offguard.capture(x),
+  file: process.env.CALLS_FILE || join(import.meta.dirname, 'data', 'calls.json'),
+});
 const PUBLIC = join(import.meta.dirname, 'public');
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.ttf': 'font/ttf' };
 const STATUS = { empty_text: 400, invalid_question: 400, invalid_answer: 400, invalid_intent: 400, invalid_update: 400, not_found: 404, already_decided: 409, invalid_mode: 400, invalid_event: 400, exotel_not_configured: 503, exotel_failed: 502, number_not_allowed: 403 };
@@ -106,6 +109,9 @@ createServer(async (req, res) => {
     }
     return json(res, 201, calls.get(r.call.id));
   }
+
+  if (req.method === 'GET' && pathname === '/api/calls') return json(res, 200, calls.list({ bookingId: url.searchParams.get('bookingId') ?? undefined }));
+  if (req.method === 'GET' && pathname === '/logs') return res.writeHead(302, { location: '/logs.html' }).end();
 
   const sid = pathname.match(/^\/api\/calls\/by-sid\/([\w-]+)$/);
   if (sid && req.method === 'GET') {
