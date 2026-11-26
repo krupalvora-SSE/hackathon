@@ -8,7 +8,7 @@
 #   - Transitions are checked top to bottom; the first whose `on` matches and
 #     whose `when` flag holds wins. `when: "!flag"` means the flag is false.
 #   - Flags are set by code (counters, policy values, action results), never by the LLM.
-#   - `say:` plays a specific prompt key of the target state instead of its `main` line.
+#   - `say:` plays a specific prompt key of the target state instead of its `mai` line.
 #   - `set:` stores values in call context (e.g. which slot the customer picked).
 #   - Global intents (intents.yaml, scope: global) work in every `conversation`
 #     state unless the state lists them in `disable_global`.
@@ -66,7 +66,7 @@ labels:
   slot_found: Found one
   none_found: None free
   exact_time_limit_reached: {when_true: asks again, when_false: first time}
-  options_remaining: {when_true: more days to offer, when_false: no more days}
+  options_remaiing: {when_true: more days to offer, when_false: no more days}
   reschedule_after_ready_date: {when_true: if rebooking is on, when_false: default}
 
 # Example values for {placeholders}, so the shareable page shows a real-sounding line.
@@ -94,7 +94,7 @@ events:
 # Flags code computes before choosing a guarded transition.
 flags:
   exact_time_limit_reached: "exact_time_asks (including this one) > policies.exact_time_insist_limit"
-  options_remaining: "unoffered backup slots exist"
+  options_remaiing: "unoffered backup slots exist"
   reschedule_after_ready_date: "policies.on_missing_prereq == 'reschedule_after_ready_date'"
 
 # Applies to every conversation state.
@@ -212,11 +212,11 @@ states:
       - on: wants_other_band
         to: CHECK_BAND
       - on: deny
-        when: options_remaining
+        when: options_remaiing
         to: ALTERNATE_DAYS
         say: next_options
       - on: deny
-        when: "!options_remaining"
+        when: "!options_remaiing"
         to: NO_SLOT_CLOSE
 
   READINESS_CHECK:

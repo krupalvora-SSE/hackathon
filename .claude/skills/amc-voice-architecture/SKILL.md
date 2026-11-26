@@ -51,7 +51,7 @@ Run a 30-minute bake-off early: same 10 Hindi utterances recorded over a real ph
 Tricks that buy the most:
 - Host the agent in an Indian region (Mumbai) close to telephony and vendor endpoints.
 - Stream everything: send LLM tokens to TTS at the first clause/sentence boundary (`।`, `,`, `?`).
-- Pre-render static audio: greeting, recording disclosure, "ek second, main check karti hoon", goodbye. Play from cache with 0ms TTS.
+- Pre-render static audio: greeting, recording disclosure, "ek second, mai check karti hoon", goodbye. Play from cache with 0ms TTS.
 - Filler while a tool runs: if `check_availability` takes > 300ms, play a cached "ek minute, slots dekh rahi hoon".
 - Keep the system prompt short (< 1.5k tokens), put customer context in it once; use prompt caching if the provider supports it.
 - Speculatively start the LLM on a stable interim transcript; discard if final transcript differs.

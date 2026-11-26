@@ -5,7 +5,7 @@ Bump `version` in `flow.yaml` with every change and add a line here. The version
 ## 0.2.0 (2026-11-26, SSE-15527)
 - README diagrams split into an overview plus one diagram per section, with plain-English step titles (`title`), arrow labels (`label` / `labels`) and `sections` in `flow.yaml`; `flow.html` generated as a shareable page.
 - Wired into the Python bot (`bot/agent/flow.py`). Added `checklist: readiness_items` on READINESS_CHECK, the global `unclear` intent with escalation after 2 misses, Hindi/English readiness labels, and a shorter price deflection (the bot now repeats the current question after it).
-- Merged the Krupal persona from 0.1.1; the remaining feminine Hindi lines are now masculine, and `{bot_name}` uses the active cloned voice's name.
+- Merged the Krupal persona from 0.1.1; the remaiing feminine Hindi lines are now masculine, and `{bot_name}` uses the active cloned voice's name.
 
 ## 0.1.1 (2026-11-26)
 - Persona renamed to Krupal (male); Hindi lines use masculine first-person forms (raha/karta/leta hoon).

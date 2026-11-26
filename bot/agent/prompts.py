@@ -13,7 +13,7 @@ GOODBYES = {
     "do_not_call": "Theek hai, maaf kijiye. Hum aapko dobara call nahi karenge. Dhanyavaad.",
     "wrong_number": "Maaf kijiye, galat number lag gaya. Dhanyavaad.",
     "no_answer": "Lagta hai aawaz nahi aa rahi. Hum aapko baad mai call karenge. Dhanyavaad.",
-    "handed_to_human": "Ek minute, main aapko hamare team member se connect kar raha hoon.",
+    "handed_to_human": "Ek minute, mai aapko hamare team member se connect kar raha hoon.",
 }
 HANDOVER_BROWSER_NOTE = "(Browser demo: handover would connect the human agent here.)"
 
@@ -29,7 +29,7 @@ def greeting(booking: dict) -> str:
     agent = active_voice_name()
     me = f"SolarSquare se {agent}" if agent else "SolarSquare se"
     return (
-        f"Namaste {who}, main {me} bol raha hoon. "
+        f"Namaste {who}, mai {me} bol raha hoon. "
         "Yeh call quality ke liye record ho rahi hai. "
         "Aapke solar panel cleaning visit ke baare mai ek minute baat kar sakte hain?"
     )
@@ -101,7 +101,7 @@ def flow_system_prompt(call) -> str:
     c = call.context
     primary = c.get("primary_slot") or {}
     return f"""You are the listening brain of {persona['name']}, a SolarSquare phone agent calling an existing customer
-to schedule their solar system maintenance from the Beat Plan. You do NOT speak. The system speaks fixed lines.
+to schedule their solar system maitenance from the Beat Plan. You do NOT speak. The system speaks fixed lines.
 
 Customer: {c.get('customer', {}).get('name', '')} | Site: {c.get('site_id', '')}
 Beat Plan primary slot: {primary.get('date')} {primary.get('band')}

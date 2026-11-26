@@ -169,7 +169,7 @@ class CallState:
         self.confirmed = False
         self.on_event({"type": "readback"})
         return (
-            f"Main ek baar confirm kar leta hoon: visit {N.speak_date(v['visit_date'])} ko, "
+            f"mai ek baar confirm kar leta hoon: visit {N.speak_date(v['visit_date'])} ko, "
             f"{N.SLOT_SPEECH[v['visit_time_slot']]}. "
             f"{SLOT_BY_KEY['ladder_available'].speak(v['ladder_available']).capitalize()}, aur "
             f"{SLOT_BY_KEY['water_source_available'].speak(v['water_source_available'])}. "

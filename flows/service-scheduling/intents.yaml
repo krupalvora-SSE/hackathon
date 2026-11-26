@@ -14,7 +14,7 @@ global:
     goto: SITE_ON_HOLD
     entities: [hold_reason, hold_until]
     examples:
-      hi: ["main abhi gaon gaya hua hoon", "hum shift ho rahe hain", "chhat pe kaam chal raha hai", "do mahine bahar hoon"]
+      hi: ["mai abhi gaon gaya hua hoon", "hum shift ho rahe hain", "chhat pe kaam chal raha hai", "do mahine bahar hoon"]
       en: ["I'm out of town", "we are moving house", "roof repair is going on"]
 
   call_later:
@@ -44,7 +44,7 @@ global:
     label: Someone else answered
     goto: WRONG_PERSON
     examples:
-      hi: ["main unka beta bol raha hoon", "wo ghar pe nahi hain", "galat number hai"]
+      hi: ["mai unka beta bol raha hoon", "wo ghar pe nahi hain", "galat number hai"]
       en: ["this is his son", "she's not here", "wrong number"]
 
   unclear:
@@ -102,7 +102,7 @@ local:
   household_member:
     label: Family member, can decide
     examples:
-      hi: ["main unki wife hoon, mujhe bata do", "haan ghar ka hi hoon, bolo"]
+      hi: ["mai unki wife hoon, mujhe bata do", "haan ghar ka hi hoon, bolo"]
       en: ["I'm his wife, you can tell me", "I live here, go ahead"]
 
   customer_unavailable:

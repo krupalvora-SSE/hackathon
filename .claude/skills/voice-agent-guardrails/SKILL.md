@@ -57,7 +57,7 @@ Runs per sentence on aggregated LLM text, **before** TTS so nothing unsafe is ev
 | Money / price | `₹`, `rs`, `rupaye`, `rupees`, `inr`, `paisa`, `charge`, `fees`, `free mai`, `discount`, `offer`, digit + `rupay` | "Iski jaankari hamari team aapko degi." |
 | Subsidy / savings / generation promises | `subsidy`, `savings`, `bachat`, `bill zero`, `units`, `generation badh`, `guarantee`, `pakka` + number | same safe line |
 | False confirmation | `confirm ho gaya`, `booked`, `book kar diya`, `pakka ho gaya` when `state.outcome != "confirmed"` | drop the sentence (system speaks confirmation) |
-| Claims to be human | `main insaan hoon`, `I am human`, `robot nahi` | "Main SolarSquare ki AI assistant hoon." |
+| Claims to be human | `mai insaan hoon`, `I am human`, `robot nahi` | "mai SolarSquare ki AI assistant hoon." |
 | PII leak before identity confirmed | address, phone digits, booking id in output while identity unconfirmed | drop the sentence |
 | Prompt / internals leak | `system prompt`, `tool`, `save_slot`, `json`, `{`, `slot id` | drop the sentence |
 | Formatting junk | markdown, emojis, lists, > 2 sentences | strip / truncate to 2 sentences |

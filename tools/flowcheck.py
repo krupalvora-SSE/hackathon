@@ -236,8 +236,8 @@ class Flow:
         for lang, p in self.prompts.items():
             p = p or {}
             for n in spoken:
-                if not (p.get(n) or {}).get("main"):
-                    self.err(f"prompts/{lang}.yaml: state {n} has no 'main' line")
+                if not (p.get(n) or {}).get("mai"):
+                    self.err(f"prompts/{lang}.yaml: state {n} has no 'mai' line")
             for n in p:
                 if n != "_global" and n not in self.states:
                     self.err(f"prompts/{lang}.yaml: '{n}' is not a state")
@@ -645,7 +645,7 @@ class Flow:
         return self.diagrams_markdown() in readme.read_text(encoding="utf-8")
 
 
-def main():
+def mai():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("flows", nargs="*", help="flow folders (default: every flows/*/ with a flow.yaml)")
     ap.add_argument("--write", action="store_true", help="rewrite the Mermaid diagram in README.md")
@@ -686,5 +686,5 @@ def main():
     return 1 if failed else 0
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+if __name__ == "__mai__":
+    sys.exit(mai())

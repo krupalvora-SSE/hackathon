@@ -15,8 +15,8 @@ from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.utils.text.transforms.replacements import replace_text
 
 # Words Sarvam pronounces badly, rewritten just before speech (fixed lines and LLM replies alike).
-# "main" (I) and "mein" (in) come out stiff; callers say "mai" for both. Whole words only, so
-# "maintenance" or "remaining" are untouched.
+# "mai" (I) and "mein" (in) come out stiff; callers say "mai" for both. Whole words only, so
+# "maitenance" or "remaiing" are untouched.
 _DEV = "\u0900-\u097F"
 SPOKEN_FIXES = [
     (r"\b[Mm]ain\b", "mai"),

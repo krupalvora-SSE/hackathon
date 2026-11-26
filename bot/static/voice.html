@@ -18,7 +18,7 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
          font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 28px 16px 64px; }
+  mai { max-width: 760px; margin: 0 auto; padding: 28px 16px 64px; }
   h1 { font-size: 24px; margin: 0 0 4px; }
   h2 { font-size: 16px; margin: 0 0 12px; display: flex; gap: 10px; align-items: center; }
   .step { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
@@ -88,7 +88,7 @@
 </style>
 </head>
 <body>
-<main>
+<mai>
   <h1>Voice Studio</h1>
   <p class="sub">Clone your own voice on Sarvam and make it the voice the AMC bot speaks with on calls,
     then tune how the bot listens, speaks and takes turns.</p>
@@ -141,7 +141,7 @@
   <section class="card">
     <h2><span class="step">3</span>Test and choose</h2>
     <label for="testText">Line to speak</label>
-    <textarea id="testText">Namaste Rahul ji, main SolarSquare se bol raha hoon. Aapke solar panel cleaning visit ke baare mai ek minute baat kar sakte hain?</textarea>
+    <textarea id="testText">Namaste Rahul ji, mai SolarSquare se bol raha hoon. Aapke solar panel cleaning visit ke baare mai ek minute baat kar sakte hain?</textarea>
     <div id="voices" style="margin-top:12px"><span class="muted">Loading voices…</span></div>
     <audio id="previewAudio" controls hidden></audio>
     <div class="msg" id="voiceMsg"></div>
@@ -161,16 +161,16 @@
       <span class="msg" id="cfgMsg" style="margin:0"></span>
     </div>
   </section>
-</main>
+</mai>
 
 <script>
 const $ = (id) => document.getElementById(id);
 const SCRIPTS = {  // ~14 s read aloud: Sarvam clones from the first 15 s only
-  m: ["Namaste ji, main SolarSquare se bol raha hoon.",
+  m: ["Namaste ji, mai SolarSquare se bol raha hoon.",
       "Aapke solar panel cleaning visit ke liye call kiya hai.",
       "Kya Somvar subah das baje ka time theek rahega?",
       "Haan, bilkul, koi baat nahi. Bahut dhanyavaad ji!"],
-  f: ["Namaste ji, main SolarSquare se bol rahi hoon.",
+  f: ["Namaste ji, mai SolarSquare se bol rahi hoon.",
       "Aapke solar panel cleaning visit ke liye call kiya hai.",
       "Kya Somvar subah das baje ka time theek rahega?",
       "Haan, bilkul, koi baat nahi. Bahut dhanyavaad ji!"],
