@@ -1,0 +1,8 @@
+[
+  { "id": "BK-1001", "sseId": "SSE-PUN-20431", "customerName": "Rahul Joshi",   "phone": "+910000000001", "date": "2026-11-28", "window": "07:00-09:00" },
+  { "id": "BK-1002", "sseId": "SSE-PUN-20877", "customerName": "Sneha Kulkarni", "phone": "+910000000002", "date": "2026-11-28", "window": "09:00-11:00" },
+  { "id": "BK-1003", "sseId": "SSE-MUM-11290", "customerName": "Amit Mehta",    "phone": "+910000000003", "date": "2026-11-29", "window": "16:00-18:00" },
+  { "id": "BK-1004", "sseId": "SSE-BLR-30562", "customerName": "Priya Krishnan", "phone": "+910000000004", "date": "2026-11-30", "window": "07:00-09:00" },
+  { "id": "BK-1005", "sseId": "SSE-NGP-40118", "customerName": "Vikas Deshmukh", "phone": "+910000000005", "date": "2026-12-01", "window": "09:00-11:00" },
+  { "id": "BK-1006", "sseId": "SSE-AHM-50744", "customerName": "Kavita Shah",   "phone": "+910000000006", "date": "2026-12-02", "window": "16:00-18:00" }
+]

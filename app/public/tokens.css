@@ -1,0 +1,236 @@
+/* ============================================================
+   SolarSquare — Color & Type Tokens
+   ============================================================
+   Blue + Yellow primary system. Neutrals lean warm.
+   Use semantic vars in product code; raw scales for design tools.
+   ============================================================ */
+
+/* Copied from the SolarSquare design system skill. @import must precede all other rules. */
+@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..700&display=swap");
+
+/* Brand sans — self-hosted Noto Sans (variable: width + weight) */
+@font-face {
+  font-family: "Noto Sans";
+  src: url("./fonts/NotoSans-VariableFont_wdth_wght.ttf") format("truetype-variations");
+  font-weight: 100 900;
+  font-stretch: 62.5% 100%;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ---------- Raw scales ---------- */
+
+  /* Solar Blue — primary (sky → ink) */
+  --blue-50:  #EEF4FF;
+  --blue-100: #D9E5FF;
+  --blue-200: #B3CBFF;
+  --blue-300: #7FA8FF;
+  --blue-400: #4F86FF;
+  --blue-500: #2A66F2;   /* brand */
+  --blue-600: #1E4FCC;
+  --blue-700: #173E9E;
+  --blue-800: #112C72;
+  --blue-900: #0B1D4D;
+  --blue-950: #060F2A;
+
+  /* Sun Yellow — secondary (cream → amber) */
+  --sun-50:   #FFF9E5;
+  --sun-100:  #FFF1BF;
+  --sun-200:  #FFE282;
+  --sun-300:  #FFD24A;
+  --sun-400:  #FFC11F;   /* brand */
+  --sun-500:  #F2A500;
+  --sun-600:  #C8830A;
+  --sun-700:  #94600E;
+  --sun-800:  #5C3C0B;
+  --sun-900:  #2F1E05;
+
+  /* Neutrals — warm slate */
+  --ink-0:    #FFFFFF;
+  --ink-25:   #FBFAF7;   /* page bg, warm paper */
+  --ink-50:   #F5F4EF;
+  --ink-100:  #ECEAE2;
+  --ink-200:  #DCD9CE;
+  --ink-300:  #BDB9AB;
+  --ink-400:  #8E8B7E;
+  --ink-500:  #5F5D54;
+  --ink-600:  #3F3E37;
+  --ink-700:  #2A2924;
+  --ink-800:  #1A1916;
+  --ink-900:  #0E0D0B;
+
+  /* Accents */
+  --leaf-500: #2BA84A;   /* savings / good */
+  --leaf-600: #1E8537;
+  --rust-500: #D9522B;   /* warning */
+  --rust-600: #B23F1E;
+  --grid-500: #6B5BD2;   /* grid / tariff */
+
+  /* ---------- Semantic ---------- */
+  --bg-page:       var(--ink-25);
+  --bg-surface:    var(--ink-0);
+  --bg-sunken:     var(--ink-50);
+  --bg-inverse:    var(--blue-950);
+  --bg-brand:      var(--blue-500);
+  --bg-accent:     var(--sun-400);
+
+  --fg-1:          var(--ink-900);   /* primary text */
+  --fg-2:          var(--ink-600);   /* body */
+  --fg-3:          var(--ink-500);   /* muted */
+  --fg-4:          var(--ink-400);   /* hint */
+  --fg-on-brand:   #FFFFFF;
+  --fg-on-accent:  var(--ink-900);
+  --fg-on-inverse: var(--ink-25);
+  --fg-link:       var(--blue-600);
+
+  --border-1:      var(--ink-200);
+  --border-2:      var(--ink-100);
+  --border-strong: var(--ink-300);
+  --border-brand:  var(--blue-500);
+
+  --status-good:    var(--leaf-500);
+  --status-warning: var(--sun-500);
+  --status-error:   var(--rust-500);
+  --status-info:    var(--blue-500);
+
+  /* ---------- Type ---------- */
+  --font-sans:    "Noto Sans", system-ui, -apple-system, sans-serif;
+  --font-display: "Noto Sans", system-ui, sans-serif;
+  --font-serif:   "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-mono:    "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  --text-2xs:  11px;
+  --text-xs:   12px;
+  --text-sm:   14px;
+  --text-md:   16px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  28px;
+  --text-3xl:  36px;
+  --text-4xl:  48px;
+  --text-5xl:  64px;
+  --text-6xl:  84px;
+
+  --leading-tight:   1.1;
+  --leading-snug:    1.25;
+  --leading-normal:  1.45;
+  --leading-relaxed: 1.6;
+
+  --tracking-tight:  -0.02em;
+  --tracking-snug:   -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+  --tracking-caps:   0.08em;
+
+  /* ---------- Spacing & shape ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-pill: 999px;
+
+  --shadow-xs: 0 1px 1px rgba(11, 29, 77, 0.04);
+  --shadow-sm: 0 1px 2px rgba(11, 29, 77, 0.06), 0 1px 1px rgba(11, 29, 77, 0.04);
+  --shadow-md: 0 4px 12px rgba(11, 29, 77, 0.08), 0 1px 2px rgba(11, 29, 77, 0.05);
+  --shadow-lg: 0 12px 32px rgba(11, 29, 77, 0.12), 0 2px 6px rgba(11, 29, 77, 0.06);
+  --shadow-xl: 0 24px 60px rgba(11, 29, 77, 0.18);
+  --shadow-glow-sun: 0 0 0 6px rgba(255, 193, 31, 0.18);
+  --shadow-glow-blue: 0 0 0 6px rgba(42, 102, 242, 0.18);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(11, 29, 77, 0.06);
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 220ms;
+  --dur-slow: 420ms;
+}
+
+/* ============================================================
+   Semantic element styles — drop-in for prose & UI
+   ============================================================ */
+
+html, body {
+  background: var(--bg-page);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, .h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(40px, 5vw, var(--text-5xl));
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-1);
+  text-wrap: balance;
+}
+h2, .h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-3xl);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
+  text-wrap: balance;
+}
+h3, .h3 {
+  font-weight: 600;
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
+}
+h4, .h4 { font-weight: 600; font-size: var(--text-lg); line-height: var(--leading-snug); }
+h5, .h5 { font-weight: 600; font-size: var(--text-md); }
+h6, .h6 {
+  font-weight: 600;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--fg-3);
+}
+p  { color: var(--fg-2); line-height: var(--leading-relaxed); text-wrap: pretty; }
+small, .caption {
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+  letter-spacing: var(--tracking-snug);
+}
+.eyebrow {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--blue-600);
+  font-weight: 600;
+}
+.display {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(56px, 8vw, var(--text-6xl));
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  font-variation-settings: "opsz" 144;
+}
+code, kbd, .mono {
+  font-family: var(--font-mono);
+  font-size: 0.94em;
+  letter-spacing: -0.01em;
+}
+a { color: var(--fg-link); text-underline-offset: 3px; }
