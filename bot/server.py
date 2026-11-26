@@ -22,7 +22,11 @@ from fastapi.responses import FileResponse, JSONResponse, Response  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from loguru import logger  # noqa: E402
 try:  # pyrnnoise has no wheel for some platforms (e.g. macOS < 26); run without it there
-    from pipecat.audio.filters.rnnoise_filter import RNNoiseFilter  # noqa: E402
+    from pipecat.audio.filters import rnnoise_filter as _rnnoise  # noqa: E402
+
+    if _rnnoise.RNNoise is None:  # pipecat swallows the missing pyrnnoise and imports anyway
+        raise ImportError("pyrnnoise is not installed")
+    RNNoiseFilter = _rnnoise.RNNoiseFilter
 except Exception as e:  # noqa: BLE001
     RNNoiseFilter = None
     logger.warning(f"RNNoise unavailable ({e}); phone audio runs without noise suppression")
@@ -39,6 +43,7 @@ from pipecat.transports.websocket.fastapi import (  # noqa: E402
     FastAPIWebsocketTransport,
 )
 
+from agent import config as call_config  # noqa: E402
 from agent.bot import run_bot  # noqa: E402
 from agent.events import fetch_call  # noqa: E402
 from agent.voice import active_voice_id, set_active_voice  # noqa: E402
@@ -150,6 +155,36 @@ async def delete_voice(voice_id: str):
     return {"deleted": voice_id, "active": active_voice_id()}
 
 
+# ------------------------------------------------------------------ Call settings (/voice page)
+def _config_payload() -> dict:
+    values, sources = call_config.resolve()
+    return {"fields": call_config.public_schema(), "values": values, "sources": sources,
+            "rnnoise_available": RNNoiseFilter is not None}
+
+
+@app.get("/api/config")
+async def get_config():
+    return _config_payload()
+
+
+@app.put("/api/config")
+async def put_config(request: Request):
+    body = await request.json()
+    try:
+        call_config.save(body.get("values") or {})
+    except call_config.ConfigError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    logger.info(f"call config updated: {body.get('values')}")
+    return _config_payload()
+
+
+@app.delete("/api/config")
+async def reset_config(request: Request):
+    body = await request.json() if int(request.headers.get("content-length") or 0) else {}
+    call_config.reset(body.get("keys"))
+    return _config_payload()
+
+
 async def _booking_for(call_id: str | None, call_sid: str | None) -> tuple[str, dict]:
     call = await fetch_call(call_id=call_id) or await fetch_call(call_sid=call_sid)
     if call:
@@ -186,7 +221,8 @@ async def exotel_ws(ws: WebSocket):
         params=FastAPIWebsocketParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
-            audio_in_filter=RNNoiseFilter() if RNNoiseFilter else None,  # phone line has no browser-side suppression
+            # phone line has no browser-side suppression; toggle on the /voice page
+            audio_in_filter=RNNoiseFilter() if RNNoiseFilter and call_config.load()["rnnoise"] else None,
             add_wav_header=False,
             serializer=ExotelFrameSerializer(stream_sid=stream_sid, call_sid=call_sid),
         ),

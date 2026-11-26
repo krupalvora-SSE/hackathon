@@ -11,3 +11,4 @@ recordings/
 node_modules/
 bot/results/
 bot/voice.json
+bot/config.json

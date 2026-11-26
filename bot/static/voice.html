@@ -58,14 +58,40 @@
   .badge { font-size: 12px; background: var(--ok); color: var(--card); border-radius: 999px;
            padding: 2px 8px; margin-left: 6px; font-weight: 600; }
   ul.tips { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+  .toc { display: flex; gap: 14px; margin: -12px 0 20px; font-size: 14px; }
+  .toc a { color: var(--accent); }
+  .group { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 14px; }
+  .group:first-of-type { border-top: 0; margin-top: 0; }
+  .group h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+              margin: 8px 0 4px; }
+  .field { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 4px 16px; padding: 10px 0;
+           align-items: start; }
+  .field.na { opacity: .45; }
+  .field .name { font-weight: 600; }
+  .field .help { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+  .field .ctl { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+  .field input[type=number], .field input.txt, .field select {
+           font: inherit; width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line);
+           background: var(--bg); color: var(--ink); }
+  .field input.changed, .field select.changed { border-color: var(--accent); }
+  .src { font-size: 11px; border-radius: 999px; padding: 1px 7px; border: 1px solid var(--line);
+         color: var(--muted); margin-left: 6px; font-weight: 500; white-space: nowrap; }
+  .src.page { border-color: var(--accent); color: var(--accent); }
+  .linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font-size: 12px; cursor: pointer; }
+  .savebar { position: sticky; bottom: 0; background: var(--card); padding: 12px 0 0;
+             border-top: 1px solid var(--line); margin-top: 8px; }
+  .switch { width: 18px; height: 18px; }
+  @media (max-width: 560px) { .field { grid-template-columns: 1fr; } .field .ctl { justify-content: flex-start; } }
 </style>
 </head>
 <body>
 <main>
   <h1>Voice Studio</h1>
-  <p class="sub">Clone your own voice on Sarvam and make it the voice the AMC bot speaks with on calls.</p>
+  <p class="sub">Clone your own voice on Sarvam and make it the voice the AMC bot speaks with on calls,
+    then tune how the bot listens, speaks and takes turns.</p>
+  <nav class="toc"><a href="#clone">Voice cloning</a><a href="#settings">Call settings</a></nav>
 
-  <section class="card">
+  <section class="card" id="clone">
     <h2><span class="step">1</span>Record your voice</h2>
     <div class="row">
       <span class="muted">I say</span>
@@ -114,6 +140,21 @@
     <div id="voices" style="margin-top:12px"><span class="muted">Loading voices…</span></div>
     <audio id="previewAudio" controls hidden></audio>
     <div class="msg" id="voiceMsg"></div>
+  </section>
+
+  <section class="card" id="settings">
+    <h2><span class="step">4</span>Call settings</h2>
+    <p class="muted" style="margin-top:-6px">Saved here, these override <code>bot/.env</code> and apply from
+      the next call (no restart). <strong>Bot stops mid-sentence?</strong> Line noise or echo is interrupting it:
+      turn off <em>Customer can interrupt the bot</em>, or raise the Sarvam VAD threshold and min speech.
+      Cut-off replies can also mean <em>Max output tokens</em> is too low.</p>
+    <div id="cfg"><span class="muted">Loading settings…</span></div>
+    <div class="savebar row">
+      <button class="primary" id="cfgSave" disabled>Save settings</button>
+      <button id="cfgUndo" disabled>Discard changes</button>
+      <button class="danger" id="cfgReset">Reset all to .env / defaults</button>
+      <span class="msg" id="cfgMsg" style="margin:0"></span>
+    </div>
   </section>
 </main>
 
@@ -314,6 +355,110 @@ $("voices").onclick = async (e) => {
   }
 };
 loadVoices();
+
+// ---------------------------------------------------------------- call settings
+let cfg = null;        // {fields, values, sources, rnnoise_available}
+let draft = {};        // key -> raw input value, only for edited fields
+const SRC = { page: "saved here", env: ".env", default: "default" };
+const SARVAM_ONLY = ["stt_threshold", "stt_min_speech_ms", "stt_silence_ms"];
+const LOCAL_ONLY = ["vad_confidence", "vad_start_secs", "vad_stop_secs", "vad_min_volume"];
+
+async function loadConfig() {
+  const r = await fetch("/api/config"); const j = await r.json();
+  if (!r.ok) { $("cfg").innerHTML = `<span class="msg bad">Could not load settings: ${esc(j.error)}</span>`; return; }
+  cfg = j; draft = {}; renderConfig();
+}
+
+function current(k) { return k in draft ? draft[k] : cfg.values[k]; }
+
+function control(f) {
+  const v = current(f.key), id = "cf_" + f.key;
+  if (f.type === "bool")
+    return `<input type="checkbox" class="switch" id="${id}" data-k="${f.key}" ${v ? "checked" : ""}>`;
+  if (f.type === "select")
+    return `<select id="${id}" data-k="${f.key}">${f.options.map(([val, lab]) =>
+      `<option value="${esc(val)}" ${val === v ? "selected" : ""}>${esc(lab)}</option>`).join("")}</select>`;
+  const ph = f.nullable ? "provider default" : "";
+  if (f.type === "text")
+    return `<input class="txt" type="text" id="${id}" data-k="${f.key}" value="${esc(v ?? "")}" placeholder="${ph}">`;
+  return `<input type="number" id="${id}" data-k="${f.key}" value="${v ?? ""}" placeholder="${ph}"
+            ${f.min !== undefined ? `min="${f.min}"` : ""} ${f.max !== undefined ? `max="${f.max}"` : ""}
+            step="${f.step ?? (f.type === "int" ? 1 : 0.1)}">`;
+}
+
+function renderConfig() {
+  const groups = {};
+  cfg.fields.forEach((f) => (groups[f.group] ||= []).push(f));
+  const mode = current("endpointing");
+  $("cfg").innerHTML = Object.entries(groups).map(([g, fs]) => `
+    <div class="group"><h3>${esc(g)}</h3>${fs.map((f) => {
+      const src = cfg.sources[f.key];
+      const na = (mode === "sarvam" && LOCAL_ONLY.includes(f.key)) || (mode === "local" && SARVAM_ONLY.includes(f.key))
+              || (f.key === "rnnoise" && !cfg.rnnoise_available);
+      const extra = f.key === "rnnoise" && !cfg.rnnoise_available ? " RNNoise isn't installed on this machine." : "";
+      return `<div class="field ${na ? "na" : ""}">
+        <div><label for="cf_${f.key}" class="name" style="display:inline;margin:0">${esc(f.label)}</label>
+          <span class="src ${src}">${SRC[src]}</span>
+          ${src === "page" ? `<button class="linkbtn" data-reset="${f.key}">reset</button>` : ""}</div>
+        <div class="ctl">${control(f)}</div>
+        ${f.help || extra ? `<div class="help">${esc(f.help || "")}${extra}</div>` : ""}
+      </div>`; }).join("")}</div>`).join("");
+  markDirty();
+}
+
+function readInput(el) { return el.type === "checkbox" ? el.checked : el.value; }
+
+function same(f, a, b) {
+  if (f.type === "int" || f.type === "float") {
+    if ((a === "" || a == null) && (b === "" || b == null)) return true;
+    return a !== "" && a != null && b !== "" && b != null && Number(a) === Number(b);
+  }
+  return (a ?? "") === (b ?? "");
+}
+
+function markDirty() {
+  cfg.fields.forEach((f) => {
+    const el = $("cf_" + f.key); if (!el) return;
+    const changed = f.key in draft && !same(f, draft[f.key], cfg.values[f.key]);
+    if (!changed) delete draft[f.key];
+    el.classList.toggle("changed", changed);
+  });
+  const n = Object.keys(draft).length;
+  $("cfgSave").disabled = $("cfgUndo").disabled = !n;
+  $("cfgSave").textContent = n ? `Save ${n} change${n > 1 ? "s" : ""}` : "Save settings";
+}
+
+$("cfg").addEventListener("input", (e) => {
+  const k = e.target.dataset.k; if (!k) return;
+  draft[k] = readInput(e.target);
+  if (k === "endpointing") renderConfig(); else markDirty();
+  msg("cfgMsg", "");
+});
+
+$("cfg").addEventListener("click", async (e) => {
+  const k = e.target.dataset.reset; if (!k) return;
+  const r = await fetch("/api/config", { method: "DELETE", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ keys: [k] }) });
+  if (r.ok) { const pending = draft; cfg = await r.json(); delete pending[k]; draft = pending; renderConfig();
+              msg("cfgMsg", "Reset to " + SRC[cfg.sources[k]] + ".", "ok"); }
+});
+
+$("cfgSave").onclick = async () => {
+  $("cfgSave").disabled = true; msg("cfgMsg", "Saving…");
+  const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ values: draft }) });
+  const j = await r.json();
+  if (!r.ok) { msg("cfgMsg", j.error, "bad"); markDirty(); return; }
+  cfg = j; draft = {}; renderConfig(); msg("cfgMsg", "Saved. The next call uses these settings.", "ok");
+};
+$("cfgUndo").onclick = () => { draft = {}; renderConfig(); msg("cfgMsg", ""); };
+$("cfgReset").onclick = async () => {
+  if (!confirm("Drop every setting saved here and go back to bot/.env and the defaults?")) return;
+  const r = await fetch("/api/config", { method: "DELETE" });
+  if (r.ok) { cfg = await r.json(); draft = {}; renderConfig(); msg("cfgMsg", "All settings reset.", "ok"); }
+};
+window.addEventListener("beforeunload", (e) => { if (Object.keys(draft).length) e.preventDefault(); });
+loadConfig();
 </script>
 </body>
 </html>

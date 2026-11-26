@@ -12,6 +12,7 @@ from loguru import logger
 from pipecat.adapters.llm.schemas.function_schema import FunctionSchema
 from pipecat.adapters.llm.schemas.tools_schema import ToolsSchema
 from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import (
     BotStartedSpeakingFrame,
     EndFrame,
@@ -37,7 +38,10 @@ from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.sarvam.stt import SarvamRealtimeSTTService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transcriptions.language import Language
+from pipecat.turns.user_start import TranscriptionUserTurnStartStrategy, VADUserTurnStartStrategy
+from pipecat.turns.user_turn_strategies import UserTurnStrategies, default_user_turn_stop_strategies
 
+from . import config as call_config
 from .events import Emitter, save_result
 from .prompts import HANDOVER_BROWSER_NOTE, greeting, system_prompt
 from .slots import CallState
@@ -52,7 +56,6 @@ RATE = {
     "llm_per_m_out": float(os.getenv("COST_LLM_INR_PER_M_OUT", "51")),
     "tel_per_min": float(os.getenv("COST_TELEPHONY_INR_PER_MIN", "0.6")),
 }
-SILENCE_SECS = float(os.getenv("SILENCE_SECS", "6"))
 KEYTERMS = ["SolarSquare", "seedhi", "paani", "nal", "subah", "dopahar", "shaam", "tarikh",
             "Somvar", "Mangalvar", "Budhvar", "Guruvar", "Shukravar", "Shanivar", "haan", "nahi"]
 
@@ -107,30 +110,40 @@ class CallMetrics(FrameProcessor):
                 "turns": len(s)}
 
 
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google")  # google | openai (any OpenAI-compatible endpoint)
-
-
-def _llm():
-    if LLM_PROVIDER == "google":
+def _llm(cfg: dict):
+    """google (Gemini) or openai (any OpenAI-compatible endpoint), per the /voice page settings."""
+    if cfg["llm_provider"] == "google":
         from pipecat.services.google.llm import GoogleLLMService
 
         # Pipecat sends each model's lowest thinking setting by default (minimal for 3.6 flash).
         return GoogleLLMService(
             api_key=os.environ["GOOGLE_API_KEY"],
             settings=GoogleLLMService.Settings(
-                model=os.getenv("LLM_MODEL", "gemini-3.6-flash"),
-                temperature=0.3,
-                max_tokens=150,
+                model=cfg["llm_model"] or "gemini-3.6-flash",
+                temperature=cfg["llm_temperature"],
+                max_tokens=cfg["llm_max_tokens"],
             ),
         )
     return OpenAILLMService(
         api_key=os.environ["LLM_API_KEY"],
         base_url=os.getenv("LLM_BASE_URL") or None,
         settings=OpenAILLMService.Settings(
-            model=os.getenv("LLM_MODEL", "gpt-4.1-mini"),
-            temperature=0.3,
-            max_tokens=120,
+            model=cfg["llm_model"] or "gpt-4.1-mini",
+            temperature=cfg["llm_temperature"],
+            max_tokens=cfg["llm_max_tokens"],
         ),
+    )
+
+
+def _turn_strategies(cfg: dict) -> UserTurnStrategies | None:
+    """None keeps Sarvam's recommended strategies (its server VAD owns turns and barge-in)."""
+    if cfg["endpointing"] == "sarvam":
+        return None
+    interrupt = cfg["barge_in"]
+    return UserTurnStrategies(
+        start=[VADUserTurnStartStrategy(enable_interruptions=interrupt),
+               TranscriptionUserTurnStartStrategy(enable_interruptions=interrupt)],
+        stop=default_user_turn_stop_strategies(),
     )
 
 
@@ -152,21 +165,34 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     state = CallState(call_id=call_id, booking=booking, on_event=emitter.emit)
     logger.info(f"call {call_id} booking={booking.get('id')} telephony={telephony}")
 
+    cfg = call_config.load()  # read per call: /voice page edits apply from the next call
+    logger.info(f"call {call_id} config {cfg}")
+    stt_vad = {}
+    if cfg["endpointing"] == "sarvam":  # server-side VAD tuning; Sarvam rejects it in manual mode
+        stt_vad = {k: v for k, v in {"threshold": cfg["stt_threshold"],
+                                     "min_speech_duration_ms": cfg["stt_min_speech_ms"],
+                                     "silence_duration_ms": cfg["stt_silence_ms"]}.items() if v is not None}
     stt = SarvamRealtimeSTTService(
         api_key=os.environ["SARVAM_API_KEY"],
         keyterms=KEYTERMS,
+        endpointing="vad" if cfg["endpointing"] == "sarvam" else "manual",
+        should_interrupt=cfg["barge_in"],
         settings=SarvamRealtimeSTTService.Settings(
-            model=os.getenv("SARVAM_STT_MODEL", "saaras:v4"),
+            model=cfg["stt_model"],
             language=Language.HI_IN,
-            stream_type="fast",
+            stream_type=cfg["stt_stream_type"],
             mode="codemix",
+            **stt_vad,
         ),
     )
+    tts_extra = {k: cfg[f"tts_{k}"] for k in ("pace", "pitch", "loudness") if cfg[f"tts_{k}"] is not None}
     tts_settings = SarvamTTSService.Settings(
-        model=os.getenv("SARVAM_TTS_MODEL", "bulbul:v4-flash"),
-        voice=os.getenv("SARVAM_TTS_VOICE") or None,
+        model=cfg["tts_model"],
+        voice=cfg["tts_voice"] or None,
         language=Language.HI_IN,
-        **({"pace": float(p)} if (p := os.getenv("SARVAM_TTS_PACE")) else {}),
+        min_buffer_size=cfg["tts_min_buffer"],
+        max_chunk_length=cfg["tts_max_chunk"],
+        **tts_extra,
     )
     if clone_id := active_voice_id():  # team member's cloned voice (see /voice page)
         logger.info(f"call {call_id} TTS voice: cloned {clone_id}")
@@ -175,7 +201,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     else:
         tts = SarvamTTSService(api_key=os.environ["SARVAM_API_KEY"], sample_rate=sample_rate,
                                settings=tts_settings)
-    llm = _llm()
+    llm = _llm(cfg)
 
     tools = ToolsSchema(standard_tools=[
         FunctionSchema(name=t["name"], description=t["description"], properties=t["properties"],
@@ -186,8 +212,12 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     aggregators = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
-            vad_analyzer=SileroVADAnalyzer(),
-            user_idle_timeout=SILENCE_SECS,
+            vad_analyzer=SileroVADAnalyzer(params=VADParams(
+                confidence=cfg["vad_confidence"], start_secs=cfg["vad_start_secs"],
+                stop_secs=cfg["vad_stop_secs"], min_volume=cfg["vad_min_volume"])),
+            user_idle_timeout=cfg["silence_secs"],
+            user_turn_stop_timeout=cfg["turn_stop_timeout"],
+            **({"user_turn_strategies": ts} if (ts := _turn_strategies(cfg)) else {}),
         ),
     )
     metrics = CallMetrics(emitter, telephony)
@@ -200,7 +230,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         pipeline,
         params=PipelineParams(audio_in_sample_rate=sample_rate, audio_out_sample_rate=sample_rate,
                               enable_metrics=True, enable_usage_metrics=True),
-        idle_timeout_secs=120,
+        idle_timeout_secs=cfg["idle_timeout"],
     )
     finished = False
 
