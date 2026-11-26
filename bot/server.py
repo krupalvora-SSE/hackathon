@@ -46,7 +46,7 @@ from pipecat.transports.websocket.fastapi import (  # noqa: E402
 from agent import config as call_config  # noqa: E402
 from agent.bot import run_bot  # noqa: E402
 from agent.events import fetch_call  # noqa: E402
-from agent.voice import active_voice_id, set_active_voice  # noqa: E402
+from agent.voice import active_voice_id, fix_spoken_text, set_active_voice  # noqa: E402
 
 PHONE_RATE = 8000
 BROWSER_RATE = 16000
@@ -137,7 +137,7 @@ async def preview_voice(request: Request):
     body = await request.json()
     async with httpx.AsyncClient(timeout=60) as c:
         r = await c.post(f"{SARVAM}/voices/clone", headers=_sarvam_headers(),
-                         data={"voice_id": body["voice_id"], "text": body["text"][:1000],
+                         data={"voice_id": body["voice_id"], "text": fix_spoken_text(body["text"][:1000]),
                                "language_code": "hi-IN", "output_audio_codec": "wav"})
     if r.status_code != 200:
         return _sarvam_error(r)

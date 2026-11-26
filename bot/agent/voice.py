@@ -7,10 +7,31 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 from loguru import logger
 from pipecat.services.sarvam.tts import SarvamTTSService
+from pipecat.utils.text.transforms.replacements import replace_text
+
+# Words Sarvam pronounces badly, rewritten just before speech (fixed lines and LLM replies alike).
+# "main" (I) and "mein" (in) come out stiff; callers say "mai" for both. Whole words only, so
+# "maintenance" or "remaining" are untouched.
+_DEV = "\u0900-\u097F"
+SPOKEN_FIXES = [
+    (r"\b[Mm]ain\b", "mai"),
+    (r"\b[Mm]ein\b", "mai"),
+    (rf"(?<![{_DEV}])(?:में|मैं)(?![{_DEV}])", "मै"),
+]
+_FIXES = [(re.compile(p), r) for p, r in SPOKEN_FIXES]
+TTS_TEXT_TRANSFORMS = [("*", replace_text(SPOKEN_FIXES))]
+
+
+def fix_spoken_text(text: str) -> str:
+    for p, r in _FIXES:
+        text = p.sub(r, text)
+    return text
+
 
 VOICE_FILE = Path(__file__).resolve().parent.parent / "voice.json"
 CLONE_WS_URL = "wss://api.sarvam.ai/voices/clone/ws?send_completion_event=true"

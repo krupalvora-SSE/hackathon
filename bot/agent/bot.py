@@ -47,7 +47,7 @@ from .events import Emitter, save_result
 from .engine import make_engine
 from .prompts import HANDOVER_BROWSER_NOTE
 from .tools import Action
-from .voice import SarvamCloneTTSService, active_voice_id
+from .voice import TTS_TEXT_TRANSFORMS, SarvamCloneTTSService, active_voice_id
 
 # Rough INR rates for the cost-per-call estimate; override in .env with real contract prices.
 RATE = {
@@ -198,10 +198,11 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     if clone_id := active_voice_id():  # team member's cloned voice (see /voice page)
         logger.info(f"call {call_id} TTS voice: cloned {clone_id}")
         tts = SarvamCloneTTSService(api_key=os.environ["SARVAM_API_KEY"], sample_rate=sample_rate,
-                                    clone_voice_id=clone_id, settings=tts_settings)
+                                    clone_voice_id=clone_id, settings=tts_settings,
+                                    text_transforms=TTS_TEXT_TRANSFORMS)
     else:
         tts = SarvamTTSService(api_key=os.environ["SARVAM_API_KEY"], sample_rate=sample_rate,
-                               settings=tts_settings)
+                               settings=tts_settings, text_transforms=TTS_TEXT_TRANSFORMS)
     llm = _llm(cfg)
 
     tools = ToolsSchema(standard_tools=[
