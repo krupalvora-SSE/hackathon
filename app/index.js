@@ -3,7 +3,6 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { createStore } from './src/bookings.js';
 import { createCalls } from './src/calls.js';
-import { connectCall } from './src/exotel.js';
 
 try { process.loadEnvFile(); } catch {} // .env is optional (git-ignored)
 
@@ -12,7 +11,7 @@ const store = createStore();
 const calls = createCalls(store);
 const PUBLIC = join(import.meta.dirname, 'public');
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.ttf': 'font/ttf' };
-const STATUS = { not_found: 404, already_decided: 409, invalid_mode: 400, invalid_event: 400, exotel_not_configured: 503, exotel_failed: 502, number_not_allowed: 403 };
+const STATUS = { not_found: 404, already_decided: 409, invalid_mode: 400, invalid_event: 400 };
 
 const json = (res, code, body) => {
   res.writeHead(code, { 'content-type': 'application/json' });
@@ -44,15 +43,6 @@ createServer(async (req, res) => {
   if (req.method === 'GET' && pathname === '/api/config') return json(res, 200, { botUrl: process.env.BOT_URL || 'http://localhost:7860' });
   if (req.method === 'GET' && pathname === '/api/bookings') return json(res, 200, store.list());
 
-  // Exotel Passthru after the Voicebot applet: 200 → Connect (human), 302 → Hangup.
-  if (pathname === '/exotel/passthru') {
-    const q = url.searchParams;
-    const call = calls.get(q.get('CustomField') ?? '') ?? calls.getBySid(q.get('CallSid') ?? '');
-    const human = call?.outcome === 'handed_to_human';
-    res.writeHead(human ? 200 : 302, { 'content-type': 'text/plain' });
-    return res.end(human ? 'handover' : 'hangup');
-  }
-
   const m = pathname.match(/^\/api\/bookings\/([\w-]+)(?:\/(confirm|reject))?$/);
   if (m && req.method === 'GET' && !m[2]) {
     const b = store.get(m[1]);
@@ -70,15 +60,6 @@ createServer(async (req, res) => {
     try { body = await readJson(req); } catch { return json(res, 400, { error: 'invalid_json' }); }
     const r = calls.create({ bookingId: body.bookingId, mode: body.mode ?? 'browser' });
     if (r.error) return json(res, STATUS[r.error], r);
-    if (r.call.mode === 'phone') {
-      const x = await connectCall({ to: store.get(r.call.bookingId).phone, customField: r.call.id });
-      if (x.error) {
-        calls.addEvent(r.call.id, { type: 'status', status: 'failed', error: x.error });
-        return json(res, STATUS[x.error], { ...x, callId: r.call.id });
-      }
-      calls.setSid(r.call.id, x.callSid);
-      calls.addEvent(r.call.id, { type: 'status', status: 'dialing' });
-    }
     return json(res, 201, calls.get(r.call.id));
   }
 

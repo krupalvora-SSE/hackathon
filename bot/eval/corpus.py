@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
-import io
 import json
 import os
 from pathlib import Path
@@ -30,7 +29,7 @@ CACHE = CORPUS / "_tts_cache"
 MANIFEST = CORPUS / "manifest.json"
 UTTERANCES = ROOT / "utterances.yaml"
 SR = 16000
-PAUSE_S = 1.3          # thinking pause inside a sentence: must NOT end the customer's turn
+PAUSE_S = 0.9          # thinking pause inside a sentence: must NOT end the customer's turn
 LEAD_S, TAIL_S = 0.6, 1.8
 
 CONDITIONS = {

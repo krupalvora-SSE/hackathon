@@ -8,8 +8,8 @@ Voice agent for solar maintenance visits. Two call engines, picked with `CALL_FL
 The Node app in `../app` owns bookings, calls and the dashboard. This bot owns the call audio.
 
 ```
-Exotel Voicebot ──wss /exotel──► bot (8 kHz) ──POST events──► app :3000 ──SSE──► dashboard
-Browser mic ─────POST /api/offer (WebRTC, 16 kHz)──┘         ▲ GET /api/calls/:id (booking)
+Browser mic ──POST /api/offer (WebRTC, 16 kHz)──► bot ──POST events──► app :3000 ──SSE──► dashboard
+                                                   └──GET /api/calls/:id (booking)──┘
 ```
 
 ## Run
@@ -46,13 +46,6 @@ transcribes it whole, so *Turn detection* switches to Local automatically. Hindi
 4. Try it: `uv run python -m agent.stt_indic some.wav` (first run downloads ~2.4 GB, then prints CTC and RNNT).
 5. On the /voice page set *STT engine* to IndicConformer (or `STT_PROVIDER=indic` in `.env`).
 
-## Exotel setup (phone mode)
-1. Expose the bot over TLS: `ngrok http 7860`, giving `wss://<id>.ngrok.app/exotel`.
-2. Build the flow: **Voicebot** (URL above) → **Passthru** (`https://<app-host>/exotel/passthru`)
-   → on 200 go to **Connect** (human agent number), otherwise **Hangup**.
-3. Fill `app/.env`: `EXOTEL_API_KEY/TOKEN/ACCOUNT_SID/CALLER_ID/FLOW_ID`.
-4. Only call team or judge test numbers.
-
 ## Where things live
 | File | Role |
 |---|---|
@@ -67,7 +60,7 @@ transcribes it whole, so *Turn detection* switches to Local automatically. Hindi
 | `agent/events.py` | Fire-and-forget events to the app, plus `results/<call_id>.json` backup |
 | `agent/config.py` | Tunable call settings (schema, validation, page > .env > default) |
 | `agent/voice.py` | Active cloned voice + `SarvamCloneTTSService` (clone websocket) |
-| `server.py` | `/exotel` websocket, `/api/offer` WebRTC, `/voice` page + `/api/voices` + `/api/config`, `/health` |
+| `server.py` | `/api/offer` WebRTC, `/voice` page + `/api/voices` + `/api/config`, `/health` |
 | `static/voice.html` | Voice Studio: record, clone, preview, choose the bot's voice |
 
 Outcomes, flow mode: see `flows/service-scheduling/README.md` (`slot_confirmed`, `site_on_hold`, `rm_callback`, …, plus `hung_up`).

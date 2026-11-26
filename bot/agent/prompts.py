@@ -39,6 +39,23 @@ def goodbye(outcome: str, callback_time: str | None = None) -> str:
     return GOODBYES[outcome].format(callback_time=callback_time or "baad mai")
 
 
+_ROMAN_RULE = ("Speak natural Hinglish (Hindi in Roman script with common English words). "
+               "If the customer speaks Marathi or English, reply in their language.")
+# Piper (open-source voice) only pronounces Devanagari; agent/devanagari.py catches any Latin that slips through.
+_DEVANAGARI_RULE = ("Speak natural Hindi written ONLY in Devanagari script, including English words "
+                    "(सोलर पैनल, विज़िट, स्लॉट, कन्फ़र्म) and names. Never use Roman letters or digits; "
+                    "write numbers as Hindi words. If the customer speaks English, reply in plain English "
+                    "(Roman script) until they go back to Hindi.")
+
+
+def _open_source_voice() -> bool:
+    try:
+        from .config import load
+        return load()["tts_provider"] in ("piper", "piper_clone")
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def system_prompt(booking: dict, today: date) -> str:
     proposed = ""
     if booking.get("date"):
@@ -51,6 +68,7 @@ def system_prompt(booking: dict, today: date) -> str:
     questions = "\n".join(f"- {s.key}: \"{s.question}\"" for s in SLOTS)
     agent = active_voice_name()
     you = f"You are {agent}, a" if agent else "You are a"
+    script = _DEVANAGARI_RULE if _open_source_voice() else _ROMAN_RULE
     return f"""{you} warm, polite male caller (use masculine first-person Hindi: "raha hoon", "karta hoon", "leta hoon") from SolarSquare (a rooftop solar company in India).
 You are on a PHONE call with an existing customer to confirm their solar panel cleaning visit.
 
@@ -64,7 +82,7 @@ If the customer accepts the proposed date/slot, save those values (use the ISO d
 Visits: Monday to Saturday only, from tomorrow up to 30 days ahead, slots 09-12, 12-15, 15-18 only.
 
 HOW TO TALK
-- Speak natural Hinglish (Hindi in Roman script with common English words). If the customer speaks Marathi or English, reply in their language.
+- {script}
 - Address the customer as "<first name> ji" or "aap"; never "sir" or "madam".
 - Maximum 2 short sentences per turn. Ask exactly ONE question per turn. No lists, no emojis, no markdown.
 - Write numbers and times as words people say: "28 November", "subah 9 se 12".
@@ -101,7 +119,7 @@ def flow_system_prompt(call) -> str:
     c = call.context
     primary = c.get("primary_slot") or {}
     return f"""You are the listening brain of {persona['name']}, a SolarSquare phone agent calling an existing customer
-to schedule their solar system maintenance from the Beat Plan. You do NOT speak. The system speaks fixed lines.
+to schedule their solar plant maintenance from the Beat Plan. You do NOT speak. The system speaks fixed lines.
 
 Customer: {c.get('customer', {}).get('name', '')} | Site: {c.get('site_id', '')}
 Beat Plan primary slot: {primary.get('date')} {primary.get('band')}
@@ -121,7 +139,9 @@ Entities (fill only when the customer said them, using their own words):
 - exact_time: the exact time they asked for
 - time_range: when to call them back
 - reason: why the site can't be serviced, or why they want a person
-- language: "en" if the customer is speaking English, "hi" if Hindi/Hinglish
+- language: "en" only if the customer answered in full English sentences (phone ASR may write English
+  in Devanagari, e.g. "आई एम नॉट अवेलेबल" is English); "hi" if Hindi/Hinglish. A Hindi sentence with a
+  few English words ("haan available hoon") is "hi". Send it on every turn so the call follows them.
 
 Customers speak Hinglish, Hindi in Devanagari, Marathi or English; transcripts are noisy phone ASR.
 "haan / ji / theek hai / chalega" to a yes/no question is affirm; "nahi / nahi hai / nahi chalega" is deny.

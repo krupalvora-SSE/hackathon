@@ -7,7 +7,7 @@ export function createCalls(bookings) {
 
   function create({ bookingId, mode }) {
     if (!bookings.get(bookingId)) return { error: 'not_found' };
-    if (!['phone', 'browser'].includes(mode)) return { error: 'invalid_mode' };
+    if (mode !== 'browser') return { error: 'invalid_mode' };
     const call = {
       id: 'CALL-' + randomBytes(4).toString('hex'), bookingId, mode, status: 'created', outcome: null,
       slots: {}, events: [], record: null, callSid: null, createdAt: new Date().toISOString(),
@@ -49,7 +49,6 @@ export function createCalls(bookings) {
     get: (id) => view(calls.get(id)),
     getBySid: (sid) => view([...calls.values()].find((c) => c.callSid === sid)),
     raw: (id) => calls.get(id),
-    setSid: (id, sid) => { const c = calls.get(id); if (c) c.callSid = sid; },
     addEvent,
     subscribe,
   };

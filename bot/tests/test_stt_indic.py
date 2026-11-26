@@ -48,7 +48,7 @@ def test_service_yields_transcription_frame(monkeypatch):
 
 def test_config_offers_indic_engine():
     f = config.BY_KEY["stt_provider"]
-    assert ["sarvam", "indic"] == [o[0] for o in f["options"]] and f["default"] == "sarvam"
+    assert ["sarvam", "indic", "whisper"] == [o[0] for o in f["options"]] and f["default"] == "sarvam"
 
 
 def test_status_needs_token(monkeypatch, tmp_path):

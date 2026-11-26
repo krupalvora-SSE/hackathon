@@ -18,9 +18,12 @@ FIELDS: list[dict[str, Any]] = [
     # ---- Speech to text
     {"key": "stt_provider", "group": "Speech to text", "type": "select", "default": "sarvam",
      "env": "STT_PROVIDER", "label": "STT engine (switch Sarvam / AI4Bharat)",
-     "options": [["sarvam", "Sarvam (cloud, streaming)"], ["indic", "AI4Bharat IndicConformer 600M (local)"]],
-     "help": "Applies from the next call. IndicConformer is open source and runs on this machine; it is not "
-             "streaming, so turn detection switches to Local Silero. If it isn't ready, calls fall back to Sarvam."},
+     "options": [["sarvam", "Sarvam (cloud, streaming)"], ["indic", "AI4Bharat IndicConformer 600M (local)"],
+                 ["whisper", "Whisper large-v3-turbo (local, no account needed)"]],
+     "help": "Applies from the next call. IndicConformer and Whisper are open source and run on this machine; "
+             "they are not streaming, so turn detection switches to Local Silero. IndicConformer needs a Hugging "
+             "Face token; Whisper needs nothing (Apple GPU, ~1 s per reply). If IndicConformer isn't ready, calls "
+             "fall back to Whisper, then Sarvam."},
     {"key": "indic_decoding", "group": "Speech to text", "type": "select", "default": "ctc",
      "env": "INDIC_DECODING", "label": "IndicConformer decoding",
      "options": [["ctc", "CTC (faster)"], ["rnnt", "RNNT (often more accurate)"]],
@@ -73,15 +76,39 @@ FIELDS: list[dict[str, Any]] = [
     {"key": "vad_min_volume", "group": "Interruptions", "type": "float", "default": 0.6,
      "min": 0, "max": 1, "step": 0.05, "env": "VAD_MIN_VOLUME", "label": "Silero min volume",
      "help": "Local turn detection only. Quieter audio is never speech. Raise it for loud lines."},
-    {"key": "rnnoise", "group": "Interruptions", "type": "bool", "default": True,
-     "env": "RNNOISE", "label": "RNNoise on phone audio",
-     "help": "Noise suppression on the Exotel input. Phone calls only; ignored where RNNoise isn't installed."},
 
     # ---- Bot voice
+    {"key": "tts_provider", "group": "Bot voice", "type": "select", "default": "sarvam",
+     "env": "TTS_PROVIDER", "label": "TTS engine (switch Sarvam / Piper)",
+     "options": [["sarvam", "Sarvam (cloud: cloned voice or Bulbul)"],
+                 ["piper", "Piper (open source, runs on this machine's CPU)"],
+                 ["piper_clone", "Piper + my voice (open source, local clone of the sample below)"]],
+     "help": "Applies from the next call. Piper only reads Devanagari, so on Piper every English or "
+             "Roman-script word is rewritten in Devanagari before it is spoken (agent/devanagari.py). "
+             "If Piper fails to load, calls fall back to Sarvam. \"Piper + my voice\" re-voices Piper as the "
+             "local sample (\"Local open-source voice\" above) through the converter in bot/clone_tts; "
+             "if the converter isn't running, calls speak plain Piper."},
+    {"key": "piper_voice", "group": "Bot voice", "type": "select", "default": "hi_IN-pratham-medium",
+     "env": "PIPER_VOICE", "label": "Piper speaker",
+     "options": [["hi_IN-pratham-medium", "Pratham (male, Hindi)"], ["hi_IN-rohan-medium", "Rohan (male, Hindi)"],
+                 ["hi_IN-jasir-medium", "Jasir (male, Hindi, trained on our recordings)"]],
+     "help": "Piper engines only. Male Hindi voices; the bot is a male telecaller. Pratham and Rohan download "
+             "(~60 MB) on first use. Jasir is our own fine-tuned voice (bot/voice_training): copy "
+             "hi_IN-jasir-medium.onnx and .onnx.json into ~/.cache/pipecat/piper/ on each machine. With Jasir, "
+             "use plain \"Piper\" (it already is his voice; \"Piper + my voice\" only adds delay)."},
+    {"key": "piper_voice_en", "group": "Bot voice", "type": "select", "default": "en_US-ryan-medium",
+     "env": "PIPER_VOICE_EN", "label": "Piper English speaker",
+     "options": [["en_US-ryan-medium", "Ryan (male, US English)"], ["en_GB-alan-medium", "Alan (male, UK English)"]],
+     "help": "Piper engines only. Speaks the English lines when the customer switches to English (the Hindi "
+             "voices read English with a Hindi accent). Male; downloaded (~60 MB) on first use."},
+    {"key": "clone_tau", "group": "Bot voice", "type": "float", "default": 0.3,
+     "min": 0.1, "max": 1, "step": 0.05, "env": "CLONE_TAU", "label": "My-voice conversion strength (tau)",
+     "help": "Piper + my voice only. OpenVoice's tau: lower sticks closer to your sample's voice, higher keeps "
+             "more of Piper's clarity. 0.3 is OpenVoice's default; try 0.2-0.5."},
     {"key": "tts_source", "group": "Bot voice", "type": "select", "default": "clone",
      "env": "SARVAM_TTS_SOURCE", "label": "Voice source (switch clone / Bulbul)",
      "options": [["clone", "Cloned voice (picked in the list above)"], ["bulbul", "Sarvam Bulbul stock speaker"]],
-     "help": "Applies from the next call. Bulbul keeps your picked clone, so switching back is one click. "
+     "help": "Sarvam engine only. Applies from the next call. Bulbul keeps your picked clone, so switching back is one click. "
              "With no clone picked, calls use Bulbul either way. On Bulbul the bot introduces itself without a name."},
     {"key": "tts_model", "group": "Bot voice", "type": "select", "default": "bulbul:v4-flash",
      "env": "SARVAM_TTS_MODEL", "label": "Bulbul model",
@@ -89,15 +116,15 @@ FIELDS: list[dict[str, Any]] = [
      "help": "Bulbul voice source only."},
     {"key": "tts_voice", "group": "Bot voice", "type": "text", "default": None, "nullable": True,
      "env": "SARVAM_TTS_VOICE", "label": "Bulbul speaker",
-     "suggest": ["aditya", "ritu", "priya", "neha", "rahul", "pooja", "rohan", "simran", "kavya", "amit", "dev",
-                 "ishita", "shreya", "ratan", "varun", "manan", "sumit", "roopa", "kabir", "aayan", "shubh",
-                 "ashutosh", "advait", "amelia", "sophia"],
-     "help": "Bulbul voice source only. Blank uses the model's default speaker. The suggestions are bulbul:v3 "
-             "speakers; bulbul:v4-flash has its own names (see Sarvam's docs). The prompt is written for a "
-             "male caller, so pick a male speaker."},
+     # Male bulbul:v3 speakers only: the bot is a male telecaller (masculine Hindi in prompts and flow).
+     "suggest": ["shubh", "aditya", "rahul", "rohan", "amit", "dev", "ratan", "varun", "manan", "sumit",
+                 "kabir", "aayan", "ashutosh", "advait"],
+     "help": "Bulbul voice source only. The bot is a male telecaller, so use a male speaker. Suggestions are "
+             "male bulbul:v3 speakers; bulbul:v4-flash has its own names (see Sarvam's docs). Blank uses the "
+             "model's default speaker."},
     {"key": "tts_pace", "group": "Bot voice", "type": "float", "default": None, "nullable": True,
      "min": 0.5, "max": 2, "step": 0.05, "env": "SARVAM_TTS_PACE", "label": "Pace",
-     "help": "0.5-2.0. Clones copy the sample's pace; about 1.1-1.2 keeps calls snappy."},
+     "help": "0.5-2.0, Sarvam and Piper. Clones copy the sample's pace; about 1.1-1.2 keeps calls snappy."},
     {"key": "tts_pitch", "group": "Bot voice", "type": "float", "default": None, "nullable": True,
      "min": -0.75, "max": 0.75, "step": 0.05, "env": "SARVAM_TTS_PITCH", "label": "Pitch",
      "help": "bulbul:v4-flash stock voice only."},

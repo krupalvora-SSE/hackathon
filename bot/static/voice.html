@@ -147,6 +147,22 @@
     <div class="msg" id="voiceMsg"></div>
   </section>
 
+  <section class="card" id="local">
+    <h2><span class="step">★</span>Local open-source voice (Piper + my voice)</h2>
+    <p class="muted" style="margin-top:-6px">No Sarvam: Piper speaks, and OpenVoice V2 on this machine re-voices it
+      as your recording. Uses the clip from step 1 and the name and consent from step 2. It copies your voice's
+      sound, not your rhythm or accent.</p>
+    <div class="msg" id="localStatus">Checking…</div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="localSave" disabled>Save step-1 clip as my local voice</button>
+      <button id="localPreview" disabled>▶ Preview (line from step 3)</button>
+      <button id="localUse" disabled>Use for bot</button>
+      <button class="danger" id="localDelete" disabled>Remove sample</button>
+    </div>
+    <audio id="localAudio" controls hidden></audio>
+    <div class="msg" id="localMsg"></div>
+  </section>
+
   <section class="card" id="settings">
     <h2><span class="step">4</span>Call settings</h2>
     <p class="muted" style="margin-top:-6px">Saved here, these override <code>bot/.env</code> and apply from
@@ -207,6 +223,7 @@ const TARGET_RATE = 16000;
 let rec = null;      // {ctx, stream, node, chunks, start, tick}
 const MAX_SECS = 15;  // Sarvam uses only the first 15 s of the sample
 let clip = null;     // {blob, seconds, name}
+let local = null;    // local open-source voice: {has_sample, name, converter: {ready, error, device}}
 
 async function startRec() {
   const stream = await navigator.mediaDevices.getUserMedia({
@@ -293,6 +310,7 @@ $("upload").onchange = (e) => { const f = e.target.files[0]; if (f) setClip(f, f
 // ---------------------------------------------------------------- create
 function updateCreate() {
   $("createBtn").disabled = !(clip && clip.seconds >= 5 && $("consent").checked && $("name").value.trim());
+  renderLocal();  // its Save button needs the same clip/name/consent
 }
 ["consent", "name"].forEach((id) => $(id).addEventListener("input", updateCreate));
 
@@ -333,11 +351,12 @@ async function loadVoices() {
 
 function renderVoices() {
   if (!state) return;
-  const bulbul = onBulbul() || !state.active;
+  const onPiper = (cfg?.values?.tts_provider || "").startsWith("piper");
+  const bulbul = !onPiper && (onBulbul() || !state.active);
   const j = { voices: state.voices, active: state.active, pinned_by_env: state.pinned };
   const rows = j.voices.map((v) => `
     <div class="voice">
-      <div><strong>${esc(v.name)}</strong>${v.id === j.active ? (bulbul ? '<span class="badge" style="opacity:.55">picked clone</span>' : '<span class="badge">bot uses this</span>') : ""}
+      <div><strong>${esc(v.name)}</strong>${v.id === j.active ? (bulbul || onPiper ? '<span class="badge" style="opacity:.55">picked clone</span>' : '<span class="badge">bot uses this</span>') : ""}
         <div class="muted">${v.language} · ${v.sample_duration_seconds ? v.sample_duration_seconds.toFixed(0) + "s sample · " : ""}${new Date(v.created_at).toLocaleString()}</div></div>
       <div class="row">
         <button data-act="preview" data-id="${v.id}">▶ Preview</button>
@@ -349,7 +368,8 @@ function renderVoices() {
   const stock = `<div class="voice"><div><strong>Sarvam Bulbul stock voice</strong>${bulbul ? '<span class="badge">bot uses this</span>' : ""}
       <div class="muted">${esc(spk)} · no cloning. Model and speaker are under Call settings → Bot voice.</div></div>
       <div class="row"><button data-act="use" data-id="" ${bulbul ? "disabled" : ""}>Use for bot</button></div></div>`;
-  $("voices").innerHTML = (rows || '<span class="muted">No cloned voices yet.</span>') + stock +
+  const piperNote = onPiper ? '<div class="msg muted">TTS engine is Piper (open source), so calls don\'t use these Sarvam voices. Switch it under Call settings → Bot voice.</div>' : "";
+  $("voices").innerHTML = piperNote + (rows || '<span class="muted">No cloned voices yet.</span>') + stock +
     (j.pinned_by_env ? '<div class="msg muted">SARVAM_CLONE_VOICE_ID is set in bot/.env, so it overrides the choice here.</div>' : "");
 }
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -388,7 +408,7 @@ $("voices").onclick = async (e) => {
 loadVoices();
 
 // ---------------------------------------------------------------- call settings
-let cfg = null;        // {fields, values, sources, rnnoise_available}
+let cfg = null;        // {fields, values, sources, indic_status, whisper_status}
 let draft = {};        // key -> raw input value, only for edited fields
 const SRC = { page: "saved here", env: ".env", default: "default" };
 const SARVAM_ONLY = ["stt_threshold", "stt_min_speech_ms", "stt_silence_ms"];
@@ -396,6 +416,8 @@ const LOCAL_ONLY = ["vad_confidence", "vad_start_secs", "vad_stop_secs", "vad_mi
 const SARVAM_STT_ONLY = ["stt_model", "stt_stream_type"];
 const INDIC_ONLY = ["indic_decoding", "indic_language"];
 const BULBUL_ONLY = ["tts_model", "tts_voice", "tts_pitch", "tts_loudness"];
+const SARVAM_TTS_ONLY = ["tts_source", "tts_min_buffer", "tts_max_chunk", ...BULBUL_ONLY];
+const PIPER_ONLY = ["piper_voice", "piper_voice_en"];
 
 async function loadConfig() {
   const r = await fetch("/api/config"); const j = await r.json();
@@ -426,21 +448,29 @@ function renderConfig() {
   const groups = {};
   cfg.fields.forEach((f) => (groups[f.group] ||= []).push(f));
   const indic = current("stt_provider") === "indic";
-  const mode = indic ? "local" : current("endpointing");
+  const localStt = indic || current("stt_provider") === "whisper";  // not streaming: local VAD cuts segments
+  const mode = localStt ? "local" : current("endpointing");
   const ist = cfg.indic_status || {};
-  const cloneVoice = current("tts_source") === "clone" && !!state?.active;
+  const piper = (current("tts_provider") || "").startsWith("piper");
+  const cloneVoice = !piper && current("tts_source") === "clone" && !!state?.active;
   $("cfg").innerHTML = Object.entries(groups).map(([g, fs]) => `
     <div class="group"><h3>${esc(g)}</h3>${fs.map((f) => {
       const src = cfg.sources[f.key];
       const na = (mode === "sarvam" && LOCAL_ONLY.includes(f.key)) || (mode === "local" && SARVAM_ONLY.includes(f.key))
-              || (f.key === "rnnoise" && !cfg.rnnoise_available)
-              || (indic && (SARVAM_STT_ONLY.includes(f.key) || f.key === "endpointing"))
+              || (localStt && (SARVAM_STT_ONLY.includes(f.key) || f.key === "endpointing"))
               || (!indic && INDIC_ONLY.includes(f.key))
-              || (cloneVoice && BULBUL_ONLY.includes(f.key));
-      let extra = f.key === "rnnoise" && !cfg.rnnoise_available ? " RNNoise isn't installed on this machine." : "";
-      if (f.key === "endpointing" && indic) extra = " IndicConformer always uses Local Silero.";
-      if (f.key === "stt_provider") extra = ` AI4Bharat status: ${ist.message || "unknown"}`;
-      if (f.key === "tts_source" && !state?.active) extra = " No clone is picked, so calls use Bulbul now.";
+              || (cloneVoice && BULBUL_ONLY.includes(f.key))
+              || (piper && SARVAM_TTS_ONLY.includes(f.key)) || (!piper && PIPER_ONLY.includes(f.key))
+              || (f.key === "clone_tau" && current("tts_provider") !== "piper_clone");
+      let extra = "";
+      if (f.key === "endpointing" && localStt) extra = " Local STT engines always use Local Silero.";
+      if (f.key === "stt_provider")
+        extra = ` AI4Bharat status: ${ist.message || "unknown"} Whisper status: ${cfg.whisper_status?.message || "unknown"}`;
+      if (f.key === "tts_source" && !state?.active && !piper) extra = " No clone is picked, so calls use Bulbul now.";
+      if (f.key === "piper_voice" && current("tts_provider") === "piper_clone")
+        extra = local?.has_sample
+          ? ` On "Piper + my voice" this is only the base voice: calls are re-voiced as "${local.name || "your sample"}" (Local open-source voice card).`
+          : ` On "Piper + my voice" this is only the base voice. No sample is saved yet, so calls speak this Piper voice as is.`;
       return `<div class="field ${na ? "na" : ""}">
         <div><label for="cf_${f.key}" class="name" style="display:inline;margin:0">${esc(f.label)}</label>
           <span class="src ${src}">${SRC[src]}</span>
@@ -450,6 +480,7 @@ function renderConfig() {
       </div>`; }).join("")}</div>`).join("");
   markDirty();
   renderVoices();
+  renderLocal();
 }
 
 function readInput(el) { return el.type === "checkbox" ? el.checked : el.value; }
@@ -477,7 +508,7 @@ function markDirty() {
 $("cfg").addEventListener("input", (e) => {
   const k = e.target.dataset.k; if (!k) return;
   draft[k] = readInput(e.target);
-  if (["endpointing", "stt_provider", "tts_source"].includes(k)) renderConfig(); else markDirty();
+  if (["endpointing", "stt_provider", "tts_source", "tts_provider"].includes(k)) renderConfig(); else markDirty();
   msg("cfgMsg", "");
 });
 
@@ -505,6 +536,61 @@ $("cfgReset").onclick = async () => {
 };
 window.addEventListener("beforeunload", (e) => { if (Object.keys(draft).length) e.preventDefault(); });
 loadConfig();
+
+// ---------------------------------------------------------------- local open-source voice
+async function loadLocal() {
+  try { local = await (await fetch("/api/local-voice")).json(); } catch { local = null; }
+  if (cfg) renderConfig(); else renderLocal();  // renderConfig redraws the local card too
+}
+function renderLocal() {
+  const using = cfg?.values?.tts_provider === "piper_clone";
+  const conv = local?.converter || {};
+  const parts = [];
+  parts.push(local?.has_sample ? `Sample saved${local.name ? ` as "${esc(local.name)}"` : ""}.` : "No local sample yet.");
+  parts.push(conv.ready ? `Converter running (${esc(conv.device)}).`
+    : `Converter not running: start it with <code>cd bot/clone_tts &amp;&amp; uv run uvicorn server:app --port 7861</code>. Until then calls speak plain Piper.`);
+  parts.push(using ? `<strong>Bot calls speak as ${local?.name ? `"${esc(local.name)}"` : "this voice"} (from the next call).</strong>`
+                   : "Bot calls don't use it yet: press Use for bot.");
+  $("localStatus").innerHTML = parts.join(" ");
+  $("localStatus").className = "msg " + (local?.has_sample && conv.ready ? "ok" : "");
+  $("localSave").disabled = !(clip && clip.seconds >= 5 && $("consent").checked && $("name").value.trim());
+  $("localPreview").disabled = !(local?.has_sample && conv.ready);
+  $("localUse").disabled = !local?.has_sample || using;
+  $("localUse").textContent = using ? "✓ Bot uses this voice" : "Use for bot";  // disabled because it's already on
+  $("localUse").title = using ? "Already selected: TTS engine is \"Piper + my voice\"" : "";
+  $("localDelete").disabled = !local?.has_sample;
+}
+setInterval(() => { if (!local?.converter?.ready) loadLocal(); }, 5000);  // notice the converter starting
+
+$("localSave").onclick = async () => {
+  msg("localMsg", "Saving…");
+  const fd = new FormData();
+  fd.append("file", clip.blob, clip.name); fd.append("name", $("name").value.trim()); fd.append("consent", "true");
+  const r = await fetch("/api/local-voice", { method: "POST", body: fd }); const j = await r.json();
+  if (!r.ok) return msg("localMsg", "Save failed: " + errText(j), "bad");
+  local = j; renderLocal(); msg("localMsg", "Saved. Preview it, then press Use for bot.", "ok");
+};
+$("localPreview").onclick = async () => {
+  msg("localMsg", "Generating preview…");
+  const r = await fetch("/api/local-voice/preview", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: $("testText").value }) });
+  if (!r.ok) return msg("localMsg", "Preview failed: " + errText(await r.json()), "bad");
+  const a = $("localAudio"); a.src = URL.createObjectURL(await r.blob()); a.hidden = false; a.play();
+  msg("localMsg", "Too far from your voice? Lower \"My-voice conversion strength\" in Call settings, save, and preview again.");
+};
+$("localUse").onclick = async () => {
+  const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ values: { tts_provider: "piper_clone" } }) });
+  if (!r.ok) return msg("localMsg", "Failed: " + errText(await r.json()), "bad");
+  const pending = draft; cfg = await r.json(); delete pending.tts_provider; draft = pending; renderConfig();
+  msg("localMsg", "Bot calls use Piper + your voice from the next call.", "ok");
+};
+$("localDelete").onclick = async () => {
+  if (!confirm("Remove the local voice sample from this machine?")) return;
+  local = await (await fetch("/api/local-voice", { method: "DELETE" })).json(); renderLocal();
+  msg("localMsg", "Removed. \"Piper + my voice\" now speaks plain Piper.", "");
+};
+loadLocal();
 </script>
 </body>
 </html>

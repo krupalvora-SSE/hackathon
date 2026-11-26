@@ -1,6 +1,6 @@
 """Pipecat pipeline: transport in -> Sarvam STT -> LLM (tools) -> Sarvam TTS -> transport out.
 
-The same run_bot() serves Exotel (8 kHz phone) and SmallWebRTC (browser fallback).
+run_bot() serves SmallWebRTC browser calls (telephony=True models an 8 kHz phone leg for evals).
 """
 from __future__ import annotations
 
@@ -203,6 +203,31 @@ async def run_bot(transport, *, call_id: str, **kwargs) -> None:
         await emitter.close()
 
 
+def _piper_tts(cfg: dict, call_id: str, sample_rate: int | None = None):
+    """Local open-source TTS (Piper, male Hindi + English voices), optionally re-voiced as the local sample
+    ("piper_clone", agent/voice_local.py), or None to fall back to Sarvam."""
+    try:
+        from pipecat.services.piper.tts import PiperTTSService
+
+        from .devanagari import DEVANAGARI_TEXT_TRANSFORMS
+
+        pace = cfg["tts_pace"]
+        settings = PiperTTSService.Settings(voice=cfg["piper_voice"], length_scale=round(1 / pace, 3) if pace else None)
+        from .voice_local import BilingualPiperTTSService
+
+        tts = BilingualPiperTTSService(en_voice=cfg.get("piper_voice_en") or None,
+                                       clone=cfg["tts_provider"] == "piper_clone", tau=cfg.get("clone_tau", 0.3),
+                                       settings=settings, sample_rate=sample_rate,
+                                       text_transforms=DEVANAGARI_TEXT_TRANSFORMS)
+    except Exception as e:  # noqa: BLE001 - missing package, voice download failed
+        logger.warning(f"call {call_id} Piper TTS unavailable, using Sarvam TTS: {e}")
+        cfg["tts_provider"] = "sarvam"
+        return None
+    mine = " + my voice (local converter)" if cfg["tts_provider"] == "piper_clone" else ""
+    logger.info(f"call {call_id} TTS voice: Piper {cfg['piper_voice']} / {cfg.get('piper_voice_en')}{mine}")
+    return tts
+
+
 async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, sample_rate: int,
                    call_sid: str | None = None) -> None:
     emitter = Emitter(call_id)
@@ -219,13 +244,31 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             await asyncio.to_thread(load_model)  # no-op once loaded; first call waits for the download
             cfg["endpointing"] = "local"  # IndicConformer is not streaming: local VAD cuts the segments
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"call {call_id} IndicConformer unavailable, using Sarvam STT: {e}")
+            from .stt_whisper import status as whisper_status
+
+            fallback = "whisper" if whisper_status()["ready"] else "sarvam"
+            logger.warning(f"call {call_id} IndicConformer unavailable, using {fallback} STT: {e}")
+            cfg["stt_provider"] = fallback
+    if cfg["stt_provider"] == "whisper":
+        from .stt_whisper import status as whisper_status, warm_up
+
+        try:
+            if not whisper_status()["ready"]:
+                raise RuntimeError(whisper_status()["message"])
+            await asyncio.to_thread(warm_up)  # no-op once loaded; first call waits for the download
+            cfg["endpointing"] = "local"  # Whisper is not streaming: local VAD cuts the segments
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"call {call_id} Whisper unavailable, using Sarvam STT: {e}")
             cfg["stt_provider"] = "sarvam"
     logger.info(f"call {call_id} config {cfg}")
     if cfg["stt_provider"] == "indic":
         from .stt_indic import IndicConformerSTTService
 
         stt = IndicConformerSTTService(lang=cfg["indic_language"], decoding=cfg["indic_decoding"])
+    elif cfg["stt_provider"] == "whisper":
+        from .stt_whisper import make_whisper_stt
+
+        stt = make_whisper_stt()
     else:
         stt = make_sarvam_stt(cfg)
     tts_extra = {k: cfg[f"tts_{k}"] for k in ("pace", "pitch", "loudness") if cfg[f"tts_{k}"] is not None}
@@ -237,7 +280,10 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         max_chunk_length=cfg["tts_max_chunk"],
         **tts_extra,
     )
-    if clone_id := clone_in_use(cfg):  # team member's cloned voice, unless the source is Bulbul (/voice page)
+    tts = _piper_tts(cfg, call_id, sample_rate) if cfg["tts_provider"] in ("piper", "piper_clone") else None
+    if tts:  # open-source local voice
+        pass
+    elif clone_id := clone_in_use(cfg):  # team member's cloned voice, unless the source is Bulbul (/voice page)
         logger.info(f"call {call_id} TTS voice: cloned {clone_id}")
         tts = SarvamCloneTTSService(api_key=os.environ["SARVAM_API_KEY"], sample_rate=sample_rate,
                                     clone_voice_id=clone_id, settings=tts_settings,

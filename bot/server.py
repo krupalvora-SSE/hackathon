@@ -1,4 +1,4 @@
-"""Bot server: Exotel Voicebot websocket (phone) + SmallWebRTC offer (browser fallback).
+"""Bot server: SmallWebRTC offer (browser calls) + /voice settings page.
 
 Run: uv run uvicorn server:app --port 7860
 """
@@ -17,20 +17,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import httpx  # noqa: E402
-from fastapi import FastAPI, Form, Request, UploadFile, WebSocket  # noqa: E402
+from fastapi import FastAPI, Form, Request, UploadFile  # noqa: E402
 from fastapi.responses import FileResponse, JSONResponse, Response  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from loguru import logger  # noqa: E402
-try:  # pyrnnoise has no wheel for some platforms (e.g. macOS < 26); run without it there
-    from pipecat.audio.filters import rnnoise_filter as _rnnoise  # noqa: E402
-
-    if _rnnoise.RNNoise is None:  # pipecat swallows the missing pyrnnoise and imports anyway
-        raise ImportError("pyrnnoise is not installed")
-    RNNoiseFilter = _rnnoise.RNNoiseFilter
-except Exception as e:  # noqa: BLE001
-    RNNoiseFilter = None
-    logger.warning(f"RNNoise unavailable ({e}); phone audio runs without noise suppression")
-from pipecat.serializers.exotel import ExotelFrameSerializer  # noqa: E402
 from pipecat.transports.base_transport import TransportParams  # noqa: E402
 from pipecat.transports.smallwebrtc.connection import SmallWebRTCConnection  # noqa: E402
 from pipecat.transports.smallwebrtc.request_handler import (  # noqa: E402
@@ -38,18 +28,22 @@ from pipecat.transports.smallwebrtc.request_handler import (  # noqa: E402
     SmallWebRTCRequestHandler,
 )
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport  # noqa: E402
-from pipecat.transports.websocket.fastapi import (  # noqa: E402
-    FastAPIWebsocketParams,
-    FastAPIWebsocketTransport,
-)
 
 from agent import config as call_config  # noqa: E402
 from agent.bot import run_bot  # noqa: E402
 from agent.events import fetch_call  # noqa: E402
 from agent.stt_indic import status as indic_status  # noqa: E402
+from agent.stt_whisper import status as whisper_status  # noqa: E402
 from agent.voice import active_voice_id, fix_spoken_text, set_active_voice  # noqa: E402
+from agent.voice_local import (  # noqa: E402
+    CONVERTER_URL,
+    LOCAL_VOICE_WAV,
+    converter_status,
+    local_voice_name,
+    set_local_voice,
+)
+from agent.voice_local import preview_wav as local_preview_wav  # noqa: E402
 
-PHONE_RATE = 8000
 BROWSER_RATE = 16000
 
 app = FastAPI(title="visit-bot")
@@ -69,6 +63,23 @@ if call_config.load()["stt_provider"] == "indic" and indic_status()["ready"]:
     import threading
 
     threading.Thread(target=_preload_indic, daemon=True).start()
+
+
+def _preload_whisper() -> None:
+    """Load Whisper at startup when it is the selected STT engine, or IndicConformer's fallback."""
+    try:
+        from agent.stt_whisper import warm_up
+
+        warm_up()
+    except Exception:  # noqa: BLE001
+        logger.exception("Whisper preload failed (`uv sync --extra indic --extra whisper`)")
+
+
+_stt = call_config.load()["stt_provider"]
+if (_stt == "whisper" or (_stt == "indic" and not indic_status()["ready"])) and whisper_status()["ready"]:
+    import threading
+
+    threading.Thread(target=_preload_whisper, daemon=True).start()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")],
@@ -172,16 +183,58 @@ async def delete_voice(voice_id: str):
     return {"deleted": voice_id, "active": active_voice_id()}
 
 
+# ------------------------------------------------------------------ Local open-source voice (/voice page)
+# "Piper + my voice": the sample stays on this machine (bot/local_voice.wav); bot/clone_tts converts.
+async def _local_voice_payload() -> dict:
+    return {"has_sample": LOCAL_VOICE_WAV.exists(), "name": local_voice_name(),
+            "converter": await converter_status(), "converter_url": CONVERTER_URL}
+
+
+@app.get("/api/local-voice")
+async def get_local_voice():
+    return await _local_voice_payload()
+
+
+@app.post("/api/local-voice")
+async def save_local_voice(file: UploadFile, name: str = Form(...), consent: bool = Form(False)):
+    if not consent:
+        return JSONResponse({"error": "Consent is required: only clone your own voice."}, status_code=400)
+    audio = await file.read()
+    if len(audio) < 16000:
+        return JSONResponse({"error": "That clip is too short."}, status_code=400)
+    set_local_voice(audio, name.strip()[:100])
+    logger.info(f"local voice sample saved ({len(audio)} bytes, {name})")
+    return await _local_voice_payload()
+
+
+@app.delete("/api/local-voice")
+async def delete_local_voice():
+    set_local_voice(None)
+    return await _local_voice_payload()
+
+
+@app.post("/api/local-voice/preview")
+async def preview_local_voice(request: Request):
+    body = await request.json()
+    cfg = call_config.load()
+    try:
+        wav = await local_preview_wav(body["text"][:1000], cfg["piper_voice"], cfg["clone_tau"],
+                                      cfg.get("piper_voice_en"))
+    except Exception as e:  # noqa: BLE001 - converter down, no sample yet
+        return JSONResponse({"error": str(e) or repr(e)}, status_code=502)
+    return Response(wav, media_type="audio/wav")
+
+
 # ------------------------------------------------------------------ Call settings (/voice page)
-def _config_payload() -> dict:
+async def _config_payload() -> dict:
     values, sources = call_config.resolve()
-    return {"fields": call_config.public_schema(), "values": values, "sources": sources,
-            "rnnoise_available": RNNoiseFilter is not None, "indic_status": indic_status()}
+    return {"fields": call_config.public_schema(), "values": values, "sources": sources, "indic_status": indic_status(),
+            "whisper_status": whisper_status()}
 
 
 @app.get("/api/config")
 async def get_config():
-    return _config_payload()
+    return await _config_payload()
 
 
 @app.put("/api/config")
@@ -192,14 +245,14 @@ async def put_config(request: Request):
     except call_config.ConfigError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     logger.info(f"call config updated: {body.get('values')}")
-    return _config_payload()
+    return await _config_payload()
 
 
 @app.delete("/api/config")
 async def reset_config(request: Request):
     body = await request.json() if int(request.headers.get("content-length") or 0) else {}
     call_config.reset(body.get("keys"))
-    return _config_payload()
+    return await _config_payload()
 
 
 async def _booking_for(call_id: str | None, call_sid: str | None) -> tuple[str, dict]:
@@ -210,45 +263,7 @@ async def _booking_for(call_id: str | None, call_sid: str | None) -> tuple[str, 
     return call_id or f"LOCAL-{uuid.uuid4().hex[:6]}", FALLBACK_BOOKING
 
 
-# ------------------------------------------------------------------ Exotel (phone)
-@app.websocket("/exotel")
-async def exotel_ws(ws: WebSocket):
-    await ws.accept()
-    # Exotel sends `connected`, then `start` (with stream_sid, call_sid, custom_parameters).
-    start: dict = {}
-    for _ in range(5):
-        msg = json.loads(await asyncio.wait_for(ws.receive_text(), timeout=10))
-        if msg.get("event") == "start":
-            start = msg
-            break
-    if not start:
-        logger.error("Exotel websocket closed before start event")
-        await ws.close()
-        return
-    s = start.get("start", {})
-    stream_sid = start.get("stream_sid") or s.get("stream_sid")
-    call_sid = s.get("call_sid")
-    custom = s.get("custom_parameters") or {}
-    call_id_hint = custom.get("call_id") or ws.query_params.get("call_id")
-    call_id, booking = await _booking_for(call_id_hint, call_sid)
-    logger.info(f"Exotel start stream={stream_sid} call_sid={call_sid} call_id={call_id}")
-
-    transport = FastAPIWebsocketTransport(
-        websocket=ws,
-        params=FastAPIWebsocketParams(
-            audio_in_enabled=True,
-            audio_out_enabled=True,
-            # phone line has no browser-side suppression; toggle on the /voice page
-            audio_in_filter=RNNoiseFilter() if RNNoiseFilter and call_config.load()["rnnoise"] else None,
-            add_wav_header=False,
-            serializer=ExotelFrameSerializer(stream_sid=stream_sid, call_sid=call_sid),
-        ),
-    )
-    await run_bot(transport, call_id=call_id, booking=booking, telephony=True,
-                  sample_rate=PHONE_RATE, call_sid=call_sid)
-
-
-# ------------------------------------------------------------------ Browser (WebRTC fallback)
+# ------------------------------------------------------------------ Browser (WebRTC)
 @app.post("/api/offer")
 async def offer(request: Request):
     body = await request.json()

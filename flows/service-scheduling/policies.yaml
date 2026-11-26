@@ -20,11 +20,11 @@ backup_slot_order: closest_first
 # What the customer must have ready for the Service Hero. Asked one at a time.
 readiness_items:
   - id: ladder
-    labels: {en: A-type ladder, hi: A-type ladder}
+    labels: {en: A-type ladder, hi: ए-आकार वाली सीढ़ी}
   - id: water
-    labels: {en: water source, hi: पानी का source}
+    labels: {en: water source, hi: पानी की व्यवस्था}
   - id: light
-    labels: {en: light connection, hi: light का connection}
+    labels: {en: electricity connection, hi: बिजली की सुविधा}
 
 # What to do when a readiness item is missing:
 #   site_on_hold                -> ask ready-by date, put site on hold (current spec)

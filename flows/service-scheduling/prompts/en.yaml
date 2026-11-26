@@ -12,11 +12,11 @@ WRONG_PERSON:
   main: "No problem. Am I speaking with someone from {name}'s home?"
 
 OFFER_PRIMARY:
-  main: "{name}, your solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will you be available that day?"
+  main: "{name}, your solar plant maintenance is due. We have a slot on {weekday}, {date_spoken}. Will you be available that day?"
 
 TIME_BAND:
-  main: "Our service hero will come between {band_spoken} that day. Does that work for you?"
-  no_exact_guarantee: "I can't guarantee an exact time, but we'll do our best to send the hero at your preferred time. Does {band_spoken} work?"
+  main: "Our technician will come between {band_spoken} that day. Does that work for you?"
+  no_exact_guarantee: "I can't guarantee an exact time, but we'll do our best to send the technician at your preferred time. Does {band_spoken} work?"
 
 ALTERNATE_DAYS:
   main: "No problem. Would {options_spoken} work for you?"
@@ -25,15 +25,15 @@ ALTERNATE_DAYS:
 
 READINESS_CHECK:
   main: "Great. A few things need to be ready for the service, let me quickly confirm."
-  ask_ladder: "Do you have an A-type ladder so the hero can reach the roof?"
+  ask_ladder: "Do you have an A-type ladder so our technician can reach the roof?"
   ask_water: "Is there a water source near the panels?"
-  ask_light: "And is there a light connection there?"
+  ask_light: "And is there an electricity connection there?"
 
 ASK_READY_DATE:
   main: "Understood. By when can the {missing_item} be arranged? Could you give me a date?"
 
 RECAP:
-  main: "So that's {weekday}, {date_spoken}, between {band_spoken}, with the ladder, water and light ready. Shall I confirm it?"
+  main: "So that's {weekday}, {date_spoken}, between {band_spoken}, with the ladder, water and electricity ready. Shall I confirm it?"
 
 SITE_ON_HOLD:
   main: "Understood. From which date will your site be ready for service?"

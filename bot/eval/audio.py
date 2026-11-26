@@ -1,6 +1,6 @@
 """Audio helpers for the eval corpus: WAV I/O, resampling, phone-line simulation, noise.
 
-Everything is mono int16 PCM. Phone conditions approximate Exotel's 8 kHz G.711 leg: band-limit to
+Everything is mono int16 PCM. Phone conditions approximate an 8 kHz G.711 phone leg: band-limit to
 300-3400 Hz, mu-law round trip, optional packet-loss-like dropouts.
 """
 from __future__ import annotations

@@ -271,8 +271,7 @@
           <td><div class="slot"><span class="slot-icon"><i data-lucide="calendar-days"></i></span><span class="mono">${esc(slot)}</span></div></td>
           <td><span class="chip ${esc(b.status)}" title="${esc(b.rejectReason)}">${LABEL[b.status] ?? esc(b.status)}</span></td>
           <td><div class="actions">
-            <button class="action primary" data-call="${esc(b.id)}" data-mode="phone" ${busy ? 'disabled' : ''} title="Call the customer's phone via Exotel"><i data-lucide="phone"></i>Call</button>
-            <button class="action" data-call="${esc(b.id)}" data-mode="browser" ${busy ? 'disabled' : ''} title="Test with your microphone"><i data-lucide="mic"></i>Browser</button>
+            <button class="action primary" data-call="${esc(b.id)}" data-mode="browser" ${busy ? 'disabled' : ''} title="Test with your microphone"><i data-lucide="mic"></i>Browser</button>
           </div></td>
         </tr>`;
       }).join('') : `<tr><td colspan="5" class="empty">No bookings match this view.</td></tr>`;
@@ -302,9 +301,6 @@
       active?.es?.close();
       const res = await fetch('/api/calls', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ bookingId, mode }) });
       const body = await res.json();
-      if (res.status === 503 && body.error === 'exotel_not_configured') {
-        return banner('banner', `Exotel isn't configured. Missing in app/.env: <b>${body.missing.map(esc).join(', ')}</b>. Use <b>Browser</b> to test with your mic.`);
-      }
       if (!res.ok) return banner('banner', `Couldn't start the call: ${esc(body.message ?? body.error)}`);
       openLive(body, mode);
       if (mode === 'browser') {
@@ -319,9 +315,8 @@
       $('live').hidden = false;
       $('live-name').textContent = call.booking?.customerName ?? call.bookingId;
       $('live-id').textContent = call.id;
-      // Phone calls can't be hung up from here (Exotel controls the line), but the view must never get stuck.
       $('hangup').hidden = false;
-      $('hangup').lastChild.textContent = mode === 'browser' ? 'Hang up' : 'Close';
+      $('hangup').lastChild.textContent = 'Hang up';
       $('transcript').innerHTML = '';
       $('lat').innerHTML = '';
       $('record-wrap').hidden = true;
@@ -387,8 +382,8 @@
           $('record').textContent = JSON.stringify(e.record, null, 2);
           $('record-wrap').hidden = false;
           if (e.record?.cost_inr != null) $('cost').textContent = `₹${Number(e.record.cost_inr).toFixed(2)}`;
-          if (e.record?.outcome === 'handed_to_human' && active.mode === 'browser') {
-            banner('live-banner', 'The customer asked for a person. On a phone call, Exotel would now connect them to the human agent.', 'info');
+          if (e.record?.outcome === 'handed_to_human') {
+            banner('live-banner', 'The customer asked for a person. Hand this call to a human agent.', 'info');
           }
           endLive();
           break;

@@ -58,7 +58,7 @@ def beatplan(events, action):
 
 def test_greeting_and_primary_offer():
     call, first, _ = live()
-    assert call.state == "GREET" and "Rahul" in first.speak[0] and "SolarSquare" in first.speak[0]
+    assert call.state == "GREET" and "Rahul" in first.speak[0] and "सोलरस्क्वेयर" in first.speak[0]
     r = call.handle("affirm")
     assert call.state == "OFFER_PRIMARY" and "शनिवार" in r.speak[0] and "28 नवंबर" in r.speak[0]
     assert "ask_time" in r.allowed and "not_serviceable" in r.allowed
@@ -68,9 +68,9 @@ def test_happy_path_checks_every_readiness_item_then_confirms():
     call, _, events = live()
     call.handle("affirm")
     r = call.handle("affirm")                       # yes to primary slot
-    assert call.state == "READINESS_CHECK" and "ladder" in r.speak[-1]
+    assert call.state == "READINESS_CHECK" and "सीढ़ी" in r.speak[-1]
     assert "पानी" in call.handle("affirm").speak[0]  # ladder yes -> water
-    assert "light" in call.handle("affirm").speak[0]  # water yes -> light
+    assert "बिजली" in call.handle("affirm").speak[0]  # water yes -> light
     r = call.handle("affirm")
     assert call.state == "RECAP" and "सुबह आठ से बारह बजे" in r.speak[0]
     r = call.handle("affirm")
@@ -89,7 +89,7 @@ def test_exact_time_once_is_noted_twice_escalates():
     call.handle("affirm")
     call.handle("ask_time")
     r = call.handle("wants_exact_time", {"exact_time": "10 baje"})
-    assert call.state == "TIME_BAND" and "guarantee" in r.speak[0]
+    assert call.state == "TIME_BAND" and "वादा" in r.speak[0]
     r = call.handle("wants_exact_time", {"exact_time": "theek 10 baje"})
     assert r.end and call.outcome == "rm_callback"
     assert beatplan(events, "create_rm_callback")[0]["reason"] == "insists_on_exact_time"
@@ -141,9 +141,9 @@ def test_missing_ladder_puts_site_on_hold_with_consent():
     call.handle("deny")                              # no ladder
     call.handle("affirm")                            # water ok
     r = call.handle("affirm")                        # light ok
-    assert call.state == "ASK_READY_DATE" and "A-type ladder" in r.speak[0]
+    assert call.state == "ASK_READY_DATE" and "ए-आकार वाली सीढ़ी" in r.speak[0]
     r = call.handle("date_given", {"date": "5 december"})
-    assert call.state == "HOLD_CONSENT" and "call नहीं आएगी" in r.speak[0]
+    assert call.state == "HOLD_CONSENT" and "फ़ोन नहीं आएगा" in r.speak[0]
     r = call.handle("affirm")
     assert call.outcome == "site_on_hold"
     hold = beatplan(events, "site_on_hold")[0]
@@ -173,7 +173,7 @@ def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")
     r = call.handle("price_or_offtopic")
-    assert call.state == "OFFER_PRIMARY" and "टीम" in r.speak[0] and "available" in r.speak[0]
+    assert call.state == "OFFER_PRIMARY" and "टीम" in r.speak[0] and "घर पर" in r.speak[0]
 
 
 def test_unclear_three_times_escalates():

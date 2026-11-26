@@ -25,6 +25,7 @@ from pipecat.frames.frames import ErrorFrame, Frame, TranscriptionFrame
 from pipecat.services.stt_service import SegmentedSTTService
 from pipecat.transcriptions.language import Language
 from pipecat.utils.time import time_now_iso8601
+from pipecat.utils.tracing.service_decorators import traced_stt
 
 MODEL_ID = "ai4bharat/indic-conformer-600m-multilingual"
 SAMPLE_RATE = 16000
@@ -96,6 +97,10 @@ class IndicConformerSTTService(SegmentedSTTService):
 
     def can_generate_metrics(self) -> bool:
         return True
+
+    @traced_stt
+    async def _handle_transcription(self, transcript: str, is_final: bool, language: Language | None = None):
+        """Tracing hook for a final transcript (pipecat services each declare their own)."""
 
     async def run_stt(self, audio: bytes) -> AsyncGenerator[Frame, None]:
         await self.start_processing_metrics()

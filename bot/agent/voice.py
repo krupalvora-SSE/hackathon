@@ -48,17 +48,33 @@ def active_voice_id() -> str | None:
 
 
 def clone_in_use(cfg: dict | None = None) -> str | None:
-    """Clone id the call speaks with, or None when the voice source is Bulbul (or no clone is picked)."""
+    """Clone id the call speaks with, or None on Piper, on Bulbul, or with no clone picked."""
     if cfg is None:
         from .config import load
         cfg = load()
-    return active_voice_id() if cfg.get("tts_source", "clone") == "clone" else None
+    if cfg.get("tts_provider", "sarvam") != "sarvam" or cfg.get("tts_source", "clone") != "clone":
+        return None
+    return active_voice_id()
+
+
+STOCK_PIPER_SPEAKERS = {"pratham", "rohan"}  # Piper's own Hindi voices: not a team member
 
 
 def active_voice_name() -> str | None:
     """Name the bot introduces itself with: the picked clone's name, up to " - " ("Krupal - AMC bot" -> "Krupal").
-    None on the Bulbul voice source: the stock speaker isn't that person."""
-    if not clone_in_use():
+    None on the Bulbul voice source or a stock Piper speaker: that isn't a team member.
+    On plain Piper with our fine-tuned voice ("hi_IN-jasir-medium") it's that speaker ("Jasir").
+    On "Piper + my voice" it's the name given with the local sample instead."""
+    from .config import load
+
+    cfg = load()
+    if cfg.get("tts_provider") == "piper_clone":
+        from .voice_local import local_voice_name
+        return local_voice_name()
+    if cfg.get("tts_provider") == "piper":  # a voice we fine-tuned (bot/voice_training) is that person
+        speaker = (cfg.get("piper_voice") or "").split("-")[1:2]
+        return speaker[0].title() if speaker and speaker[0] not in STOCK_PIPER_SPEAKERS else None
+    if not clone_in_use(cfg):
         return None
     try:
         name = json.loads(VOICE_FILE.read_text()).get("name") or ""

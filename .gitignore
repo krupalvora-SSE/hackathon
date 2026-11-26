@@ -12,3 +12,11 @@ node_modules/
 bot/results/
 bot/voice.json
 bot/config.json
+bot/eval/corpus/
+bot/eval/runs/
+bot/local_voice.wav
+bot/local_voice.json
+bot/clone_tts/cache/
+
+# voice recordings / training datasets (personal audio)
+bot/voice_training/data/
