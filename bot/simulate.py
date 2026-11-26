@@ -16,6 +16,7 @@ from openai import OpenAI
 from agent.engine import make_engine
 
 load_dotenv()
+GEMINI_OPENAI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 BOOKINGS = json.loads((Path(__file__).resolve().parent.parent / "app" / "data" / "bookings.json").read_text())
 
 
@@ -28,8 +29,12 @@ def main() -> None:
     a = ap.parse_args()
     booking = next(b for b in BOOKINGS if b["id"] == a.booking)
 
-    client = OpenAI(api_key=os.environ["LLM_API_KEY"], base_url=os.getenv("LLM_BASE_URL") or None)
-    model = os.getenv("LLM_MODEL", "gpt-4.1-mini")
+    if os.getenv("LLM_PROVIDER", "google") == "google":  # Gemini's OpenAI-compatible endpoint
+        client = OpenAI(api_key=os.environ["GOOGLE_API_KEY"], base_url=GEMINI_OPENAI_URL)
+        model = os.getenv("LLM_MODEL", "gemini-3.6-flash")
+    else:
+        client = OpenAI(api_key=os.environ["LLM_API_KEY"], base_url=os.getenv("LLM_BASE_URL") or None)
+        model = os.getenv("LLM_MODEL", "gpt-4.1-mini")
     engine = make_engine("SIM", booking, on_event=lambda e: print(f"   · {e}"), mode=a.flow)
     if engine.outcome:
         print(f"not dialled: {engine.outcome}")

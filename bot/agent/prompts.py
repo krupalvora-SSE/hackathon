@@ -5,8 +5,7 @@ from datetime import date
 
 from . import normalize as N
 from .slots import SLOTS
-
-AGENT_NAME = "Priya"
+from .voice import active_voice_name
 
 GOODBYES = {
     "confirmed": "Bahut dhanyavaad! Aapka visit confirm ho gaya hai, visit se ek din pehle aapko SMS aa jayega. Aapka din shubh ho!",
@@ -14,7 +13,7 @@ GOODBYES = {
     "do_not_call": "Theek hai, maaf kijiye. Hum aapko dobara call nahi karenge. Dhanyavaad.",
     "wrong_number": "Maaf kijiye, galat number lag gaya. Dhanyavaad.",
     "no_answer": "Lagta hai aawaz nahi aa rahi. Hum aapko baad mein call karenge. Dhanyavaad.",
-    "handed_to_human": "Ek minute, main aapko hamare team member se connect kar rahi hoon.",
+    "handed_to_human": "Ek minute, main aapko hamare team member se connect kar raha hoon.",
 }
 HANDOVER_BROWSER_NOTE = "(Browser demo: handover would connect the human agent here.)"
 
@@ -27,8 +26,10 @@ SILENCE_PROMPTS = [
 def greeting(booking: dict) -> str:
     name = (booking.get("customerName") or "").split(" ")[0]
     who = f"{name} ji" if name else "ji"
+    agent = active_voice_name()
+    me = f"SolarSquare se {agent}" if agent else "SolarSquare se"
     return (
-        f"Namaste {who}, main SolarSquare se {AGENT_NAME} bol rahi hoon. "
+        f"Namaste {who}, main {me} bol raha hoon. "
         "Yeh call quality ke liye record ho rahi hai. "
         "Aapke solar panel cleaning visit ke baare mein ek minute baat kar sakte hain?"
     )
@@ -48,7 +49,9 @@ def system_prompt(booking: dict, today: date) -> str:
         except ValueError:
             pass
     questions = "\n".join(f"- {s.key}: \"{s.question}\"" for s in SLOTS)
-    return f"""You are {AGENT_NAME}, a warm, polite female caller from SolarSquare (a rooftop solar company in India).
+    agent = active_voice_name()
+    you = f"You are {agent}, a" if agent else "You are a"
+    return f"""{you} warm, polite male caller (use masculine first-person Hindi: "raha hoon", "karta hoon", "leta hoon") from SolarSquare (a rooftop solar company in India).
 You are on a PHONE call with an existing customer to confirm their solar panel cleaning visit.
 
 Customer: {booking.get('customerName', 'unknown')} | Booking: {booking.get('id', '-')} | {booking.get('sseId', '')}
@@ -62,6 +65,7 @@ Visits: Monday to Saturday only, from tomorrow up to 30 days ahead, slots 09-12,
 
 HOW TO TALK
 - Speak natural Hinglish (Hindi in Roman script with common English words). If the customer speaks Marathi or English, reply in their language.
+- Address the customer as "<first name> ji" or "aap"; never "sir" or "madam".
 - Maximum 2 short sentences per turn. Ask exactly ONE question per turn. No lists, no emojis, no markdown.
 - Write numbers and times as words people say: "28 November", "subah 9 se 12".
 - Never invent details. If unsure what they meant, ask again briefly.

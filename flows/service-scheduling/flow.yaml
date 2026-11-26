@@ -71,10 +71,10 @@ labels:
 
 # Example values for {placeholders}, so the shareable page shows a real-sounding line.
 sample_values:
-  hi: {name: राहुल, bot_name: Priya, weekday: शनिवार, date_spoken: 28 नवंबर, band_spoken: सुबह आठ से बारह बजे,
+  hi: {name: राहुल, bot_name: Krupal, weekday: शनिवार, date_spoken: 28 नवंबर, band_spoken: सुबह आठ से बारह बजे,
        options_spoken: "सोमवार, 30 नवंबर, सुबह या बुधवार, 2 दिसंबर, शाम", missing_item: A-type ladder,
        hold_until_spoken: 5 दिसंबर, recall_window_spoken: कल शाम 5 से 7 बजे}
-  en: {name: Rahul, bot_name: Priya, weekday: Saturday, date_spoken: 28 November, band_spoken: 8 am and 12 pm,
+  en: {name: Rahul, bot_name: Krupal, weekday: Saturday, date_spoken: 28 November, band_spoken: 8 am and 12 pm,
        options_spoken: "Monday, 30 November, morning or Wednesday, 2 December, evening", missing_item: A-type ladder,
        hold_until_spoken: 5 December, recall_window_spoken: tomorrow 5 to 7 pm}
 

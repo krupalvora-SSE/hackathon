@@ -1,4 +1,4 @@
-# Hindi (Hinglish) lines per state. Female persona (policies.persona).
+# Hindi (Hinglish) lines per state. Male persona (policies.persona).
 # Devanagari for Hindi words, English nouns kept as people say them (see hindi-voice-scripting skill).
 # Placeholders are filled by code, already spelled out in words:
 #   {name} {bot_name} {date_spoken} {weekday} {band_spoken} {options_spoken}
@@ -13,7 +13,7 @@ _global:
   didnt_catch: "माफ़ कीजिए, आवाज़ थोड़ी कट गई, फिर से बताएँगे?"
 
 GREET:
-  main: "नमस्ते, क्या मेरी बात {name} जी से हो रही है? मैं {bot_name}, SolarSquare से बोल रही हूँ। यह कॉल रिकॉर्ड की जा रही है।"
+  main: "नमस्ते, क्या मेरी बात {name} जी से हो रही है? मैं {bot_name}, SolarSquare से बोल रहा हूँ। यह कॉल रिकॉर्ड की जा रही है।"
 
 WRONG_PERSON:
   main: "कोई बात नहीं। क्या आप {name} जी के घर से बोल रहे हैं?"
@@ -31,19 +31,19 @@ ALTERNATE_DAYS:
   next_options: "अच्छा, तो {options_spoken} कैसा रहेगा?"
 
 READINESS_CHECK:
-  main: "बढ़िया। Service के लिए कुछ चीज़ें ready रखनी होंगी, बस confirm कर लेती हूँ।"
+  main: "बढ़िया। Service के लिए कुछ चीज़ें ready रखनी होंगी, बस confirm कर लेता हूँ।"
   ask_ladder: "क्या आपके पास A-type ladder है, जिससे hero छत तक पहुँच सकें?"
   ask_water: "Panels के पास पानी का source है?"
   ask_light: "और वहाँ light का connection है?"
 
 ASK_READY_DATE:
-  main: "समझ गई। {missing_item} कब तक arrange हो जाएगा, कोई date बता सकते हैं?"
+  main: "समझ गया। {missing_item} कब तक arrange हो जाएगा, कोई date बता सकते हैं?"
 
 RECAP:
   main: "तो {weekday}, {date_spoken}, {band_spoken} के बीच, और ladder, पानी और light ready रहेंगे। मैं यह confirm कर दूँ?"
 
 SITE_ON_HOLD:
-  main: "समझ गई। आपकी site किस date से service के लिए ready होगी?"
+  main: "समझ गया। आपकी site किस date से service के लिए ready होगी?"
 
 HOLD_CONSENT:
   main: "ठीक है, हम आपकी site {hold_until_spoken} तक hold पर रख देंगे। तब तक SolarSquare से आपको service के लिए call नहीं आएगी। क्या यह ठीक है?"
@@ -64,7 +64,7 @@ NO_SLOT_CLOSE:
   main: "माफ़ कीजिए, अभी हमारे पास और slots नहीं हैं। नया slot खुलते ही हमारी team आपसे संपर्क करेगी। धन्यवाद!"
 
 RM_CLOSE:
-  main: "मैं हमारे senior से आपको callback arrange करवा देती हूँ, वो जल्द ही आपसे बात करेंगे। धन्यवाद!"
+  main: "मैं हमारे senior से आपको callback arrange करवा देता हूँ, वो जल्द ही आपसे बात करेंगे। धन्यवाद!"
 
 RECALL_CLOSE:
   main: "ठीक है, हम आपको {recall_window_spoken} call करेंगे। धन्यवाद!"

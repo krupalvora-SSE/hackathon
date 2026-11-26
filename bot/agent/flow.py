@@ -96,6 +96,15 @@ class FlowSpec:
         return list(dict.fromkeys(local + glob))
 
 
+def _voice_name() -> str | None:
+    """Name of the active cloned voice (/voice page), if the voice module and a voice are available."""
+    try:
+        from .voice import active_voice_name
+        return active_voice_name() or None
+    except Exception:  # noqa: BLE001 - no voice configured, or running outside the bot
+        return None
+
+
 # ------------------------------------------------------------------ speech helpers
 HI_WEEKDAY = ["सोमवार", "मंगलवार", "बुधवार", "गुरुवार", "शुक्रवार", "शनिवार", "रविवार"]
 HI_MONTH = ["", "जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर",
@@ -486,7 +495,7 @@ class FlowCall:
         v: dict[str, Any] = defaultdict(str)
         name = (self.context.get("customer", {}).get("name") or self.booking.get("customerName") or "").split(" ")[0]
         v["name"] = name
-        v["bot_name"] = self.policies["persona"]["name"]
+        v["bot_name"] = _voice_name() or self.policies["persona"]["name"]
         slot = self.ctx.get("selected_slot") or self.context.get("primary_slot")
         if isinstance(slot, dict):
             d = date.fromisoformat(slot["date"])

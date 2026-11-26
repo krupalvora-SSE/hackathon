@@ -14,13 +14,27 @@ Browser mic ─────POST /api/offer (WebRTC, 16 kHz)──┘         ▲
 
 ## Run
 ```bash
-cp .env.example .env            # SARVAM_API_KEY, LLM_API_KEY (+ LLM_BASE_URL/LLM_MODEL)
+cp .env.example .env            # SARVAM_API_KEY, GOOGLE_API_KEY (Gemini)
 uv sync
 uv run uvicorn server:app --port 7860
 cd ../app && npm start          # http://localhost:3000 → "Browser" button = mic test
 uv run pytest -q                # engine tests
 uv run python simulate.py       # text-mode call (or --auto "persona", --booking BK-1003, --flow checklist)
 ```
+
+## Cloned voice
+Open http://localhost:7860/voice (bot server running). Read the script for 12–30 s, tick consent,
+**Create my voice**, preview it, then **Use for bot**. The next call speaks in that voice (Sarvam
+Instant Voice Cloning, streamed over `wss://api.sarvam.ai/voices/clone/ws`, see `agent/voice.py`).
+The choice lives in `bot/voice.json` (git-ignored); `SARVAM_CLONE_VOICE_ID` in `.env` overrides it.
+Clones copy the sample's pace, so set `SARVAM_TTS_PACE=1.2` if the voice sounds slow.
+
+## Call settings
+The same page (http://localhost:7860/voice#settings) tunes barge-in, turn detection (Sarvam server VAD or
+local Silero + Smart Turn), TTS voice and chunking, STT, the LLM and silence timeouts. Each value resolves
+as page (`bot/config.json`, git-ignored) > `.env` > default, and is read at the start of every call, so
+there's no restart. If the bot stops mid-sentence, noise or echo is barging in: turn off *Customer can
+interrupt the bot*, or raise the Sarvam VAD threshold and min speech. Schema: `agent/config.py`.
 
 ## Exotel setup (phone mode)
 1. Expose the bot over TLS: `ngrok http 7860`, giving `wss://<id>.ngrok.app/exotel`.
@@ -41,7 +55,10 @@ uv run python simulate.py       # text-mode call (or --auto "persona", --booking
 | `agent/prompts.py` | System prompt, greeting with recording disclosure, fixed goodbyes |
 | `agent/bot.py` | Pipecat pipeline, silence handling (6s reprompt, 3 silences means `no_answer`), latency and cost metrics |
 | `agent/events.py` | Fire-and-forget events to the app, plus `results/<call_id>.json` backup |
-| `server.py` | `/exotel` websocket, `/api/offer` WebRTC, `/health` |
+| `agent/config.py` | Tunable call settings (schema, validation, page > .env > default) |
+| `agent/voice.py` | Active cloned voice + `SarvamCloneTTSService` (clone websocket) |
+| `server.py` | `/exotel` websocket, `/api/offer` WebRTC, `/voice` page + `/api/voices` + `/api/config`, `/health` |
+| `static/voice.html` | Voice Studio: record, clone, preview, choose the bot's voice |
 
 Outcomes, flow mode: see `flows/service-scheduling/README.md` (`slot_confirmed`, `site_on_hold`, `rm_callback`, …, plus `hung_up`).
 Outcomes, checklist mode: `confirmed`, `callback`, `do_not_call`, `wrong_number` (agent); `no_answer`, `handed_to_human`, `hung_up` (system).

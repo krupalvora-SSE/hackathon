@@ -10,3 +10,5 @@ recordings/
 .claude/settings.local.json
 node_modules/
 bot/results/
+bot/voice.json
+bot/config.json
