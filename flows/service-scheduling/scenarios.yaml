@@ -363,3 +363,7 @@
   steps: [context_ready, affirm, upset_customer]
   expect: site_on_hold
 
+- name: asks if it costs anything, hears it is free, then confirms
+  steps: [context_ready, affirm, asks_price, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+

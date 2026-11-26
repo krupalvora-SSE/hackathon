@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Questions</title>
+  <link rel="stylesheet" href="/tokens.css">
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <style>
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--bg-page); color: var(--fg-1); font-family: var(--font-sans); }
+    header { display:flex; align-items:center; justify-content:space-between; gap:var(--space-4); height:72px; padding:0 clamp(20px,4vw,56px); background:var(--bg-surface); border-bottom:1px solid var(--border-2); position:sticky; top:0; z-index:5; }
+    .brand { display:flex; align-items:center; gap:14px; }
+    .brand img { height:28px; }
+    .brand-divider { width:1px; height:28px; background:var(--border-2); }
+    .brand-name { font-weight:700; color:var(--navy, var(--blue-900)); }
+    .header-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .header-link { display:inline-flex; align-items:center; gap:6px; color:var(--fg-2); font-size:var(--text-xs); font-weight:700; text-decoration:none; padding:8px 12px; border:1px solid var(--border-1); border-radius:999px; background:var(--bg-surface); }
+    .header-link:hover { color:var(--fg-1); border-color:var(--border-2); }
+    .header-link svg { width:14px; height:14px; }
+    main { max-width:980px; margin:0 auto; padding:40px clamp(20px,4vw,40px) 80px; }
+    .eyebrow { color:var(--blue-600); font-size:var(--text-xs); text-transform:uppercase; letter-spacing:.08em; font-weight:800; }
+    h1 { margin:8px 0 8px; font-size:clamp(30px,4.5vw,44px); color:var(--navy, var(--blue-900)); }
+    .sub { margin:0 0 24px; max-width:680px; color:var(--fg-3); font-size:var(--text-sm); line-height:1.6; }
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+    .tab { border:1px solid transparent; background:transparent; color:var(--fg-3); border-radius:999px; padding:8px 14px; cursor:pointer; font:700 var(--text-xs) var(--font-sans); }
+    .tab.active { background:var(--navy, var(--blue-900)); color:#fff; }
+    .tab .n { margin-left:6px; opacity:.7; }
+    .q { background:var(--bg-surface); border:1px solid var(--border-2); border-radius:18px; box-shadow:var(--shadow-sm); padding:20px; margin-bottom:14px; }
+    .q-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+    .q-text { font-size:var(--text-lg, 18px); font-weight:600; line-height:1.4; margin:0; max-width:620px; }
+    .meta { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:var(--text-xs); font-weight:600; background:var(--ink-100); color:var(--fg-2); }
+    .pill.count { background:var(--blue-50); color:var(--blue-800); }
+    .pill.kind { background:var(--sun-50); color:var(--sun-700); }
+    .pill.answered, .pill.taught { background:#E8F6EC; color:var(--leaf-600); }
+    .pill.ignored { background:var(--ink-100); color:var(--fg-3); }
+    .teach { margin-top:18px; padding-top:16px; border-top:1px solid var(--border-2); max-width:640px; }
+    fieldset.mode { border:1px solid var(--border-2); border-radius:12px; margin:0 0 12px; padding:10px 14px 12px; }
+    fieldset.mode legend { padding:0 6px; font-size:var(--text-xs); font-weight:700; color:var(--fg-2); }
+    label.opt { display:flex; align-items:center; gap:8px; margin:6px 0 0; font-size:var(--text-sm); font-weight:500; cursor:pointer; }
+    label.opt input { width:auto; margin:0; }
+    .banner.ok { background:#E8F6EC; color:var(--leaf-600); }
+    .teach h4 { margin:0 0 6px; font-size:var(--text-xs); text-transform:uppercase; letter-spacing:.06em; color:var(--fg-3); }
+    label { display:block; font-size:var(--text-xs); font-weight:700; color:var(--fg-2); margin-bottom:4px; }
+    input, textarea, select { width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid var(--border-1); border-radius:10px; background:#fff; color:var(--fg-1); font:var(--text-sm) var(--font-sans); }
+    textarea { min-height:84px; resize:vertical; }
+    input:focus, textarea:focus, select:focus { outline:2px solid var(--blue-300); outline-offset:1px; }
+    .field { margin-bottom:10px; }
+    .row { display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .hint { font-size:var(--text-xs); color:var(--fg-3); }
+    .hint.warn { color:var(--rust-600); }
+    button.act { display:inline-flex; align-items:center; gap:6px; min-height:34px; padding:0 14px; border:1px solid var(--border-1); border-radius:10px; background:#fff; color:var(--fg-1); cursor:pointer; font:700 var(--text-xs) var(--font-sans); }
+    button.act.primary { background:var(--navy, var(--blue-900)); border-color:var(--navy, var(--blue-900)); color:#fff; }
+    button.act.quiet { border-color:transparent; color:var(--fg-3); }
+    button.act:disabled { opacity:.5; cursor:not-allowed; }
+    button.act svg { width:14px; height:14px; }
+    .summary { margin-top:14px; padding:12px 14px; border-radius:12px; background:var(--bg-sunken); font-size:var(--text-sm); line-height:1.5; }
+    .summary b { color:var(--fg-2); }
+    .empty { text-align:center; padding:60px 20px; color:var(--fg-3); border:1px dashed var(--border-1); border-radius:18px; }
+    .banner { padding:10px 14px; border-radius:12px; background:var(--sun-50); color:var(--sun-700); font-size:var(--text-sm); margin-bottom:14px; }
+    @media (max-width: 760px) { .brand-name { display:none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <img src="https://cdn.solarsquare.in/blog/wp-content/uploads/2025/11/05101757/logo.webp" alt="SolarSquare">
+      <span class="brand-divider"></span>
+      <span class="brand-name">AMC operations</span>
+    </div>
+    <div class="header-actions">
+      <a class="header-link" href="/"><i data-lucide="layout-dashboard"></i>Dashboard</a>
+      <a class="header-link" href="/flow" target="_blank" rel="noopener"><i data-lucide="git-branch"></i>Call flow</a>
+    </div>
+  </header>
+  <main>
+    <div class="eyebrow">Teach the agent</div>
+    <h1>Off-guard questions</h1>
+    <p class="sub">Things customers said that the agent couldn't handle. Write the answer it should say, or tell it which intent the phrase belongs to. It uses what you save from the <b>next call</b>. Answers are spoken as written: keep them short and never state prices or amounts.</p>
+    <div id="banner" class="banner" hidden></div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div id="list"></div>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    // Intents that only say "I can't help": teaching a phrase to them makes the agent deflect it (the server refuses too).
+    const NOT_TEACHABLE = ['unclear', 'known_question', 'price_or_offtopic'];
+    const KIND = { deflected: "Couldn't answer", not_understood: "Couldn't use the reply", unclear: "Didn't understand", other_language: 'Other language' };
+    const TABS = [['new', 'New'], ['answered', 'Answered'], ['taught', 'Taught'], ['ignored', 'Ignored'], ['all', 'All']];
+    let items = [], tab = 'new', flow = null, botUrl = 'http://localhost:7860', signature = '';
+
+    const stepTitle = (id) => flow?.states?.[id]?.title ?? id ?? 'unknown step';
+    const ago = (iso) => {
+      const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
+      return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
+    };
+    const risky = (t) => /₹|\brs\.?\b|rupee|rupay|रुपय|\d{3,}|%|\bsubsidy\b|सब्सिडी/i.test(t);
+
+    function intentOptions(current) {
+      const mine = (flow?.intents ?? []).filter((i) => !NOT_TEACHABLE.includes(i.name));
+      return '<option value="">Choose an intent…</option>' + mine.map((i) =>
+        `<option value="${esc(i.name)}" ${i.name === current ? 'selected' : ''}>${esc(i.label)} (${esc(i.name)}, ${esc(i.scope)})</option>`).join('');
+    }
+
+    function card(it) {
+      const done = it.status === 'answered' || it.status === 'taught';
+      const summary = it.status === 'answered' ? `<div class="summary"><b>The agent now says:</b> “${esc(it.answer)}”</div>`
+        : it.status === 'taught' ? `<div class="summary"><b>The agent now treats this as:</b> ${esc(it.teachIntent)}</div>`
+        : it.status === 'ignored' ? '<div class="summary">Ignored. The agent keeps handling this as before.</div>' : '';
+      const form = `
+        <div class="teach" data-id="${esc(it.id)}">
+          <div class="field"><label for="qs-${esc(it.id)}">How customers ask this (generalise it if you like)</label>
+            <input id="qs-${esc(it.id)}" data-f="question" maxlength="200" value="${esc(it.question)}"></div>
+          <fieldset class="mode"><legend>What should the agent do when a customer asks this?</legend>
+            <label class="opt"><input type="radio" name="mode-${esc(it.id)}" value="answer" checked> Say an answer</label>
+            <label class="opt"><input type="radio" name="mode-${esc(it.id)}" value="intent"> Treat it as something the agent already knows how to do</label>
+            <label class="opt"><input type="radio" name="mode-${esc(it.id)}" value="ignore"> Ignore it</label>
+          </fieldset>
+          <div data-pane="answer">
+            <div class="field"><label for="an-${esc(it.id)}">What the agent should say</label>
+              <textarea id="an-${esc(it.id)}" data-f="answer" maxlength="400" placeholder="Short, one or two sentences, in Hindi or English">${esc(it.answer ?? '')}</textarea>
+              <div class="hint" data-warn></div></div>
+          </div>
+          <div data-pane="intent" hidden>
+            <div class="field"><label for="in-${esc(it.id)}">The agent should treat this phrase as</label>
+              <select id="in-${esc(it.id)}" data-f="intent">${intentOptions(it.teachIntent)}</select>
+              <div class="hint">For example “talk to a senior” or “do not call”. To give an <b>answer</b> to a question, choose “Say an answer” instead.</div></div>
+          </div>
+          <div class="row"><span></span><button class="act primary" data-do="save"><i data-lucide="check"></i>Save</button></div>
+        </div>`;
+      return `<article class="q" id="${esc(it.id)}">
+        <div class="q-head">
+          <div>
+            <p class="q-text">“${esc(it.text)}”</p>
+            <div class="meta">
+              <span class="pill count">Asked ${it.count}×</span>
+              <span class="pill kind">${esc(KIND[it.kind] ?? it.kind)}</span>
+              <span class="pill">At: ${esc(stepTitle(it.lastState ?? it.state))}</span>
+              <span class="pill">${esc(ago(it.lastSeen))}</span>
+              <span class="pill ${esc(it.status)}">${esc(it.status)}</span>
+            </div>
+          </div>
+          ${done || it.status === 'ignored' ? `<button class="act" data-do="reopen" data-id="${esc(it.id)}"><i data-lucide="rotate-ccw"></i>Reopen</button>` : ''}
+        </div>
+        ${summary}
+        ${done || it.status === 'ignored' ? '' : form}
+      </article>`;
+    }
+
+    function render() {
+      $('tabs').innerHTML = TABS.map(([k, label]) => {
+        const n = k === 'all' ? items.length : items.filter((i) => i.status === k).length;
+        return `<button class="tab ${k === tab ? 'active' : ''}" role="tab" aria-selected="${k === tab}" data-tab="${k}">${label}<span class="n">${n}</span></button>`;
+      }).join('');
+      const visible = items.filter((i) => tab === 'all' || i.status === tab);
+      $('list').innerHTML = visible.length ? visible.map(card).join('')
+        : `<div class="empty">${tab === 'new' ? 'No new questions. They appear here when the agent can’t handle something a customer says.' : 'Nothing here yet.'}</div>`;
+      window.lucide?.createIcons();
+    }
+
+    async function load(force) {
+      try {
+        const next = await (await fetch('/api/offguard')).json();
+        const sig = JSON.stringify(next.map((i) => [i.id, i.status, i.count, i.question, i.answer, i.teachIntent]));
+        const editing = document.activeElement?.closest?.('.teach');
+        if (!force && (sig === signature || editing)) return;       // never redraw under someone who is typing
+        signature = sig; items = next; render();
+      } catch { banner('Could not reach the dashboard server.'); }
+    }
+
+    function banner(text, kind) { $('banner').hidden = !text; $('banner').className = 'banner' + (kind ? ` ${kind}` : ''); $('banner').textContent = text ?? ''; }
+
+    async function save(id, body) {
+      const r = await fetch(`/api/offguard/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok) { banner(`Could not save: ${(await r.json().catch(() => ({}))).error ?? r.status}`); return false; }
+      await load(true); return true;
+    }
+
+    document.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-tab]');
+      if (t) { tab = t.dataset.tab; return render(); }
+      const b = e.target.closest('[data-do]');
+      if (!b) return;
+      const form = b.closest('.teach');
+      const id = form?.dataset.id ?? b.dataset.id;
+      const val = (f) => form?.querySelector(`[data-f="${f}"]`)?.value.trim() ?? '';
+      if (b.dataset.do === 'save') {
+        const mode = form.querySelector('input[type=radio]:checked').value;
+        if (mode === 'answer') {
+          if (!val('answer')) return banner('Write what the agent should say first.');
+          save(id, { question: val('question'), answer: val('answer') })
+            .then((ok) => ok && banner(`Saved. From the next call the agent will say: “${val('answer')}”`, 'ok'));
+        } else if (mode === 'intent') {
+          if (!val('intent')) return banner('Choose what the agent should do first.');
+          const label = form.querySelector('[data-f="intent"] option:checked').textContent;
+          save(id, { question: val('question'), teachIntent: val('intent') })
+            .then((ok) => ok && banner(`Saved. From the next call the agent will treat “${val('question')}” as: ${label}`, 'ok'));
+        } else save(id, { status: 'ignored' }).then((ok) => ok && banner('Ignored. The agent keeps handling this as before.', 'ok'));
+      } else if (b.dataset.do === 'reopen') save(id, { status: 'new' }).then((ok) => ok && banner('Reopened.', 'ok'));
+    });
+    document.addEventListener('change', (e) => {            // show only the part of the form that matches the choice
+      if (e.target.type !== 'radio') return;
+      const f = e.target.closest('.teach');
+      f.querySelector('[data-pane="answer"]').hidden = e.target.value !== 'answer';
+      f.querySelector('[data-pane="intent"]').hidden = e.target.value !== 'intent';
+    });
+    document.addEventListener('input', (e) => {
+      if (e.target.dataset.f !== 'answer') return;
+      const w = e.target.parentElement.querySelector('[data-warn]');
+      const bad = risky(e.target.value);
+      w.className = 'hint' + (bad ? ' warn' : '');
+      w.textContent = bad ? 'This looks like a price, percentage or subsidy. The agent must not state amounts.' : `${e.target.value.length}/400`;
+    });
+
+    fetch('/api/config').then((r) => r.json()).then((c) => { botUrl = c.botUrl; })
+      .catch(() => {}).finally(() => fetch(`${botUrl}/api/flow`).then((r) => r.json()).then((f) => { flow = f; render(); }).catch(() => {}));
+    load(true);
+    setInterval(() => load(false), 8000);
+  </script>
+</body>
+</html>

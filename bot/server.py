@@ -95,7 +95,11 @@ async def flow_outline():
     spec = FlowSpec.load(mode)
     sections = [{"title": v["title"], "about": v.get("about", ""), "states": v["states"]}
                 for v in (spec.flow.get("sections") or {}).values()]
+    intents = [{"name": n, "label": (i or {}).get("label") or n, "scope": scope}
+               for scope, group in (("any time", spec.global_intents), ("one step", spec.local_intents))
+               for n, i in group.items()]
     return {"title": spec.flow.get("title"), "version": str(spec.flow.get("version")), "sections": sections,
+            "intents": intents,
             "states": {n: {"title": st.get("title") or n, "type": st.get("type")} for n, st in spec.states.items()}}
 
 

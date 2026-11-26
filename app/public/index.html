@@ -42,6 +42,7 @@
     .flow-map .pill.seen { background:#E8F6EC; border-color:transparent; color:var(--leaf-600); }
     .flow-map .pill.cur { background:var(--blue-500); border-color:var(--blue-500); color:#fff; font-weight:600; }
     @media (max-width: 800px) { .flow-grid { grid-template-columns:1fr; } }
+    .note { display:block; margin-top:4px; color:var(--fg-3); font-size:var(--text-xs); }
     .chip { display: inline-block; padding: 2px 10px; border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 500; background: var(--ink-100); color: var(--fg-2); }
     .pending, .callback, .dialing, .connecting, .created { background: var(--sun-50); color: var(--sun-700); }
     .in_progress { background: var(--blue-50); color: var(--blue-700); }
@@ -101,6 +102,7 @@
     .header-link { display:inline-flex; align-items:center; gap:6px; color:var(--fg-2); font-size:var(--text-xs); font-weight:700; text-decoration:none; padding:8px 12px; border:1px solid var(--border-1); border-radius:999px; background:var(--bg-surface); }
     .header-link:hover { color:var(--fg-1); border-color:var(--border-2); }
     .header-link svg { width:14px; height:14px; }
+    .q-badge { min-width:18px; padding:1px 6px; border-radius:999px; background:var(--blue-500); color:#fff; font-size:11px; line-height:16px; text-align:center; }
     .live-pill { display:flex; align-items:center; gap:8px; border:1px solid var(--border-1); border-radius:999px; background:rgba(255,255,255,.82); padding:8px 12px; color:var(--fg-2); font-size:var(--text-xs); font-weight:700; }
     .live-dot { width:8px; height:8px; border-radius:50%; background:var(--leaf-500); box-shadow:0 0 0 4px rgba(43,168,74,.10); }
     main { max-width:1180px!important; padding:44px 24px 64px!important; }
@@ -150,10 +152,11 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .msg.sys.end { text-align:center; font-weight:600; }
     @media (prefers-reduced-motion: reduce) { .chip::before, .wait .spin { animation: none !important; } }
-    button.action { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; border:1px solid var(--border-1); border-radius:10px; background:white; color:var(--fg-2); padding:7px 10px; cursor:pointer; font:800 var(--text-xs) var(--font-sans); }
+    button.action, a.action { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; border:1px solid var(--border-1); border-radius:10px; background:white; color:var(--fg-2); padding:7px 10px; cursor:pointer; font:800 var(--text-xs) var(--font-sans); }
     button.action.primary { border-color:var(--navy); background:var(--navy); color:white; }
     button.action.danger { color:var(--rust-600); }
-    button.action svg { width:14px; height:14px; }
+    a.action { text-decoration:none; cursor:pointer; }
+    button.action svg, a.action svg { width:14px; height:14px; }
     @media (max-width:760px) {
       header { height:64px; padding:0 16px!important; }
       .brand-divider,.brand-name { display:none; }
@@ -178,6 +181,8 @@
     <div class="header-actions">
       <a class="header-link" id="voice-link" href="http://localhost:7860/voice" target="_blank" rel="noopener"><i data-lucide="audio-lines"></i>Voice studio</a>
       <a class="header-link" href="/flow" target="_blank" rel="noopener"><i data-lucide="git-branch"></i>Call flow</a>
+      <a class="header-link" href="/logs.html"><i data-lucide="scroll-text"></i>Call logs</a>
+      <a class="header-link" href="/questions.html"><i data-lucide="message-circle-question"></i>Questions<span class="q-badge" id="q-badge" hidden></span></a>
       <span class="live-pill"><i class="live-dot"></i><span id="service-status">Service online</span></span>
     </div>
   </header>
@@ -215,6 +220,7 @@
         <b id="live-name"></b>
         <span class="mono" id="live-id"></span>
         <span class="chip" id="live-status"></span>
+        <a class="header-link" id="live-log" href="/logs.html" hidden><i data-lucide="scroll-text"></i>Full call log</a>
         <span class="spacer"></span>
         <button class="danger" id="hangup" hidden><i data-lucide="phone-off"></i>Hang up</button>
       </div>
@@ -252,7 +258,7 @@
     const $ = (id) => document.getElementById(id);
     const fmtDate = (d) => new Date(d + 'T00:00:00+05:30').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    const WINDOWS = { '09-12': '9am–12pm', '12-15': '12–3pm', '15-18': '3–6pm', morning: '8am–12pm', afternoon: '12–4pm', evening: '4–8pm' };
+    const WINDOWS = { '09-12': '9am–12pm', '12-15': '12–3pm', '15-18': '3–6pm', morning: '9am–12pm', afternoon: '12–3pm', evening: '3–6pm' };
     const LABEL = {
       pending: 'Pending', confirmed: 'Confirmed', rejected: 'Rejected', callback: 'Callback', do_not_call: 'Do not call',
       wrong_number: 'Wrong number', no_answer: 'No answer', hung_up: 'Hung up', handed_to_human: 'Handed to human',
@@ -291,6 +297,20 @@
       renderBookings();
     }
 
+    // Under the status: what the last call confirmed (readiness, hold date, call-back time, who we spoke to).
+    function bookingNotes(b) {
+      if (b.status === 'pending') return '';
+      const lines = [];
+      if (b.readiness && Object.values(b.readiness).some((v) => v !== null)) {
+        lines.push(Object.entries(b.readiness).map(([k, v]) =>
+          `${ITEM[k]}: ${b.willArrange?.includes(k) ? 'will arrange' : v === true ? '✓' : v === false ? '✗' : '–'}`).join(' · '));
+      }
+      if (b.hold?.until) lines.push(`On hold till ${fmtDate(b.hold.until)}${b.hold.reason ? ` (${pretty(b.hold.reason)})` : ''}`);
+      if (b.recallWindow) lines.push(`Call back: ${b.recallWindow}`);
+      if (b.spokeTo === 'family_member') lines.push('Spoke to a family member');
+      return lines.map((l) => `<small class="note">${esc(l)}</small>`).join('');
+    }
+
     function renderBookings() {
       const busy = !!active?.live;
       const visible = allBookings.filter((b) => {
@@ -300,17 +320,21 @@
         return matchesFilter && haystack.includes(bookingQuery);
       });
       $('rows').innerHTML = visible.length ? visible.map((b) => {
-        const slot = b.status === 'confirmed' && b.visitDate ? `${fmtDate(b.visitDate)} · ${WINDOWS[b.visitSlot] ?? b.visitSlot}` : `${fmtDate(b.date)} · ${WINDOWS[b.window] ?? b.window}`;
+        const rq = b.status === 'date_requested' ? b.requestedSlot : null;
+        const slot = rq ? `Requested ${fmtDate(rq.date)} · ${WINDOWS[rq.band] ?? rq.band}`
+          : b.status === 'confirmed' && b.visitDate ? `${fmtDate(b.visitDate)} · ${WINDOWS[b.visitSlot] ?? b.visitSlot}` : `${fmtDate(b.date)} · ${WINDOWS[b.window] ?? b.window}`;
+        const notes = bookingNotes(b);
         const initials = b.customerName.split(/\s+/).map((p) => p[0]).slice(0,2).join('').toUpperCase();
         return `
         <tr class="${active?.bookingId === b.id ? 'active' : ''}">
           <td><div class="customer"><span class="avatar">${esc(initials)}</span><span><span class="customer-name">${esc(b.customerName)}</span><span class="phone">${esc(b.phone)}</span></span></div></td>
           <td class="mono">${esc(b.sseId)}</td>
           <td><div class="slot"><span class="slot-icon"><i data-lucide="calendar-days"></i></span><span class="mono">${esc(slot)}</span></div></td>
-          <td><span class="chip ${esc(b.status)}" title="${esc(b.rejectReason)}">${LABEL[b.status] ?? esc(b.status)}</span></td>
+          <td><span class="chip ${esc(b.status)}" title="${esc(b.rejectReason)}">${LABEL[b.status] ?? esc(b.status)}</span>${notes}</td>
           <td><div class="actions">
             <button class="action primary" data-call="${esc(b.id)}" data-mode="phone" ${busy ? 'disabled' : ''} title="Call the customer's phone via Exotel"><i data-lucide="phone"></i>Call</button>
             <button class="action" data-call="${esc(b.id)}" data-mode="browser" ${busy ? 'disabled' : ''} title="Test with your microphone"><i data-lucide="mic"></i>Browser</button>
+            <a class="action" href="/logs.html?booking=${esc(b.id)}" title="Call logs for this booking"><i data-lucide="scroll-text"></i>Logs</a>
           </div></td>
         </tr>`;
       }).join('') : `<tr><td colspan="5" class="empty">No bookings match this view.</td></tr>`;
@@ -353,10 +377,11 @@
     }
 
     function openLive(call, mode) {
-      active = { callId: call.id, bookingId: call.bookingId, mode, live: true, latencies: [], record: null, flow: { visited: [], said: {}, ended: false } };
+      active = { callId: call.id, bookingId: call.bookingId, mode, live: true, latencies: [], record: null, details: {}, flow: { visited: [], said: {}, ended: false } };
       $('live').hidden = false;
       $('live-name').textContent = call.booking?.customerName ?? call.bookingId;
       $('live-id').textContent = call.id;
+      $('live-log').href = `/logs.html?call=${encodeURIComponent(call.id)}`; $('live-log').hidden = false;
       // Phone calls can't be hung up from here (Exotel controls the line), but the view must never get stuck.
       $('hangup').hidden = false;
       $('hangup').lastChild.textContent = mode === 'browser' ? 'Hang up' : 'Close';
@@ -397,13 +422,25 @@
         sec.states.map((id) => `<span class="pill ${seen.has(id) ? 'seen' : ''} ${id === current ? 'cur' : ''}" title="${esc(id)}">${esc(title(id))}</span>`).join('')}</div></div>`).join('');
     }
 
+    const pretty = (t) => String(t ?? '').replace(/_/g, ' ');
+    const ITEM = { ladder: 'Ladder', water: 'Water', light: 'Light' };
     function renderSlots(slots) {
-      $('slots').innerHTML = SLOTS.map(([key, label]) => {
+      const rows = SLOTS.map(([key, label]) => {
         const s = slots[key];
         const cls = !s ? '' : s.ok ? 'ok' : 'bad';
         const val = !s ? 'waiting' : s.ok ? (s.display ?? String(s.value)) : `${s.error ?? 'rejected'}${s.raw ? ` (“${s.raw}”)` : ''}`;
         return `<li class="${cls}"><i class="dot"></i><span>${label}</span><em>${esc(val)}</em></li>`;
-      }).join('');
+      });
+      // The flow also confirms who we spoke to, a hold date, a call-back time or a requested day: shown once known.
+      const d = active?.details ?? {};
+      const extra = [];
+      if (d.spokeTo) extra.push(['Spoke to', d.spokeTo === 'family_member' ? 'Family member' : 'Customer']);
+      if (d.holdUntil) extra.push(['Site on hold till', `${fmtDate(d.holdUntil)}${d.holdReason ? ` · ${pretty(d.holdReason)}` : ''}`]);
+      if (d.recall) extra.push(['Call back', d.recall]);
+      if (d.requested?.date) extra.push(['Requested day', `${fmtDate(d.requested.date)}${d.requested.band ? ` · ${WINDOWS[d.requested.band] ?? d.requested.band}` : ''}`]);
+      if (d.willArrange?.length) extra.push(['Will arrange', d.willArrange.map((i) => ITEM[i] ?? i).join(', ')]);
+      $('slots').innerHTML = rows.join('') + extra.map(([label, val]) =>
+        `<li class="ok"><i class="dot"></i><span>${label}</span><em>${esc(val)}</em></li>`).join('');
     }
 
     function say(cls, text) {
@@ -426,6 +463,14 @@
           renderSlots(active.slots);
           break;
         case 'readback': say('sys', 'Agent is reading the details back'); break;
+        case 'beatplan': {                       // the actions the flow runs also carry what was confirmed
+          const p = e.payload ?? {};
+          if (e.action === 'site_on_hold') Object.assign(active.details, { holdUntil: p.hold_until, holdReason: p.hold_reason });
+          if (e.action === 'schedule_recall') active.details.recall = p.recall_window;
+          if (e.action === 'request_date') active.details.requested = { date: p.requested_date, band: p.requested_band };
+          renderSlots(active.slots);
+          break;
+        }
         case 'flow_state': {
           const v = active.flow.visited;
           if (v[v.length - 1] !== e.state) v.push(e.state);
@@ -434,6 +479,9 @@
         }
         case 'flow':
           if (e.intent) (active.flow.said[e.state] ??= []).push(e.intent);
+          if (e.intent === 'household_member') active.details.spokeTo = 'family_member';
+          else if (e.state === 'GREET' && e.intent === 'affirm') active.details.spokeTo = 'customer';
+          renderSlots(active.slots);
           renderFlow();
           break;
         case 'flow_state': if (!/^(PRE_CALL|GREET)$/.test(e.state)) say('sys', `Step: ${e.state}`); break;
@@ -450,6 +498,13 @@
         case 'metrics': if (e.cost_inr != null) $('cost').textContent = `₹${Number(e.cost_inr).toFixed(2)}`; break;
         case 'result':
           setStatus('ended', e.record?.outcome);
+          if (e.record) Object.assign(active.details, {
+            holdUntil: e.record.hold?.until, holdReason: e.record.hold?.reason, recall: e.record.recall_window,
+            requested: e.record.requested_slot ? { date: e.record.requested_slot.date, band: e.record.requested_slot.band } : undefined,
+            spokeTo: typeof e.record.spoke_to === 'string' && e.record.spoke_to !== 'nobody' ? e.record.spoke_to : active.details.spokeTo,
+            willArrange: e.record.will_arrange,
+          });
+          renderSlots(active.slots);
           if (e.record?.path?.length) active.flow.visited = [...e.record.path];
           active.flow.ended = true;
           renderFlow();
@@ -532,6 +587,14 @@
       if (active) clearTimeout(active.waitTimer);
       $('record-wait').hidden = true;
     }
+
+    // How many things customers said that the agent could not handle and nobody has looked at yet.
+    const loadQuestionCount = () => fetch('/api/offguard').then((r) => r.json()).then((q) => {
+      const n = q.filter((x) => x.status === 'new').length;
+      $('q-badge').hidden = !n; $('q-badge').textContent = n;
+    }).catch(() => {});
+    loadQuestionCount();
+    setInterval(loadQuestionCount, 10000);
 
     load();
     setInterval(load, 3000); // bookings table only; live call data arrives over SSE

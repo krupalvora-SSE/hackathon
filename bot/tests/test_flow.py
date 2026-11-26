@@ -946,6 +946,83 @@ def test_a_firm_no_to_calling_ends_the_call_politely():
     assert r.end and call.outcome == "do_not_call"
 
 
+# ---- seventh sample call: the price question (SSE-15557)
+def test_a_price_question_is_answered_free_for_now_with_no_amount():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("asks_price")                                           # "आप पैसे लोगे क्या इसके लिए?"
+    assert r.speak[0].startswith("फ़िलहाल यह visit free है।") and r.speak[0].endswith(call._reask())
+    assert call.state == "OFFER_PRIMARY" and not any(c.isdigit() for c in r.speak[0].split("।")[0]) and "₹" not in r.speak[0]
+    call, _, _ = live(lang="en")
+    call.handle("affirm")
+    assert call.handle("asks_price").speak[0].startswith("This visit is free for now.")
+
+
+def test_asking_the_price_again_and_again_never_escalates_because_it_is_answered():
+    call, _, _ = live()
+    call.handle("affirm")
+    for _ in range(4):
+        r = call.handle("asks_price")
+        assert not r.end and "free" in r.speak[0]
+
+
+def test_with_the_price_answer_switched_off_the_price_question_is_deflected(monkeypatch):
+    monkeypatch.setitem(SPEC.policies, "price_answer", None)
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("asks_price")
+    assert r.speak[0].startswith(call._global_line("deflection")) and "free" not in r.speak[0]
+
+
+def test_after_two_deflections_a_senior_is_asked_to_call_back():
+    call, _, _ = live()
+    call.handle("affirm")
+    deflection = call._global_line("deflection")
+    for _ in range(2):                                                      # the reported call asked three times
+        r = call.handle("price_or_offtopic")
+        assert r.speak[0].startswith(deflection) and not r.end
+    r = call.handle("price_or_offtopic")
+    assert r.end and call.outcome == "rm_callback" and call.record()["rm_callback_reason"] == "unanswered_question"
+    assert r.speak[0] == "इस बारे में मुझे अभी जानकारी नहीं है।" and "senior" in r.speak[-1]
+    assert deflection not in " ".join(r.speak)
+
+
+def test_the_deflection_count_resets_when_the_customer_moves_on():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("price_or_offtopic")
+    call.handle("price_or_offtopic")
+    call.handle("affirm")                                                   # answers the question: back on track
+    r = call.handle("price_or_offtopic")
+    assert not r.end and r.speak[0].startswith(call._global_line("deflection"))
+
+
+def test_deflections_from_different_questions_add_up():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("price_or_offtopic")
+    call.handle("asks_meaning")                                             # nothing to explain here: deflected too
+    r = call.handle("price_or_offtopic")
+    assert r.end and call.outcome == "rm_callback"
+
+
+def test_the_handover_line_in_english():
+    call, _, _ = live(lang="en")
+    call.handle("affirm")
+    for _ in range(2):
+        call.handle("price_or_offtopic")
+    r = call.handle("price_or_offtopic")
+    assert r.speak[0] == "I don't have this information right now." and "senior" in r.speak[-1] and r.end
+
+
+def test_a_plain_yes_at_the_greeting_is_not_a_family_member():
+    examples = " ".join(SPEC.local_intents["household_member"]["examples"]["hi"])
+    assert "haan ghar ka hi hoon" not in examples and "भाई" in examples          # a relationship is needed
+    call, _, _ = live()
+    r = call.handle("affirm")                                               # "हाँ, बोलिए"
+    assert "आपके solar system" in r.speak[0] and "family_member" != call.ctx.get("spoke_to")
+
+
 def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")

@@ -12,3 +12,5 @@ node_modules/
 bot/results/
 bot/voice.json
 bot/config.json
+app/data/offguard.json
+app/data/calls.json

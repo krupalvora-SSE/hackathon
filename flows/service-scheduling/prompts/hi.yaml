@@ -9,6 +9,8 @@
 
 _global:
   deflection: "इसकी जानकारी हमारी टीम आपको अलग से देगी।"
+  price_free: "फ़िलहाल यह visit free है।"
+  unknown_handover: "इस बारे में मुझे अभी जानकारी नहीं है।"
   reprompt: "हैलो, क्या आप मुझे सुन पा रहे हैं?"
   sms_reminder: "Visit से पहले आपको reminder SMS भी आ जाएगा।"
   service_hours: "हमारी visits सुबह 9 से शाम 6 बजे के बीच ही होती हैं।"

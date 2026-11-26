@@ -32,6 +32,14 @@ export function createStore(rows = seed) {
         ladder: s.ladder_available, water: s.water_source_available, light: s.light_available ?? null,
       }),
       hold: record.hold ?? null,
+      // what was confirmed on the call, kept whatever the outcome (a held site still knows its ladder)
+      readiness: { ladder: s.ladder_available ?? null, water: s.water_source_available ?? null, light: s.light_available ?? null },
+      recallWindow: record.recall_window ?? null,
+      spokeTo: typeof record.spoke_to === 'object' && record.spoke_to ? 'customer' : (record.spoke_to ?? null),
+      // new flow results: kept per call, so a later call clears them
+      requestedSlot: record.requested_slot ?? null,
+      willArrange: record.will_arrange ?? [],
+      timeWindowTold: record.time_window_told ?? null,
     });
     return { booking: b };
   }
