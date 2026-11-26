@@ -122,6 +122,9 @@ Entities (fill only when the customer said them, using their own words):
 - time_range: when to call them back
 - reason: why the site can't be serviced, or why they want a person
 - language: "en" if the customer is speaking English, "hi" if Hindi/Hinglish
+- readiness: when the customer also answers the ladder / water / light questions in the same turn
+  ("haan kal aa jao, ladder aur paani dono hain"), give {{"ladder": true, "water": true}} (true = they have it,
+  false = they don't). Include only items they actually mentioned; the intent is still the answer to the current question.
 
 Customers speak Hinglish, Hindi in Devanagari, Marathi or English; transcripts are noisy phone ASR.
 "haan / ji / theek hai / chalega" to a yes/no question is affirm; "nahi / nahi hai / nahi chalega" is deny.

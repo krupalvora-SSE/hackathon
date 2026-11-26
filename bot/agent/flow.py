@@ -345,9 +345,14 @@ class FlowCall:
                         continue
                 if st.get("checklist") and say is None:
                     self.readiness_idx = 0
+                    if self.auto and self._skip_known_readiness():   # everything already answered
+                        tr = self._pick(target, self._checklist_final(), None)
+                        self._apply_set(tr)
+                        target, say = tr["to"], tr.get("say")
+                        continue
                     lines.append(self._line(target, "main"))
                     lines.append(self._checklist_question())
-                    key = f"ask_{self.policies[st['checklist']][0]['id']}"
+                    key = f"ask_{self.policies[st['checklist']][self.readiness_idx]['id']}"
                 else:
                     lines.append(self._line(target, say or "main"))
                     key = say or "main"
@@ -398,6 +403,10 @@ class FlowCall:
     # ------------------------------------------------------------ per-state rules
     def _absorb(self, on: str, e: dict) -> None:
         """Store entities the LLM extracted, parsed by code (never trusted as-is)."""
+        if isinstance(e.get("readiness"), dict):  # several answers in one turn: only known items, only booleans
+            ids = {i["id"] for i in self.policies["readiness_items"]}
+            known = self.ctx.setdefault("known_readiness", {})
+            known.update({k: v for k, v in e["readiness"].items() if k in ids and isinstance(v, bool)})
         if e.get("exact_time"):
             self.ctx["preferred_exact_time"] = e["exact_time"]
         if e.get("band"):
@@ -432,14 +441,11 @@ class FlowCall:
                 self.ctx["missing_items"].append(item["id"])
             self._emit_readiness(item["id"], on == "affirm")
             self.readiness_idx += 1
-            if self.readiness_idx < len(items):
+            if not self._skip_known_readiness():
                 q = self._checklist_question()
                 self.last_line, self.last_ref = q, (self.state, f"ask_{items[self.readiness_idx]['id']}")
                 return self._step([q])
-            final = "deny" if self.ctx["missing_items"] else "affirm"
-            if final == "deny":
-                self.ctx["hold_reason"] = "prerequisites_missing"
-            tr = self._pick(self.state, final, None)
+            tr = self._pick(self.state, self._checklist_final(), None)
             self._apply_set(tr)
             return self._step(self._enter(tr["to"], tr.get("say")))
 
@@ -476,6 +482,25 @@ class FlowCall:
                     return s
             return None
         return self.offered[0] if len(self.offered) == 1 else None
+
+    def _skip_known_readiness(self) -> bool:
+        """Record checklist items the customer already answered in an earlier turn; True when none are left to ask."""
+        items = self.policies[self.spec.states[self.state]["checklist"]]
+        known = self.ctx.get("known_readiness", {})
+        while self.readiness_idx < len(items) and items[self.readiness_idx]["id"] in known:
+            item, ok = items[self.readiness_idx]["id"], known[items[self.readiness_idx]["id"]]
+            self.ctx["readiness"][item] = ok
+            if not ok:
+                self.ctx["missing_items"].append(item)
+            self._emit_readiness(item, ok)
+            self.readiness_idx += 1
+        return self.readiness_idx >= len(items)
+
+    def _checklist_final(self) -> str:
+        if self.ctx["missing_items"]:
+            self.ctx["hold_reason"] = "prerequisites_missing"
+            return "deny"
+        return "affirm"
 
     def _checklist_question(self) -> str:
         st = self.spec.states[self.state]
