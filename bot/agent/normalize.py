@@ -152,8 +152,7 @@ def parse_date(text: str, today: date | None = None) -> date | None:
             ahead = (wd - today.weekday()) % 7
             if ahead == 0:
                 ahead = 7
-            if i > 0 and tokens[i - 1] in NEXT_WORDS and ahead < 7:
-                ahead += 7
+            # "agle somvar" on a Thursday means the coming Monday, same as "somvar"
             return today + timedelta(days=ahead)
 
     for offset, words in RELATIVE.items():
