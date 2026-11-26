@@ -1,0 +1,316 @@
+# Service Scheduling call flow (Beat Plan driven)
+# ------------------------------------------------
+# The bot's state machine. Code runs this file; the LLM only classifies what the
+# customer said into an intent (see intents.yaml) and speaks the state's line
+# (see prompts/<lang>.yaml). Edit, then run:  python tools/flowcheck.py --write
+#
+# Transition rules
+#   - Transitions are checked top to bottom; the first whose `on` matches and
+#     whose `when` flag holds wins. `when: "!flag"` means the flag is false.
+#   - Flags are set by code (counters, policy values, action results), never by the LLM.
+#   - `say:` plays a specific prompt key of the target state instead of its `main` line.
+#   - `set:` stores values in call context (e.g. which slot the customer picked).
+#   - Global intents (intents.yaml, scope: global) work in every `conversation`
+#     state unless the state lists them in `disable_global`.
+#
+# State types
+#   conversation : bot speaks, waits for the customer
+#   system       : bot runs actions and moves on from their result events
+#   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
+
+flow_id: service_scheduling
+version: 0.1.0
+start: PRE_CALL
+
+# Events raised by code (timers, action results), not by the customer.
+events:
+  - context_ready
+  - not_eligible
+  - silence_timeout
+  - action_ok
+  - action_failed
+  - band_available
+  - band_full
+  - no_backup_slots
+  - slot_found
+  - none_found
+
+# Flags code computes before choosing a guarded transition.
+flags:
+  exact_time_limit_reached: "exact_time_asks >= policies.exact_time_insist_limit"
+  options_remaining: "unoffered backup slots exist"
+  reschedule_after_ready_date: "policies.on_missing_prereq == 'reschedule_after_ready_date'"
+
+# Applies to every conversation state.
+global_events:
+  - on: silence_timeout
+    to: NO_ANSWER_CLOSE
+
+outcomes:
+  - slot_confirmed
+  - slot_confirmed_alt_band
+  - slot_confirmed_alt_day
+  - site_on_hold
+  - hold_declined
+  - no_slot_available
+  - rm_callback
+  - recall_requested
+  - do_not_call
+  - wrong_number
+  - no_answer
+  - needs_manual_confirmation
+  - not_dialled
+
+# Runs after every terminal state, whatever the outcome.
+post_call:
+  actions: [summarise_call, post_beatplan_comment]
+
+states:
+
+  PRE_CALL:
+    type: system
+    actions: [fetch_beatplan_context, check_call_eligibility]
+    transitions:
+      - on: context_ready
+        to: GREET
+      - on: not_eligible
+        to: NOT_DIALLED
+
+  GREET:
+    type: conversation
+    collects: [identity_confirmed]
+    transitions:
+      - on: affirm
+        to: OFFER_PRIMARY
+        set: {spoke_to: customer}
+
+  WRONG_PERSON:
+    type: conversation
+    transitions:
+      - on: household_member
+        to: OFFER_PRIMARY
+        set: {spoke_to: family_member}
+      - on: customer_unavailable
+        to: RECALL
+      - on: deny
+        to: WRONG_NUMBER_CLOSE
+
+  OFFER_PRIMARY:
+    type: conversation
+    transitions:
+      - on: affirm
+        to: READINESS_CHECK
+        set: {selected_slot: primary_slot, slot_source: primary}
+      - on: ask_time
+        to: TIME_BAND
+      - on: deny
+        to: ALTERNATE_DAYS
+
+  TIME_BAND:
+    type: conversation
+    collects: [preferred_exact_time]
+    transitions:
+      - on: affirm
+        to: READINESS_CHECK
+        set: {selected_slot: primary_slot, slot_source: primary}
+      - on: wants_exact_time
+        when: "!exact_time_limit_reached"
+        to: TIME_BAND
+        say: no_exact_guarantee
+      - on: wants_exact_time
+        when: exact_time_limit_reached
+        to: ESCALATE_RM
+        set: {rm_callback_reason: insists_on_exact_time}
+      - on: wants_other_band
+        to: CHECK_BAND
+      - on: deny
+        to: ALTERNATE_DAYS
+
+  CHECK_BAND:
+    type: system
+    actions: [check_band_availability]
+    transitions:
+      - on: band_available
+        to: READINESS_CHECK
+        set: {slot_source: alt_band}
+      - on: band_full
+        to: ALTERNATE_DAYS
+        say: band_full
+
+  ALTERNATE_DAYS:
+    type: conversation
+    actions: [get_backup_slots]          # sorted closest-first, offered max_options_per_turn at a time
+    transitions:
+      - on: no_backup_slots
+        to: NO_SLOT_CLOSE
+      - on: affirm
+        to: READINESS_CHECK
+        set: {slot_source: alt_day}
+      - on: wants_other_band
+        to: CHECK_BAND
+      - on: deny
+        when: options_remaining
+        to: ALTERNATE_DAYS
+        say: next_options
+      - on: deny
+        when: "!options_remaining"
+        to: NO_SLOT_CLOSE
+
+  READINESS_CHECK:
+    type: conversation
+    # Asks policies.readiness_items one at a time; code tracks which are missing.
+    collects: [readiness]
+    transitions:
+      - on: affirm
+        to: RECAP
+      - on: deny
+        to: ASK_READY_DATE
+        set: {hold_reason: prerequisites_missing}
+
+  ASK_READY_DATE:
+    type: conversation
+    collects: [hold_until]
+    transitions:
+      - on: date_given
+        when: reschedule_after_ready_date
+        to: FIND_SLOT_AFTER_READY
+      - on: date_given
+        when: "!reschedule_after_ready_date"
+        to: HOLD_CONSENT
+
+  FIND_SLOT_AFTER_READY:
+    type: system
+    actions: [get_backup_slots]          # filtered to dates after hold_until
+    transitions:
+      - on: slot_found
+        to: RECAP
+        set: {slot_source: alt_day}
+      - on: none_found
+        to: HOLD_CONSENT
+
+  RECAP:
+    type: conversation
+    transitions:
+      - on: affirm
+        to: BOOK
+      - on: change_date
+        to: ALTERNATE_DAYS
+      - on: change_time
+        to: TIME_BAND
+
+  BOOK:
+    type: system
+    actions: [confirm_slot]
+    transitions:
+      - on: action_ok
+        to: CONFIRMED_CLOSE
+      - on: action_failed
+        to: MANUAL_CONFIRM_CLOSE
+
+  SITE_ON_HOLD:
+    type: conversation
+    # Entered from the global not_serviceable intent (out of town, roof repair...).
+    collects: [hold_reason, hold_until]
+    disable_global: [not_serviceable]
+    transitions:
+      - on: date_given
+        to: HOLD_CONSENT
+
+  HOLD_CONSENT:
+    type: conversation
+    disable_global: [not_serviceable]
+    transitions:
+      - on: affirm
+        to: APPLY_HOLD
+        set: {hold_consent: true}
+      - on: deny
+        to: HOLD_DECLINED_CLOSE
+        set: {hold_consent: false}
+
+  APPLY_HOLD:
+    type: system
+    actions: [site_on_hold]
+    transitions:
+      - on: action_ok
+        to: HOLD_CLOSE
+      - on: action_failed
+        to: MANUAL_CONFIRM_CLOSE
+
+  RECALL:
+    type: conversation
+    collects: [recall_window]
+    disable_global: [call_later]
+    transitions:
+      - on: time_range_given
+        to: APPLY_RECALL
+
+  APPLY_RECALL:
+    type: system
+    actions: [schedule_recall]
+    transitions:
+      - on: action_ok
+        to: RECALL_CLOSE
+      - on: action_failed
+        to: RECALL_CLOSE
+
+  ESCALATE_RM:
+    type: system
+    actions: [create_rm_callback]
+    transitions:
+      - on: action_ok
+        to: RM_CLOSE
+      - on: action_failed
+        to: RM_CLOSE
+
+  # ---------- terminal states (each ends the call with one outcome) ----------
+
+  CONFIRMED_CLOSE:
+    type: terminal
+    outcome_from: slot_source
+    outcome_map:
+      primary: slot_confirmed
+      alt_band: slot_confirmed_alt_band
+      alt_day: slot_confirmed_alt_day
+
+  HOLD_CLOSE:
+    type: terminal
+    outcome: site_on_hold
+
+  HOLD_DECLINED_CLOSE:
+    type: terminal
+    outcome: hold_declined
+
+  NO_SLOT_CLOSE:
+    type: terminal
+    outcome: no_slot_available
+
+  RM_CLOSE:
+    type: terminal
+    outcome: rm_callback
+
+  RECALL_CLOSE:
+    type: terminal
+    outcome: recall_requested
+
+  DNC_CLOSE:
+    type: terminal
+    actions: [mark_dnc]
+    outcome: do_not_call
+
+  WRONG_NUMBER_CLOSE:
+    type: terminal
+    outcome: wrong_number
+
+  NO_ANSWER_CLOSE:
+    type: terminal
+    outcome: no_answer
+
+  MANUAL_CONFIRM_CLOSE:
+    type: terminal
+    actions: [create_rm_callback]
+    outcome: needs_manual_confirmation
+
+  NOT_DIALLED:
+    type: terminal
+    silent: true                         # call never placed; still logged to Beat Plan
+    outcome: not_dialled

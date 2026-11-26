@@ -1,0 +1,106 @@
+# Paper-test calls. flowcheck.py walks each one through flow.yaml and checks the outcome.
+# Each step is what code/LLM would emit: an intent (affirm, ask_time, ...) or an event
+# (context_ready, action_ok, ...). `flags` set guard flags for that step.
+# Add a scenario whenever you add or change a branch.
+
+- name: yes, everything ready
+  steps: [context_ready, affirm, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: asks time, accepts the 4-hour band
+  steps: [context_ready, affirm, ask_time, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: insists on exact time -> RM callback
+  steps:
+    - context_ready
+    - affirm
+    - ask_time
+    - {on: wants_exact_time, flags: {exact_time_limit_reached: false}}
+    - {on: wants_exact_time, flags: {exact_time_limit_reached: true}}
+    - action_ok
+  expect: rm_callback
+
+- name: other band same day is free
+  steps: [context_ready, affirm, ask_time, wants_other_band, band_available, affirm, affirm, action_ok]
+  expect: slot_confirmed_alt_band
+
+- name: other band full -> picks an alternate day
+  steps: [context_ready, affirm, ask_time, wants_other_band, band_full, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed_alt_day
+
+- name: not available, no alternate day fits
+  steps:
+    - context_ready
+    - affirm
+    - deny
+    - {on: deny, flags: {options_remaining: true}}
+    - {on: deny, flags: {options_remaining: false}}
+  expect: no_slot_available
+
+- name: Beat Plan has no backup slots at all
+  steps: [context_ready, affirm, deny, no_backup_slots]
+  expect: no_slot_available
+
+- name: ladder missing -> site on hold with consent
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - deny
+    - {on: date_given, flags: {reschedule_after_ready_date: false}}
+    - affirm
+    - action_ok
+  expect: site_on_hold
+
+- name: ladder missing, policy reschedules after ready date
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - deny
+    - {on: date_given, flags: {reschedule_after_ready_date: true}}
+    - slot_found
+    - affirm
+    - action_ok
+  expect: slot_confirmed_alt_day
+
+- name: out of town -> declines the hold
+  steps: [context_ready, affirm, not_serviceable, date_given, deny]
+  expect: hold_declined
+
+- name: call me later -> recall (stub)
+  steps: [context_ready, affirm, call_later, time_range_given, action_ok]
+  expect: recall_requested
+
+- name: asks for a human mid-call
+  steps: [context_ready, affirm, ask_time, wants_human, action_ok]
+  expect: rm_callback
+
+- name: price question, then confirms
+  steps: [context_ready, affirm, price_or_offtopic, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: family member picks up and confirms
+  steps: [context_ready, wrong_person, household_member, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: wrong number
+  steps: [context_ready, wrong_person, deny]
+  expect: wrong_number
+
+- name: do not call
+  steps: [context_ready, affirm, do_not_call]
+  expect: do_not_call
+
+- name: silence after pickup
+  steps: [context_ready, silence_timeout]
+  expect: no_answer
+
+- name: blocked before dialling (dnc / hours / allowlist)
+  steps: [not_eligible]
+  expect: not_dialled
+
+- name: confirm API fails
+  steps: [context_ready, affirm, affirm, affirm, affirm, action_failed]
+  expect: needs_manual_confirmation

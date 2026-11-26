@@ -5,6 +5,10 @@ description: Conversation state machine, required slots, outcomes and the struct
 
 # AMC Cleaning Call Flows
 
+> **Beat-Plan-driven scheduling lives in config:** `flows/service-scheduling/` (TECH-56) is the source of truth for the outbound scheduling call built on Beat Plan's soft allocation (primary slot + backup slots, 4-hour bands, readiness check for A-type ladder / water / light, site on hold with consent, recall, RM callback, Beat Plan comment after every call). Its outcomes and call record (`schemas/call-record.schema.json`) replace Flow A's below for that call type. Flow B (confirmation) and the robustness rules here still apply.
+>
+> **To change a flow:** edit the YAML in `flows/<flow>/` (`flow.yaml` states/transitions, `intents.yaml`, `actions.yaml`, `policies.yaml`, `prompts/hi.yaml` + `prompts/en.yaml`), add a case to `scenarios.yaml`, then run `.venv/bin/python tools/flowcheck.py --write` until it prints `OK`. Bump `version` in `flow.yaml` and note it in `CHANGELOG.md`. Never hand-edit the Mermaid block in the README.
+
 Two outbound flows share one agent; the flow is chosen by the call's `call_type` passed in at dial time.
 
 ## Customer context injected at call start

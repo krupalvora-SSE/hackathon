@@ -1,0 +1,81 @@
+# Actions the flow can trigger (Beat Plan / Zeus integrations).
+# --------------------------------------------------------------
+# status:
+#   live             -> contract known and wired
+#   contract_pending -> we know what it must do; endpoint/payload to be confirmed with the Beat Plan/Zeus team
+#   stub             -> API does not exist yet; `fallback` describes what we do instead
+# Every action call carries call_id and site_id, injected by code (never by the LLM).
+# Result events: action_ok / action_failed unless `events` says otherwise.
+
+fetch_beatplan_context:
+  system: beat_plan
+  status: contract_pending
+  does: Load the site's Beat Plan soft allocation (primary slot, backup slots, hero, customer details)
+  input: [site_id]
+  output_schema: schemas/context.schema.json
+  events: [context_ready, not_eligible]
+
+check_call_eligibility:
+  system: internal
+  status: live
+  does: Block the dial if dnc, outside calling_hours, or number not in the test allowlist
+  input: [dnc, phone, now]
+  events: [context_ready, not_eligible]
+
+check_band_availability:
+  system: beat_plan
+  status: contract_pending
+  does: Is the customer's preferred time band free on the selected date for the allocated or another hero?
+  input: [site_id, date, band]
+  events: [band_available, band_full]
+
+get_backup_slots:
+  system: beat_plan
+  status: contract_pending
+  does: Return backup slots from Beat Plan, sorted closest-first; optional after_date filter
+  input: [site_id, "after_date?"]
+  events: [no_backup_slots, slot_found, none_found]
+
+confirm_slot:
+  system: zeus
+  status: contract_pending
+  does: Convert the soft allocation into a confirmed visit (date, band, hero)
+  input: [site_id, date, band, hero_id, readiness, "preferred_exact_time?"]
+
+site_on_hold:
+  system: zeus
+  status: contract_pending
+  does: Put the site on hold until hold_until with reason; stops scheduling calls until then
+  input: [site_id, hold_reason, hold_until, "missing_items?", consent]
+
+schedule_recall:
+  system: beat_plan
+  status: stub
+  does: Schedule a bot re-call in the customer's requested window
+  input: [site_id, recall_window]
+  fallback: Post the requested window as a Beat Plan comment and create a scheduler task
+
+create_rm_callback:
+  system: zeus
+  status: contract_pending
+  does: Create a callback task for the RM / scheduler with reason and customer's preference
+  input: [site_id, rm_callback_reason, "preferred_exact_time?", summary]
+
+mark_dnc:
+  system: zeus
+  status: contract_pending
+  does: Flag the customer as do-not-call
+  input: [customer_id]
+
+summarise_call:
+  system: internal
+  status: live
+  does: LLM writes a 2-3 line plain-English summary and sentiment from the transcript
+  input: [transcript, call_context]
+
+post_beatplan_comment:
+  system: beat_plan
+  status: contract_pending
+  does: Post the call summary + structured call record as a comment on the site in Beat Plan
+  input: [site_id, call_record]
+  output_schema: schemas/call-record.schema.json
