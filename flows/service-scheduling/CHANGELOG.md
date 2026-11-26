@@ -2,6 +2,17 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.7.0 (2026-11-26, SSE-15527 PR #4, merged in SSE-15542)
+Changes from listening to 4 real sample calls (developed as 0.3.0 on its own branch; renumbered when merged after 0.4.0-0.6.0):
+- Time windows now match service hours: morning 9–12, afternoon 12–3, evening 3–6; asking for a time outside 9 am–6 pm gets the hours and the question again (`outside_service_hours`).
+- "Not needed yet / plan is new" gets one explanation, then `not_needed_now` (NOT_NEEDED, NOT_NEEDED_CLOSE).
+- No ladder → "can you arrange one before the visit?" first; yes keeps the booking (`will_arrange` in the record).
+- Customer's own date: booked if Beat Plan has that day, otherwise asked for a time of day and saved as a request (`date_requested`, `request_date` action, `requested_slot` in the record).
+- Reminder-SMS sentence on the booked line, behind `sms_reminder` in policies.yaml (off until Beat Plan sends it); now a `{sms_line}` placeholder instead of a separate line.
+- The bot only mentions a time window if the customer asks about time (`shares_time` on intents, `time_line` on RECAP and CONFIRMED_CLOSE). A plain yes gets the date only, and backup days are offered without a time of day, so the slot can still move within the day. `time_window_told` is in the call record.
+- Repaired words broken by the repo-wide main→mai replace (`maintenance`, `options_remaining`, the `main` prompt key, `__main__`).
+- Merge fixes (SSE-15542) so PR #4 and the 0.3.0-0.6.0 changes work together: a missing ladder given up front (several answers in one turn) still asks "can you arrange one before the visit?" first; "phir se boliye" in that question repeats it in short form (`repeat_arrange_ladder`); the RECAP repeat line mentions the time window only when the customer asked about time (`repeat_main` / `repeat_with_time`).
+
 ## 0.6.0 (2026-11-26, SSE-15539)
 - Several answers in one turn: `customer_said` takes a `readiness` entity ({ladder, water, light} booleans). READINESS_CHECK records those items (including missing ones and the dashboard events) and only asks the rest; if all are answered it goes straight on, and a missing item still leads to the hold flow. Unknown items and non-boolean values are ignored.
 

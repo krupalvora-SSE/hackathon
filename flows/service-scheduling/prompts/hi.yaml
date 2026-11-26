@@ -3,13 +3,15 @@
 # Placeholders are filled by code, already spelled out in words:
 #   {name} {bot_name} {date_spoken} {weekday} {band_spoken} {options_spoken}
 #   {missing_item} {hold_until_spoken} {recall_window_spoken}
-# `main` is spoken on entering the state; other keys are used via `say:` in flow.yaml.
+# `mai` is spoken on entering the state; other keys are used via `say:` in flow.yaml.
 # After a _global line (deflection, didnt_catch, reprompt) the bot repeats the current question.
 # Keep each line under ~20 words, one question per turn. The LLM may paraphrase lightly.
 
 _global:
   deflection: "इसकी जानकारी हमारी टीम आपको अलग से देगी।"
   reprompt: "हैलो, क्या आप मुझे सुन पा रहे हैं?"
+  sms_reminder: "Visit से पहले आपको reminder SMS भी आ जाएगा।"
+  service_hours: "हमारी visits सुबह 9 से शाम 6 बजे के बीच ही होती हैं।"
   didnt_catch: "माफ़ कीजिए, ठीक से सुनाई नहीं दिया।"
   repeat_lead: "जी, फिर से बता देता हूँ।"
   hold_ack: "जी, मैं line पर हूँ, आप देख लीजिए।"
@@ -43,9 +45,17 @@ ALTERNATE_DAYS:
   repeat_band_full: "{options_spoken}, इनमें से कौन सा दिन ठीक रहेगा?"
   repeat_next_options: "{options_spoken}, इनमें से कौन सा दिन ठीक रहेगा?"
 
+NOT_NEEDED:
+  main: "जी, आपकी बात सही है कि plan अभी नया है। इसीलिए पहली visit एक check-up की तरह होती है, ताकि कोई भी problem शुरू में ही पकड़ में आ जाए। तो क्या मैं {weekday}, {date_spoken} का slot book कर दूँ?"
+
+ASK_BAND_FOR_DATE:
+  main: "ठीक है। {requested_date_spoken} को सुबह, दोपहर या शाम, कौन सा time आपके लिए ठीक रहेगा?"
+
 READINESS_CHECK:
   main: "बढ़िया। Service के लिए कुछ चीज़ें ready रखनी होंगी, बस confirm कर लेता हूँ।"
   ask_ladder: "क्या आपके पास A-type ladder है, जिससे hero छत तक पहुँच सकें?"
+  arrange_ladder: "कोई बात नहीं। क्या visit से पहले आप कहीं से A-type ladder arrange कर पाएँगे?"
+  repeat_arrange_ladder: "क्या आप ladder arrange कर पाएँगे?"
   ask_water: "Panels के पास पानी का source है?"
   ask_light: "और वहाँ light का connection है?"
   repeat_ask_ladder: "आपके पास A-type ladder है?"
@@ -57,8 +67,10 @@ ASK_READY_DATE:
   repeat_main: "{missing_item} किस date तक हो जाएगा?"
 
 RECAP:
-  main: "तो {weekday}, {date_spoken}, {band_spoken} के बीच, और ladder, पानी और light ready रहेंगे। मैं यह confirm कर दूँ?"
-  repeat_main: "{weekday}, {date_spoken}, {band_spoken}। मैं यह confirm कर दूँ?"
+  main: "तो {weekday}, {date_spoken}, और ladder, पानी और light ready रहेंगे। मैं यह confirm कर दूँ?"
+  with_time: "तो {weekday}, {date_spoken}, {band_spoken} के बीच, और ladder, पानी और light ready रहेंगे। मैं यह confirm कर दूँ?"
+  repeat_main: "{weekday}, {date_spoken}। मैं यह confirm कर दूँ?"
+  repeat_with_time: "{weekday}, {date_spoken}, {band_spoken}। मैं यह confirm कर दूँ?"
 
 SITE_ON_HOLD:
   main: "समझ गया। आपकी site किस date से service के लिए ready होगी?"
@@ -73,7 +85,8 @@ RECALL:
   repeat_main: "आपको किस time call करूँ?"
 
 CONFIRMED_CLOSE:
-  main: "आपका slot {weekday}, {date_spoken}, {band_spoken} के लिए confirm हो गया है। धन्यवाद, आपका दिन शुभ हो!"
+  main: "आपकी visit {weekday}, {date_spoken} के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+  with_time: "आपकी visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
 
 HOLD_CLOSE:
   main: "आपकी site {hold_until_spoken} तक hold पर है। उसके बाद हम आपसे संपर्क करेंगे। धन्यवाद!"
@@ -101,3 +114,9 @@ NO_ANSWER_CLOSE:
 
 MANUAL_CONFIRM_CLOSE:
   main: "आपकी details note कर ली हैं, हमारी team जल्द ही confirm करके बताएगी। धन्यवाद!"
+
+NOT_NEEDED_CLOSE:
+  main: "ठीक है, कोई बात नहीं। हम कुछ समय बाद आपसे फिर संपर्क करेंगे। धन्यवाद!"
+
+REQUEST_CLOSE:
+  main: "मैंने आपकी {requested_date_spoken}, {requested_band_spoken} की request note कर ली है। यह date अभी fix नहीं है, technician की availability के हिसाब से बदल भी सकती है। हमारी team आपसे confirm कर लेगी। धन्यवाद!"
