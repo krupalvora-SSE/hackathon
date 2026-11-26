@@ -54,15 +54,17 @@ class MockBeatPlan:
         handler = getattr(self, name, None)
         if handler is None:
             raise KeyError(f"no handler for action '{name}'")
-        if name in (call.context.get("fail_actions") or []):
+        fail = call.context.get("fail_actions") or (call.booking.get("beatPlan") or {}).get("fail_actions") or []
+        if name in fail:              # context isn't loaded yet when fetch_beatplan_context itself fails
             return "action_failed"
         return handler(call, state)
 
     # ------------------------------------------------------------ pre-call
     def fetch_beatplan_context(self, call: "FlowCall", state: str):
         call.context = context_from_booking(call.booking)
-        if not call.context["primary_slot"]:
-            return "not_eligible"
+        if not call.context["primary_slot"] or not call.context["customer"]["name"]:
+            call.ctx["blocked_reason"] = "beatplan_context_missing"   # never dial with blank name or date
+            return "context_failed"
         return None
 
     def check_call_eligibility(self, call: "FlowCall", state: str):

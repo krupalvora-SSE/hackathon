@@ -2,6 +2,19 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.10.0 (2026-11-26, SSE-15556)
+P0 gaps from the QA test plan (142 cases), each with a scenario tagged with its QA case id:
+- RECAP: a plain "no" now offers other days (readiness already answered is not asked again), and "actually ladder nahi hai" (`readiness_changed`) goes to the ready date and site hold.
+- `stop_recording`: "recording band karo" ends the call politely and asks a person to call back without recording (outcome `recording_declined`, not DNC).
+- `sensitive_situation`: death or serious illness gets condolence, no slot pitch, and a senior follow-up (outcome `sensitive_situation`, needs review).
+- `not_decision_maker`: a child, domestic help, driver or tenant can't book; the bot asks when the customer is home (RECALL `when_customer_home`).
+- Support ticket failure: `create_support_ticket` → `action_failed` no longer claims a ticket was made; the bot says it noted it, and "no visit" goes to a supervisor (`support_ticket_failed`). The record shows the ticket status.
+- `max_hold_days` (90) is enforced: a longer hold or ready date goes to a supervisor (`hold_too_long`) and no hold is applied.
+- Caller hangs up mid-call: `caller_hangup` event → `hung_up` (now a declared outcome, needs review, partial record kept). `voicemail_detected` → `no_answer` without speaking.
+- Beat Plan context missing or down: `context_failed` / `action_failed` in PRE_CALL → not dialled.
+- Side talk: `side_talk` (other phone, someone in the room, TV) stays quiet and waits. In `clear_yes_states` (RECAP, HOLD_CONSENT) a yes marked `side_talk` gets "just to be sure…" instead of booking or pausing the site.
+- Call record: `needs_review`, `support_ticket.status`; schema outcome enum adds `recording_declined`, `sensitive_situation`, `hung_up`.
+
 ## 0.9.0 (2026-11-26, SSE-15527)
 First-PM (first preventive maintenance) case:
 - Beat Plan context `first_pm` (or `pm_number: 1`). On the first PM, OFFER_PRIMARY says the system was commissioned recently, its first check-up is due and it's included in the AMC plan (`main_if` in flow.yaml picks the line).

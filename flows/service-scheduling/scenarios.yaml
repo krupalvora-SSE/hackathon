@@ -48,7 +48,7 @@
     - affirm
     - affirm
     - deny
-    - {on: date_given, flags: {reschedule_after_ready_date: false}}
+    - {on: date_given, flags: {hold_too_long: false, reschedule_after_ready_date: false}}
     - affirm
     - action_ok
   expect: site_on_hold
@@ -59,14 +59,14 @@
     - affirm
     - affirm
     - deny
-    - {on: date_given, flags: {reschedule_after_ready_date: true}}
+    - {on: date_given, flags: {hold_too_long: false, reschedule_after_ready_date: true}}
     - slot_found
     - affirm
     - action_ok
   expect: slot_confirmed_alt_day
 
 - name: out of town -> declines the hold
-  steps: [context_ready, affirm, not_serviceable, date_given, deny]
+  steps: [context_ready, affirm, not_serviceable, {on: date_given, flags: {hold_too_long: false}}, deny]
   expect: hold_declined
 
 - name: call me later -> recall (stub)
@@ -159,7 +159,7 @@
   expect: slot_confirmed
 
 - name: upset customer, ticket raised, ends the call
-  steps: [context_ready, affirm, frustrated, deny, deny]
+  steps: [context_ready, affirm, frustrated, deny, {on: deny, flags: {ticket_failed: false}}]
   expect: support_ticket
 
 - name: customer can't hear the bot twice -> call back
@@ -197,3 +197,102 @@
 - name: asks why so early, then says no and no other day is free
   steps: [context_ready, affirm, why_so_early, deny, no_backup_slots]
   expect: no_slot_available
+
+# ---------------------------------------------------------------------------------------------
+# v0.10.0 (SSE-15556): P0 cases from the QA plan (case ids in brackets) and the gaps it found.
+
+- name: "[A07/B20] says no to the planned date, picks a backup day"
+  steps: [context_ready, affirm, deny, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed_alt_day
+
+- name: "[A20] plain no at the recap -> other days, picks one"
+  steps: [context_ready, affirm, affirm, affirm, deny, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed_alt_day
+
+- name: "[A20] no at the recap and no other day is free"
+  steps: [context_ready, affirm, affirm, affirm, deny, no_backup_slots]
+  expect: no_slot_available
+
+- name: "[B21] non-committal at the recap, then a clear yes"
+  steps: [context_ready, affirm, affirm, affirm, unclear, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: "[C16] late readiness change at the recap -> ready date -> site on hold"
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - affirm
+    - readiness_changed
+    - {on: date_given, flags: {hold_too_long: false, reschedule_after_ready_date: false}}
+    - affirm
+    - action_ok
+  expect: site_on_hold
+
+- name: "[D05] phone handed over, new person changes the date at the recap"
+  steps: [context_ready, wrong_person, household_member, affirm, affirm, change_date, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed_alt_day
+
+- name: "[B03] doesn't know what AMC is, asks the price, then books"
+  steps: [context_ready, affirm, what_is_service, price_or_offtopic, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: "[C02/C10/C13] side talk and TV are ignored, the addressed yes books"
+  steps: [context_ready, affirm, side_talk, side_talk, affirm, affirm, side_talk, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: "[D03/D04] child or domestic help answers -> call back, never booked through them"
+  steps: [context_ready, wrong_person, not_decision_maker, time_range_given, action_ok]
+  expect: recall_requested
+
+- name: "[D10] family member asks us not to call"
+  steps: [context_ready, wrong_person, do_not_call]
+  expect: do_not_call
+
+- name: "[D12/D13] bereavement or illness -> condolence and senior follow-up"
+  steps: [context_ready, sensitive_situation]
+  expect: sensitive_situation
+
+- name: "[D12] bad news from a family member mid-call"
+  steps: [context_ready, wrong_person, household_member, sensitive_situation]
+  expect: sensitive_situation
+
+- name: "[G02] customer asks to stop the recording"
+  steps: [context_ready, affirm, stop_recording]
+  expect: recording_declined
+
+- name: "[E04] customer hangs up during the readiness check"
+  steps: [context_ready, affirm, affirm, caller_hangup]
+  expect: hung_up
+
+- name: "[C19] voicemail answers"
+  steps: [context_ready, voicemail_detected]
+  expect: no_answer
+
+- name: "[H01] Beat Plan context missing -> not dialled"
+  steps: [context_failed]
+  expect: not_dialled
+
+- name: "[H01] Beat Plan down -> not dialled"
+  steps: [action_failed]
+  expect: not_dialled
+
+- name: "[H06] support ticket fails -> no false claim, still books"
+  steps: [context_ready, affirm, frustrated, action_failed, affirm, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: "[H06] support ticket fails and no visit -> supervisor call"
+  steps: [context_ready, affirm, frustrated, action_failed, {on: deny, flags: {ticket_failed: true}}, action_ok]
+  expect: rm_callback
+
+- name: "[A25] out of town for six months -> supervisor, no hold"
+  steps: [context_ready, affirm, not_serviceable, {on: date_given, flags: {hold_too_long: true}}, action_ok]
+  expect: rm_callback
+
+- name: "[A25] ready date beyond the hold limit -> supervisor"
+  steps: [context_ready, affirm, affirm, deny, {on: date_given, flags: {hold_too_long: true}}, action_ok]
+  expect: rm_callback
+
+- name: "[A16] not ready and refuses the hold"
+  steps: [context_ready, affirm, affirm, deny, {on: date_given, flags: {hold_too_long: false, reschedule_after_ready_date: false}}, deny]
+  expect: hold_declined

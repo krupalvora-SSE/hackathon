@@ -28,7 +28,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.9.0
+version: 0.10.0
 title: Service scheduling call flow
 ticket: SSE-15539
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -40,7 +40,7 @@ sections:
   start:
     title: 1. Start the call
     about: Check the customer can be called, say hello and make sure we're talking to the right person.
-    states: [PRE_CALL, GREET, NOT_DIALLED]
+    states: [PRE_CALL, GREET, NOT_DIALLED, VOICEMAIL_CLOSE]
   slot:
     title: 2. Find another date or time
     about: When the planned date or time doesn't suit, or the customer pushes back, find one that does.
@@ -59,13 +59,16 @@ sections:
     states: [RECALL, APPLY_RECALL, RECALL_CLOSE, ESCALATE_RM, RM_CLOSE, FRUSTRATED, AFTER_TICKET, TICKET_CLOSE]
   anytime:
     title: 6. Can happen any time
-    about: Someone else answers, the customer asks us not to call, or nobody replies.
-    states: [WRONG_PERSON, WRONG_NUMBER_CLOSE, DNC_CLOSE, NO_ANSWER_CLOSE, LINE_ISSUE_CLOSE]
+    about: Someone else answers, the customer asks us not to call or record, bad news, or nobody replies.
+    states: [WRONG_PERSON, WRONG_NUMBER_CLOSE, DNC_CLOSE, NO_ANSWER_CLOSE, LINE_ISSUE_CLOSE, RECORDING_STOP_CLOSE, SENSITIVE_CLOSE, HUNG_UP_CLOSE]
 
 # Plain-English labels for diagram arrows (events and guard flags).
 labels:
   context_ready: OK to call
   not_eligible: Can't call now
+  context_failed: Beat Plan didn't load
+  caller_hangup: Customer hung up
+  voicemail_detected: Voicemail answered
   silence_timeout: No reply
   action_ok: Done
   action_failed: System error
@@ -79,6 +82,8 @@ labels:
   reschedule_after_ready_date: {when_true: if rebooking is on, when_false: default}
   date_is_free: {when_true: Beat Plan has that day, when_false: not in Beat Plan}
   band_given: {when_true: time of day given too, when_false: no time of day}
+  hold_too_long: {when_true: more than max_hold_days away, when_false: within the limit}
+  ticket_failed: {when_true: ticket wasn't created, when_false: ticket created}
 
 # Example values for {placeholders}, so the shareable page shows a real-sounding line.
 sample_values:
@@ -95,7 +100,10 @@ sample_values:
 events:
   - context_ready
   - not_eligible
+  - context_failed
   - silence_timeout
+  - caller_hangup
+  - voicemail_detected
   - action_ok
   - action_failed
   - band_available
@@ -111,11 +119,17 @@ flags:
   reschedule_after_ready_date: "policies.on_missing_prereq == 'reschedule_after_ready_date'"
   date_is_free: "the date the customer suggested is the planned date or a Beat Plan backup day"
   band_given: "the customer said a time of day together with their own date (e.g. 'kal afternoon')"
+  hold_too_long: "the hold/ready date is more than policies.site_on_hold.max_hold_days away"
+  ticket_failed: "create_support_ticket returned action_failed in this call"
 
 # Applies to every conversation state.
 global_events:
   - on: silence_timeout
     to: NO_ANSWER_CLOSE
+  - on: caller_hangup            # line dropped mid-call: partial record, flagged for review
+    to: HUNG_UP_CLOSE
+  - on: voicemail_detected       # answering machine / caller tune: don't talk to it
+    to: VOICEMAIL_CLOSE
 
 outcomes:
   - slot_confirmed
@@ -135,6 +149,9 @@ outcomes:
   - date_requested
   - support_ticket
   - line_issue
+  - recording_declined
+  - sensitive_situation
+  - hung_up
 
 # Runs after every terminal state, whatever the outcome.
 post_call:
@@ -151,6 +168,11 @@ states:
         to: GREET
       - on: not_eligible
         to: NOT_DIALLED
+      - on: context_failed               # Beat Plan returned no usable slot/customer: never dial with blanks
+        to: NOT_DIALLED
+      - on: action_failed                # Beat Plan down or timed out
+        to: NOT_DIALLED
+        set: {blocked_reason: beatplan_unavailable}
 
   GREET:
     title: Say hello, check it's the customer
@@ -170,6 +192,10 @@ states:
         set: {spoke_to: family_member}
       - on: customer_unavailable
         to: RECALL
+      - on: not_decision_maker           # child, staff, tenant: never book through them
+        to: RECALL
+        say: when_customer_home
+        set: {spoke_to: other}
       - on: deny
         to: WRONG_NUMBER_CLOSE
 
@@ -305,6 +331,10 @@ states:
     collects: [hold_until]
     transitions:
       - on: date_given
+        when: hold_too_long
+        to: ESCALATE_RM
+        set: {rm_callback_reason: hold_too_long}
+      - on: date_given
         when: reschedule_after_ready_date
         to: FIND_SLOT_AFTER_READY
       - on: date_given
@@ -333,6 +363,11 @@ states:
         to: ALTERNATE_DAYS
       - on: change_time
         to: TIME_BAND
+      - on: deny                         # plain "nahi, abhi nahi": offer other days instead of guessing
+        to: ALTERNATE_DAYS
+      - on: readiness_changed            # "actually ladder nahi hai": treat like a missing item
+        to: ASK_READY_DATE
+        set: {hold_reason: prerequisites_missing}
 
   BOOK:
     title: Book the visit
@@ -351,6 +386,10 @@ states:
     collects: [hold_reason, hold_until]
     disable_global: [not_serviceable]
     transitions:
+      - on: date_given
+        when: hold_too_long
+        to: ESCALATE_RM
+        set: {rm_callback_reason: hold_too_long}
       - on: date_given
         to: HOLD_CONSENT
 
@@ -429,6 +468,10 @@ states:
     actions: [create_support_ticket]
     disable_global: [frustrated, missed_visit_complaint]
     transitions:
+      - on: action_failed                # ticket not created: never claim it was
+        to: AFTER_TICKET
+        say: ticket_failed
+        set: {ticket_failed: true, needs_review: true}
       - on: affirm
         to: AFTER_TICKET
       - on: deny
@@ -443,6 +486,10 @@ states:
     transitions:
       - on: affirm
         to: OFFER_PRIMARY
+      - on: deny
+        when: ticket_failed              # no ticket exists: a supervisor calls instead
+        to: ESCALATE_RM
+        set: {rm_callback_reason: support_ticket_failed}
       - on: deny
         to: TICKET_CLOSE
 
@@ -533,3 +580,28 @@ states:
     type: terminal
     silent: true                         # call never placed; still logged to Beat Plan
     outcome: not_dialled
+
+  RECORDING_STOP_CLOSE:
+    title: Customer objects to recording
+    type: terminal
+    actions: [create_rm_callback]        # a person calls back without recording; not a DNC
+    outcome: recording_declined
+
+  SENSITIVE_CLOSE:
+    title: Bereavement or illness
+    type: terminal
+    tone: empathetic
+    actions: [create_rm_callback]
+    outcome: sensitive_situation
+
+  HUNG_UP_CLOSE:
+    title: Customer hung up
+    type: terminal
+    silent: true
+    outcome: hung_up
+
+  VOICEMAIL_CLOSE:
+    title: Voicemail answered
+    type: terminal
+    silent: true
+    outcome: no_answer

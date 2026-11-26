@@ -131,6 +131,12 @@ Entities (fill only when the customer said them, using their own words):
 
 If they say nobody came last time, use "missed_visit_complaint" (we still offer the visit, with an apology).
 If they are upset about anything else (billing, subsidy, poor service), use "frustrated", not "deny" or "unclear".
+If they object to the call being recorded ("recording band karo"), use "stop_recording", not "do_not_call".
+If they say the customer has died or is seriously ill or in hospital, use "sensitive_situation".
+If the words were not said to you (talking on another phone, to someone in the room, TV in the background),
+use "side_talk"; a "haan" said to someone else is never "affirm". If a yes might be side talk, set side_talk=true.
+If a child, domestic help, driver or tenant answers, use "not_decision_maker", not "household_member".
+At the recap, "actually ladder nahi hai" is "readiness_changed" with item=ladder.
 If they only want the calls to stop, use "do_not_call". If they ask for something this call can't handle
 (new panels, loans, refunds, other services), use "off_script"; insults are "abusive".
 

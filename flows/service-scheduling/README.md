@@ -177,6 +177,8 @@ flowchart LR
 | Yes | System: Book the visit |
 | Change day | Find another date or time: Offer other days |
 | Change time | Find another date or time: Tell the time window |
+| No | Find another date or time: Offer other days |
+| Says an item isn't ready after all | Pause the site: Ask when it will be ready |
 
 ### Detours
 
@@ -253,6 +255,7 @@ If the site isn't ready, get a date and the customer's OK to stop calls until th
 
 | Customer says | What happens |
 |---|---|
+| Gives a date (more than max_hold_days away) | Call back or hand over: Arrange a supervisor call |
 | Gives a date (if rebooking is on) | Find a free day after that |
 | Gives a date (default) | Ask OK to pause calls |
 
@@ -266,6 +269,7 @@ The bot doesn't speak here. **Found one** → Step 4: Repeat the details, get a 
 
 | Customer says | What happens |
 |---|---|
+| Gives a date (more than max_hold_days away) | Call back or hand over: Arrange a supervisor call |
 | Gives a date | Ask OK to pause calls |
 
 **Ask OK to pause calls**
@@ -307,6 +311,7 @@ The bot doesn't speak here. **Done** → Call ends: Supervisor will call; **Syst
 
 | Customer says | What happens |
 |---|---|
+| System error | Offer to fix the visit meanwhile |
 | Yes | Offer to fix the visit meanwhile |
 | No | Offer to fix the visit meanwhile |
 
@@ -317,6 +322,7 @@ The bot doesn't speak here. **Done** → Call ends: Supervisor will call; **Syst
 | Customer says | What happens |
 |---|---|
 | Yes | Step 2: Offer the planned date |
+| No (ticket wasn't created) | Arrange a supervisor call |
 | No | Call ends: Support ticket raised |
 
 ### Any time in the call
@@ -332,6 +338,9 @@ The bot doesn't speak here. **Done** → Call ends: Supervisor will call; **Syst
 | Upset or other complaint | Apologise, raise a ticket, give the helpline |
 | Something outside this call | Arrange a supervisor call |
 | Abusive | Arrange a supervisor call |
+| Objects to the recording | Customer objects to recording |
+| Death or serious illness in the family | Bereavement or illness |
+| Talking to someone else | Bot answers briefly, then repeats its question |
 | Can't hear the bot | Bot asks again; after 1 times in a row: Can't hear, call back |
 | Wants another language | Bot answers briefly, then repeats its question |
 | Mentions a problem at the site | Bot answers briefly, then repeats its question |
@@ -349,6 +358,8 @@ The bot doesn't speak here. **Done** → Call ends: Supervisor will call; **Syst
 | Asks if it is a machine | Bot answers briefly, then repeats its question |
 | Asks about price | Bot answers briefly, then repeats its question |
 | No reply | No answer |
+| Customer hung up | Customer hung up |
+| Voicemail answered | Voicemail answered |
 
 **Someone else answered**
 
@@ -356,8 +367,9 @@ The bot doesn't speak here. **Done** → Call ends: Supervisor will call; **Syst
 
 | Customer says | What happens |
 |---|---|
-| Family member, can decide | Step 2: Offer the planned date |
+| Adult family member, can decide | Step 2: Offer the planned date |
 | Customer not home | Call back or hand over: Ask when to call back |
+| Child, staff or someone who can't decide | Call back or hand over: Ask when to call back |
 | No | Call ends: Wrong number |
 
 
@@ -380,6 +392,10 @@ The bot doesn't speak here. **Done** → Call ends: Supervisor will call; **Syst
 | Support ticket raised | `support_ticket` |
 | Can't hear, call back | `line_issue` |
 | Not called | `not_dialled` |
+| Customer objects to recording | `recording_declined` |
+| Bereavement or illness | `sensitive_situation` |
+| Customer hung up | `hung_up` |
+| Voicemail answered | `no_answer` |
 
 After every call, whatever the ending, the system runs: summarise_call, post_beatplan_comment.
 <!-- flow-diagram:end -->

@@ -74,6 +74,10 @@ silence:
   hold_s: 25                  # "ek minute ruko": wait this long before the first reprompt
   max_reprompts: 2            # then silence_timeout -> NO_ANSWER_CLOSE
 
+# A yes that confirms a booking or pauses the site must be said to the bot. In these states an affirm the
+# LLM marks side_talk (said to another phone, someone in the room, the TV) gets "please confirm" instead.
+clear_yes_states: [RECAP, HOLD_CONSENT]
+
 retries_per_question: 2       # misunderstood twice on the same step -> yes/no fallback, then RM
 
 compliance:

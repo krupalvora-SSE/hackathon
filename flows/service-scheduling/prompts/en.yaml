@@ -23,6 +23,7 @@ _global:
   identity_who: "This is {bot_name} from SolarSquare, calling about your solar system maintenance."
   identity_source: "Your number is in SolarSquare's records for your solar system service."
   identity_robot: "Yes, I'm SolarSquare's AI voice assistant."
+  confirm_clearly: "Just to be sure,"
 
 GREET:
   main: "Hello, am I speaking with {name}? This is {bot_name} from SolarSquare. This call is being recorded."
@@ -93,6 +94,8 @@ HOLD_CONSENT:
 RECALL:
   main: "Of course. What time would be good to call you back?"
   repeat_main: "What time should I call you back?"
+  when_customer_home: "That's fine. When will {name} be home, what time should I call?"
+  repeat_when_customer_home: "What time should I call {name}?"
 
 CONFIRMED_CLOSE:
   main: "Your visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
@@ -140,6 +143,8 @@ AFTER_TICKET:
   number_again: "No problem, I'll say it slowly: {support_number_spoken}. Once more: {support_number_spoken}. Meanwhile, shall I fix your maintenance visit?"
   repeat_main: "Shall I fix the visit?"
   repeat_number_again: "Shall I fix the visit?"
+  ticket_failed: "I'm sorry, the ticket system didn't take it right now, but I've noted what you said and our supervisor will call you. The helpline is {support_number_spoken}. Meanwhile, shall I fix your maintenance visit?"
+  repeat_ticket_failed: "Shall I fix the visit?"
 
 MISSED_VISIT:
   main: "I'm really sorry nobody came last time; that shouldn't have happened. This time I'll make sure your visit happens. Would {weekday}, {date_spoken} work for you?"
@@ -150,3 +155,9 @@ TICKET_CLOSE:
 
 LINE_ISSUE_CLOSE:
   main: "It seems you can't hear me; we'll call you back shortly. Thank you."
+
+RECORDING_STOP_CLOSE:
+  main: "Of course. I'll end this call here. Our team will contact you to talk without recording. Thank you."
+
+SENSITIVE_CLOSE:
+  main: "I'm very sorry to hear that, and sorry to disturb you at this time. We won't call about the service now; our team will speak with you at a better time. Thank you."

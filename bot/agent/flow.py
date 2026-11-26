@@ -278,6 +278,11 @@ class FlowCall:
         self.on_event({"type": "flow", "state": self.state, "intent": on, "entities": entities})
         self._absorb(on, entities)
 
+        # A yes that books the visit or pauses the site must be said to us, not to another phone or the TV.
+        if (on == "affirm" and str(entities.get("side_talk")).lower() == "true"
+                and self.state in (self.policies.get("clear_yes_states") or [])):
+            return self._step([f"{self._global_line('confirm_clearly')} {self._current_line()}".strip()])
+
         # global events (silence) and global intents, in conversation states
         if st.get("type") == "conversation":
             for ge in self.spec.flow.get("global_events") or []:
@@ -309,11 +314,25 @@ class FlowCall:
         return self._step([f"{self._global_line('reprompt')} {self.last_line}".strip()], track=False)
 
     def hang_up(self, outcome: str = "hung_up") -> None:
-        """Line dropped before a terminal state: still log the call to Beat Plan."""
+        """Line dropped before a terminal state: still log the call to Beat Plan.
+        Goes through the flow's caller_hangup event when it has one, so the outcome is a declared one."""
+        if self.outcome:
+            return
+        st = self.spec.states.get(self.state) or {}
+        if st.get("type") == "conversation" and any(
+                ge["on"] == "caller_hangup" for ge in self.spec.flow.get("global_events") or []):
+            self.handle("caller_hangup")
+            return
         if not self.outcome:
             self.outcome = outcome
             self.ended_at = datetime.now(N.IST)
             self._post_call()
+
+    def voicemail(self) -> Step:
+        """Answering machine or caller tune picked up: end without talking to it."""
+        if self.outcome:
+            return Step(end=True)
+        return self.handle("voicemail_detected")
 
     # ------------------------------------------------------------ transitions
     def _flags(self) -> dict:
@@ -323,6 +342,8 @@ class FlowCall:
             "reschedule_after_ready_date": self.policies["on_missing_prereq"] == "reschedule_after_ready_date",
             "date_is_free": bool(self.ctx.get("_date_is_free")),
             "band_given": bool(self.ctx.get("_band_given")),
+            "hold_too_long": bool(self.ctx.get("_hold_too_long")),
+            "ticket_failed": bool(self.ctx.get("ticket_failed")),
         }
 
     def _pick(self, state: str, on: str, flags: dict | None) -> dict | None:
@@ -437,6 +458,10 @@ class FlowCall:
             return self._step([self._repeat_line()])
         if name == "change_language" and self.asked_lang not in self.spec.prompts:
             return self._step([self._global_line("only_hi_en")])
+        if name == "side_talk":            # not said to us: stay quiet and give them time
+            step = self._step([])
+            step.idle_timeout = float(self.policies["silence"]["hold_s"])
+            return step
         if name == "wait_a_moment":
             step = self._step([self._global_line("hold_ack")])
             step.idle_timeout = float(self.policies["silence"]["hold_s"])
@@ -578,7 +603,24 @@ class FlowCall:
             d = self.ctx.pop("_date", None)
             if d is None or d <= self.today:
                 return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
-            self.ctx["hold_until"] = d.isoformat()
+            limit = int((self.policies.get("site_on_hold") or {}).get("max_hold_days") or 0)
+            self.ctx["_hold_too_long"] = bool(limit) and (d - self.today).days > limit
+            if self.ctx["_hold_too_long"]:          # never apply a hold past the cap; a supervisor decides
+                self.ctx.pop("hold_until", None)
+                self.ctx["requested_hold_until"] = d.isoformat()
+            else:
+                self.ctx["hold_until"] = d.isoformat()
+
+        if on == "readiness_changed":
+            item = self._readiness_item(e.get("item") or e.get("issue") or "")
+            if item is None:
+                return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
+            self.ctx["readiness"][item] = False
+            if item not in self.ctx["missing_items"]:
+                self.ctx["missing_items"].append(item)
+            if item in self.ctx["will_arrange"]:
+                self.ctx["will_arrange"].remove(item)
+            self._emit_readiness(item, False)
 
         if on == "time_range_given" and not self.ctx.get("recall_window"):
             return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
@@ -601,10 +643,26 @@ class FlowCall:
             return None
         return self.offered[0] if len(self.offered) == 1 else None
 
+    READINESS_WORDS = {"ladder": {"ladder", "seedhi", "sidhi", "सीढ़ी", "लैडर"},
+                       "water": {"water", "paani", "pani", "पानी"},
+                       "light": {"light", "bijli", "electricity", "power", "बिजली", "लाइट"}}
+
+    def _readiness_item(self, text: str) -> str | None:
+        """Customer's words ("ladder to nahi hai") -> a readiness item id, if exactly one matches."""
+        ids = [i["id"] for i in self.policies["readiness_items"]]
+        t = (text or "").strip().lower()
+        if t in ids:
+            return t
+        hits = [i for i in ids if any(w in t for w in self.READINESS_WORDS.get(i, {i}))]  # substring: Devanagari-safe
+        return hits[0] if len(hits) == 1 else None
+
     def _skip_known_readiness(self) -> bool:
-        """Record checklist items the customer already answered in an earlier turn; True when none are left to ask."""
+        """Record checklist items the customer already answered (this turn's multi-answer, or earlier in the call,
+        e.g. before changing the date at the recap); True when none are left to ask."""
         items = self.policies[self.spec.states[self.state]["checklist"]]
         known = self.ctx.get("known_readiness", {})
+        while self.readiness_idx < len(items) and items[self.readiness_idx]["id"] in self.ctx["readiness"]:
+            self.readiness_idx += 1              # already answered in this call: don't ask twice
         while self.readiness_idx < len(items) and items[self.readiness_idx]["id"] in known:
             it = items[self.readiness_idx]
             item, ok = it["id"], known[it["id"]]
@@ -767,9 +825,18 @@ class FlowCall:
             parts.append(f"Customer will arrange: {', '.join(c['will_arrange'])}.")
         if o == "date_requested":
             parts.append(f"Requested {c.get('requested_date')} {c.get('requested_band')}; team to confirm.")
+        if c.get("ticket_failed"):
+            parts.append("Support ticket could NOT be created; supervisor to follow up.")
+        if c.get("requested_hold_until"):
+            parts.append(f"Asked to pause until {c['requested_hold_until']} (beyond the hold limit; not applied).")
         if c.get("rm_callback_reason"):
             parts.append(f"RM callback: {c['rm_callback_reason']}.")
+        if self.needs_review():
+            parts.append("Needs review.")
         return " ".join(parts)
+
+    def needs_review(self) -> bool:
+        return bool(self.ctx.get("needs_review")) or self.outcome in ("hung_up", "sensitive_situation")
 
     def record(self) -> dict:
         """Call record (schemas/call-record.schema.json) + `slots` for the dashboard."""
@@ -802,7 +869,9 @@ class FlowCall:
             "will_arrange": c.get("will_arrange", []),
             "site_issues": c.get("site_issues", []),
             "readiness_notes": c.get("readiness_notes", {}),
-            "support_ticket": c.get("support_ticket"),
+            "support_ticket": ({**c["support_ticket"], "status": "failed" if c.get("ticket_failed") else "created"}
+                               if c.get("support_ticket") else None),
+            "needs_review": self.needs_review(),
             "missed_visit_complaint": c.get("missed_visit_complaint"),
             "mood": c.get("mood"),
             "summary": self.summary(),

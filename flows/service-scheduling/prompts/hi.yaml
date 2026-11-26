@@ -30,6 +30,7 @@ _global:
   identity_who: "मैं {bot_name} बोल रहा हूँ, SolarSquare से, आपके solar system के maintenance के बारे में।"
   identity_source: "आपका number SolarSquare के पास आपके solar system की service के records में है।"
   identity_robot: "जी, मैं SolarSquare का AI voice assistant हूँ।"
+  confirm_clearly: "बस पक्का कर लूँ,"
 
 GREET:
   main: "नमस्ते, क्या मेरी बात {name} जी से हो रही है? मैं {bot_name}, SolarSquare से बोल रहा हूँ। यह कॉल रिकॉर्ड की जा रही है।"
@@ -100,6 +101,8 @@ HOLD_CONSENT:
 RECALL:
   main: "जी बिल्कुल। आपको किस time पर call करना ठीक रहेगा?"
   repeat_main: "आपको किस time call करूँ?"
+  when_customer_home: "ठीक है, कोई बात नहीं। {name} जी कब घर पर होंगे, किस time call करूँ?"
+  repeat_when_customer_home: "{name} जी को किस time call करूँ?"
 
 CONFIRMED_CLOSE:
   main: "आपकी visit {weekday}, {date_spoken} के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
@@ -147,6 +150,8 @@ AFTER_TICKET:
   number_again: "कोई बात नहीं, मैं धीरे से फिर बोलता हूँ: {support_number_spoken}। एक बार और: {support_number_spoken}। क्या तब तक मैं आपकी maintenance visit fix कर दूँ?"
   repeat_main: "क्या visit fix कर दूँ?"
   repeat_number_again: "क्या visit fix कर दूँ?"
+  ticket_failed: "माफ़ कीजिए, अभी ticket system में नहीं बन पाया, पर मैंने आपकी बात note कर ली है और हमारे supervisor आपको call करेंगे। Helpline है: {support_number_spoken}। क्या तब तक मैं आपकी maintenance visit fix कर दूँ?"
+  repeat_ticket_failed: "क्या visit fix कर दूँ?"
 
 MISSED_VISIT:
   main: "पिछली बार कोई नहीं आ पाया, इसके लिए सच में माफ़ी चाहता हूँ, ऐसा नहीं होना चाहिए था। इस बार मैं आपकी visit पक्की करवा देता हूँ। क्या {weekday}, {date_spoken} आपके लिए ठीक रहेगा?"
@@ -157,3 +162,9 @@ TICKET_CLOSE:
 
 LINE_ISSUE_CLOSE:
   main: "लगता है आपको मेरी आवाज़ नहीं आ रही, हम थोड़ी देर में दोबारा call करेंगे। धन्यवाद।"
+
+RECORDING_STOP_CLOSE:
+  main: "जी, बिल्कुल। मैं यह call यहीं बंद कर रहा हूँ। हमारी team आपसे बिना recording के बात करने के लिए संपर्क करेगी। धन्यवाद।"
+
+SENSITIVE_CLOSE:
+  main: "यह सुनकर बहुत दुख हुआ। इस समय परेशान करने के लिए माफ़ी चाहता हूँ। अभी हम service के लिए call नहीं करेंगे, सही समय पर हमारी team आपसे आराम से बात करेगी। धन्यवाद।"

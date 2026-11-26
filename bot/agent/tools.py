@@ -153,6 +153,10 @@ def flow_tools(spec) -> list[dict]:
             "language": {"type": "string", "enum": spec.policies["languages"] + ["other"],
                          "description": "Language the customer speaks or asks for; 'other' for e.g. Marathi."},
             "issue": {"type": "string", "description": "Problem at the site or complaint, in their words."},
+            "item": {"type": "string", "description": "Which readiness item changed (ladder / water / light)."},
+            "side_talk": {"type": "boolean",
+                          "description": "true if this speech was not said to you: another phone call, someone in "
+                                         "the room, or TV/radio in the background."},
             "mood": {"type": "string", "enum": list((spec.policies.get("moods") or {"calm": {}}).keys()),
                      "description": "How the customer sounds right now."},
         },

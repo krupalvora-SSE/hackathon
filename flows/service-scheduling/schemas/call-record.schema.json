@@ -13,7 +13,8 @@
       "type": "string",
       "enum": ["slot_confirmed", "slot_confirmed_alt_band", "slot_confirmed_alt_day", "site_on_hold", "hold_declined",
                "no_slot_available", "rm_callback", "recall_requested", "do_not_call", "wrong_number", "no_answer",
-               "needs_manual_confirmation", "not_dialled", "not_needed_now", "date_requested", "support_ticket", "line_issue"]
+               "needs_manual_confirmation", "not_dialled", "not_needed_now", "date_requested", "support_ticket", "line_issue",
+               "recording_declined", "sensitive_situation", "hung_up"]
     },
     "spoke_to": {"type": "string", "enum": ["customer", "family_member", "other", "nobody"]},
     "confirmed_slot": {
