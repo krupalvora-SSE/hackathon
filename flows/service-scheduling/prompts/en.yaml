@@ -3,6 +3,7 @@
 _global:
   deflection: "Our team will share those details with you separately."
   reprompt: "Hello, can you hear me?"
+  sms_reminder: "You'll also get a reminder SMS before the visit."
   service_hours: "Our visits happen only between 9 am and 6 pm."
   didnt_catch: "Sorry, the line broke a little. Could you say that again?"
 
@@ -41,7 +42,8 @@ ASK_READY_DATE:
   main: "Understood. By when can the {missing_item} be arranged? Could you give me a date?"
 
 RECAP:
-  main: "So that's {weekday}, {date_spoken}, between {band_spoken}, with the ladder, water and light ready. Shall I confirm it?"
+  main: "So that's {weekday}, {date_spoken}, with the ladder, water and light ready. Shall I confirm it?"
+  with_time: "So that's {weekday}, {date_spoken}, between {band_spoken}, with the ladder, water and light ready. Shall I confirm it?"
 
 SITE_ON_HOLD:
   main: "Understood. From which date will your site be ready for service?"
@@ -53,9 +55,8 @@ RECALL:
   main: "Of course. What time would be good to call you back?"
 
 CONFIRMED_CLOSE:
-  main: "Your slot is confirmed for {weekday}, {date_spoken}, between {band_spoken}. Thank you, have a great day!"
-
-  with_sms: "Your slot is confirmed for {weekday}, {date_spoken}, between {band_spoken}. You'll also get a reminder SMS before the visit. Thank you, have a great day!"
+  main: "Your visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
+  with_time: "Your visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{sms_line} Thank you, have a great day!"
 
 HOLD_CLOSE:
   main: "Your site is on hold until {hold_until_spoken}. We'll reach out after that. Thank you!"

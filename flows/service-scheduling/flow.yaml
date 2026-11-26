@@ -9,6 +9,9 @@
 #     whose `when` flag holds wins. `when: "!flag"` means the flag is false.
 #   - Flags are set by code (counters, policy values, action results), never by the LLM.
 #   - `say:` plays a specific prompt key of the target state instead of its `main` line.
+#   - `time_line: <key>` on a state: use that prompt key instead of `main` once the customer has asked
+#     about time (intents with `shares_time: true`). Otherwise the bot never mentions a time window,
+#     which keeps the team free to move the slot within the day.
 #   - `set:` stores values in call context (e.g. which slot the customer picked).
 #   - Global intents (intents.yaml, scope: global) work in every `conversation`
 #     state unless the state lists them in `disable_global`.
@@ -75,11 +78,11 @@ sample_values:
   hi: {name: राहुल, bot_name: Krupal, weekday: शनिवार, date_spoken: 28 नवंबर, band_spoken: सुबह आठ से बारह बजे,
        options_spoken: "सोमवार, 30 नवंबर, सुबह या बुधवार, 2 दिसंबर, शाम", missing_item: A-type ladder,
        hold_until_spoken: 5 दिसंबर, recall_window_spoken: कल शाम 5 से 7 बजे,
-       requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह}
+       requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह, sms_line: ""}
   en: {name: Rahul, bot_name: Krupal, weekday: Saturday, date_spoken: 28 November, band_spoken: 8 am and 12 pm,
        options_spoken: "Monday, 30 November, morning or Wednesday, 2 December, evening", missing_item: A-type ladder,
        hold_until_spoken: 5 December, recall_window_spoken: tomorrow 5 to 7 pm,
-       requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning}
+       requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning, sms_line: ""}
 
 # Events raised by code (timers, action results), not by the customer.
 events:
@@ -299,6 +302,7 @@ states:
         to: HOLD_CONSENT
 
   RECAP:
+    time_line: with_time    # say the time window only if the customer asked about time
     title: Repeat the details, get a yes
     type: conversation
     transitions:
@@ -385,7 +389,7 @@ states:
   CONFIRMED_CLOSE:
     title: Visit booked
     type: terminal
-    alt_line: {when_policy: sms_reminder, key: with_sms}   # adds the reminder-SMS sentence when on
+    time_line: with_time    # say the time window only if the customer asked about time
     outcome_from: slot_source
     outcome_map:
       primary: slot_confirmed

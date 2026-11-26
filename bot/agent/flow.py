@@ -136,10 +136,11 @@ def speak_band(band: str, policies: dict, lang: str) -> str:
     return f"{fmt(s)} and {fmt(e)}"
 
 
-def speak_slot(slot: dict, policies: dict, lang: str) -> str:
+def speak_slot(slot: dict, policies: dict, lang: str, with_time: bool = True) -> str:
+    """A backup day as spoken; the time of day only if the customer asked about time."""
     d = date.fromisoformat(slot["date"])
-    part = (HI_PART if lang == "hi" else EN_PART)[slot["band"]]
-    return f"{speak_weekday(d, lang)}, {speak_day(d, lang)}, {part}"
+    day = f"{speak_weekday(d, lang)}, {speak_day(d, lang)}"
+    return f"{day}, {(HI_PART if lang == 'hi' else EN_PART)[slot['band']]}" if with_time else day
 
 
 def parse_band(text: str, policies: dict) -> str | None:
@@ -349,7 +350,7 @@ class FlowCall:
                     lines.append(self._line(target, "main"))
                     lines.append(self._checklist_question())
                 else:
-                    lines.append(self._line(target, say or "main"))
+                    lines.append(self._line(target, say or self._main_key(st)))
                 self.last_line = lines[-1]
                 return lines
 
@@ -358,9 +359,7 @@ class FlowCall:
             if self.auto:
                 self._run_actions(st.get("actions") or [])
             if not st.get("silent"):
-                alt = st.get("alt_line") or {}
-                key = alt["key"] if alt and self.policies.get(alt.get("when_policy")) else "main"
-                lines.append(self._line(target, key))
+                lines.append(self._line(target, self._main_key(st)))
             self.outcome = outcome
             self.ended_at = datetime.now(N.IST)
             self._post_call()
@@ -387,6 +386,9 @@ class FlowCall:
     # ------------------------------------------------------------ per-state rules
     def _absorb(self, on: str, e: dict) -> None:
         """Store entities the LLM extracted, parsed by code (never trusted as-is)."""
+        intent = {**self.spec.global_intents, **self.spec.local_intents}.get(on) or {}
+        if intent.get("shares_time"):
+            self.ctx["time_shared"] = True
         if e.get("exact_time"):
             self.ctx["preferred_exact_time"] = e["exact_time"]
         if e.get("band"):
@@ -496,6 +498,11 @@ class FlowCall:
             return None
         return self.offered[0] if len(self.offered) == 1 else None
 
+    def _main_key(self, st: dict) -> str:
+        """Prompt key to speak on entering a state: its time_line once the customer asked about time."""
+        key = st.get("time_line")
+        return key if key and self.ctx.get("time_shared") else "main"
+
     def _checklist_question(self) -> str:
         st = self.spec.states[self.state]
         item = self.policies[st["checklist"]][self.readiness_idx]
@@ -538,7 +545,10 @@ class FlowCall:
             v["weekday"] = speak_weekday(d, self.lang)
             v["date_spoken"] = speak_day(d, self.lang)
             v["band_spoken"] = speak_band(band or slot["band"], self.policies, self.lang)
-        v["options_spoken"] = OR[self.lang].join(speak_slot(s, self.policies, self.lang) for s in self.offered)
+        v["options_spoken"] = OR[self.lang].join(speak_slot(s, self.policies, self.lang, self.ctx.get("time_shared"))
+                                                 for s in self.offered)
+        sms = (self.spec.prompts[self.lang].get("_global") or {}).get("sms_reminder") or ""
+        v["sms_line"] = (" " + sms) if sms and self.policies.get("sms_reminder") else ""
         labels = {i["id"]: i["labels"][self.lang] for i in self.policies["readiness_items"]}
         miss = [labels[m] for m in self.ctx["missing_items"]]
         v["missing_item"] = (" और " if self.lang == "hi" else " and ").join(miss) if miss else ""
@@ -626,6 +636,7 @@ class FlowCall:
             "spoke_to": c.get("spoke_to", "nobody"),
             "confirmed_slot": cs,
             "slot_source": c.get("slot_source") if cs else None,
+            "time_window_told": bool(c.get("time_shared")),
             "preferred_exact_time": c.get("preferred_exact_time"),
             "readiness": readiness,
             "hold": hold,

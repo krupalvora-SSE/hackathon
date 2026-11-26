@@ -39,7 +39,7 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 
 1. **PRE_CALL**: load the Beat Plan context. Don't dial if the customer is DNC, it's outside calling hours, or the number is not on the test allowlist.
 2. **GREET**: name, "calling from SolarSquare", recording disclosure, identity check. Family member → can continue; doesn't know the customer → wrong number.
-3. **OFFER_PRIMARY**: "Your maintenance is due, we have a slot on {date}. Will you be available?"
+3. **OFFER_PRIMARY** (the bot never mentions a time window unless the customer asks about time, so the team can still move the slot within the day): "Your maintenance is due, we have a slot on {date}. Will you be available?"
    - **Yes** → readiness check.
    - **Asks the time** → **TIME_BAND**: share the 3-hour time window (9–12, 12–3, 3–6). If they want an exact time, say we can't guarantee it but will try (and log their preferred time). If they insist again → **RM callback**. If they want a different band that day → check Beat Plan: free → readiness; full → alternate days.
    - **Not needed yet** ("plan is new", "panels are clean") → **NOT_NEEDED**: one short explanation (an early visit is a check-up), then ask again. Still no → `not_needed_now`.
@@ -145,7 +145,7 @@ flowchart LR
 
 #### Step 4. Repeat the details, get a yes
 
-> So that's Saturday, 28 November, between 8 am and 12 pm, with the ladder, water and light ready. Shall I confirm it?
+> So that's Saturday, 28 November, with the ladder, water and light ready. Shall I confirm it?
 
 | Customer says | What happens |
 |---|---|

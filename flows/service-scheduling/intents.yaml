@@ -55,6 +55,7 @@ global:
       en: ["the plan just started, no need yet", "the panels are clean already"]
 
   outside_service_hours:
+    shares_time: true
     label: Wants a time outside 9 am to 6 pm
     goto: $stay
     say: service_hours
@@ -95,12 +96,14 @@ local:
       en: ["no", "I'm not available that day", "we don't have a ladder"]
 
   ask_time:
+    shares_time: true
     label: Asks the time
     examples:
       hi: ["kitne baje aayenge", "time kya hoga", "subah aayenge ya shaam ko"]
       en: ["what time will they come", "morning or evening?"]
 
   wants_exact_time:
+    shares_time: true
     label: Wants exact time
     entities: [preferred_exact_time]
     examples:
@@ -108,6 +111,7 @@ local:
       en: ["I need an exact time", "come at 10 sharp"]
 
   wants_other_band:
+    shares_time: true
     label: Wants another time
     entities: [preferred_band]
     examples:

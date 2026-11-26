@@ -10,6 +10,7 @@
 _global:
   deflection: "इसकी जानकारी हमारी टीम आपको अलग से देगी।"
   reprompt: "हैलो, क्या आप मुझे सुन पा रहे हैं?"
+  sms_reminder: "Visit से पहले आपको reminder SMS भी आ जाएगा।"
   service_hours: "हमारी visits सुबह 9 से शाम 6 बजे के बीच ही होती हैं।"
   didnt_catch: "माफ़ कीजिए, आवाज़ थोड़ी कट गई, फिर से बताएँगे?"
 
@@ -48,7 +49,8 @@ ASK_READY_DATE:
   main: "समझ गया। {missing_item} कब तक arrange हो जाएगा, कोई date बता सकते हैं?"
 
 RECAP:
-  main: "तो {weekday}, {date_spoken}, {band_spoken} के बीच, और ladder, पानी और light ready रहेंगे। मैं यह confirm कर दूँ?"
+  main: "तो {weekday}, {date_spoken}, और ladder, पानी और light ready रहेंगे। मैं यह confirm कर दूँ?"
+  with_time: "तो {weekday}, {date_spoken}, {band_spoken} के बीच, और ladder, पानी और light ready रहेंगे। मैं यह confirm कर दूँ?"
 
 SITE_ON_HOLD:
   main: "समझ गया। आपकी site किस date से service के लिए ready होगी?"
@@ -60,9 +62,8 @@ RECALL:
   main: "जी बिल्कुल। आपको किस time पर call करना ठीक रहेगा?"
 
 CONFIRMED_CLOSE:
-  main: "आपका slot {weekday}, {date_spoken}, {band_spoken} के लिए confirm हो गया है। धन्यवाद, आपका दिन शुभ हो!"
-
-  with_sms: "आपका slot {weekday}, {date_spoken}, {band_spoken} के लिए confirm हो गया है। Visit से पहले आपको reminder SMS भी आ जाएगा। धन्यवाद, आपका दिन शुभ हो!"
+  main: "आपकी visit {weekday}, {date_spoken} के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+  with_time: "आपकी visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
 
 HOLD_CLOSE:
   main: "आपकी site {hold_until_spoken} तक hold पर है। उसके बाद हम आपसे संपर्क करेंगे। धन्यवाद!"

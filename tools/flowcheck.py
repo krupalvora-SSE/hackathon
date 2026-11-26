@@ -257,16 +257,17 @@ class Flow:
                 for k in keys:
                     if k not in ((p or {}).get("READINESS_CHECK") or {}):
                         self.err(f"prompts/{lang}.yaml: READINESS_CHECK.{k} missing for readiness item")
-        # terminal alt_line: policy must exist, line must exist
+        # time_line: the alternative prompt key must exist in every language
         for n, st in self.states.items():
-            alt = st.get("alt_line")
-            if not alt:
+            key = st.get("time_line")
+            if not key:
                 continue
-            if alt.get("when_policy") not in self.policies:
-                self.err(f"{n}: alt_line policy '{alt.get('when_policy')}' is not in policies.yaml")
             for lang, p in self.prompts.items():
-                if alt.get("key") not in ((p or {}).get(n) or {}):
-                    self.err(f"prompts/{lang}.yaml: {n}.{alt.get('key')} missing (alt_line)")
+                if key not in ((p or {}).get(n) or {}):
+                    self.err(f"prompts/{lang}.yaml: {n}.{key} missing (time_line)")
+        if not any((i or {}).get("shares_time") for i in {**self.global_intents, **self.local_intents}.values()):
+            if any(st.get("time_line") for st in self.states.values()):
+                self.warn("time_line is used but no intent has shares_time: true")
 
     def _edges(self):
         for n, s in self.states.items():
@@ -596,7 +597,8 @@ class Flow:
 
         def fill(text, lang):
             vals = samples.get(lang) or {}
-            return re.sub(r"\{(\w+)\}", lambda m: f"[[{vals[m.group(1)]}]]" if m.group(1) in vals else m.group(0), text)
+            return re.sub(r"\{(\w+)\}", lambda m: (f"[[{vals[m.group(1)]}]]" if vals[m.group(1)] else "")
+                          if m.group(1) in vals else m.group(0), text)
 
         for n, st in states.items():
             st["say"] = {lang: {k: fill(v, lang) for k, v in keys.items()} for lang, keys in st["lines"].items()}

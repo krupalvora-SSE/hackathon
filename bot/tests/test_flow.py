@@ -72,7 +72,7 @@ def test_happy_path_checks_every_readiness_item_then_confirms():
     assert "पानी" in call.handle("affirm").speak[0]  # ladder yes -> water
     assert "light" in call.handle("affirm").speak[0]  # water yes -> light
     r = call.handle("affirm")
-    assert call.state == "RECAP" and "सुबह नौ से बारह बजे" in r.speak[0]
+    assert call.state == "RECAP" and "बजे" not in r.speak[0]          # no time window unless asked
     r = call.handle("affirm")
     assert r.end and call.outcome == "slot_confirmed"
     sent = beatplan(events, "confirm_slot")[0]
@@ -336,3 +336,36 @@ def test_sms_line_only_when_policy_on():
         call.handle("affirm")
     r = call.handle("affirm")
     assert "SMS" in r.speak[0] and call.outcome == "slot_confirmed"
+
+
+# ---------- time window only when the customer asks (v0.3.0)
+
+def test_plain_yes_never_mentions_a_time_window():
+    call, _, events = live()
+    lines = []
+    for _ in range(6):
+        lines += call.handle("affirm").speak
+    assert call.outcome == "slot_confirmed"
+    assert not any("बजे" in ln or "सुबह" in ln for ln in lines), lines
+    assert call.record()["time_window_told"] is False
+    assert call.record()["confirmed_slot"]["band"] == "morning"     # Beat Plan still gets the band
+
+
+def test_asking_the_time_shares_it_in_recap_and_close():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("ask_time")
+    assert "सुबह नौ से बारह बजे" in r.speak[0]
+    for _ in range(3):
+        call.handle("affirm")                                        # window ok, ladder, water
+    r = call.handle("affirm")                                        # light -> recap
+    assert "सुबह नौ से बारह बजे" in r.speak[0]
+    r = call.handle("affirm")
+    assert "सुबह नौ से बारह बजे" in r.speak[-1] and call.record()["time_window_told"] is True
+
+
+def test_backup_days_offered_without_time_of_day_unless_asked():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("deny")
+    assert "सोमवार" in r.speak[0] and "सुबह" not in r.speak[0] and "शाम" not in r.speak[0]
