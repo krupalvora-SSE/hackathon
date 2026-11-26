@@ -4,7 +4,7 @@
    swept in a stage or pinned with a written reason. A new knob added to the /voice page without
    a test decision fails `python -m eval.run check`. Every option of a swept select must be tried
    or excluded with a reason.
-2. Provider diff. Reads the parameters the providers actually accept (pipecat's Sarvam STT/TTS,
+2. Provider diff. Reads the parameters the providers actually accept (pipecat's Piper TTS,
    Gemini, Silero VAD, the user-turn aggregator) and reports the ones the bot never sets.
    Each must be reviewed once in plan.yaml `provider_review` (expose / ignore + reason).
    Library upgrades that add parameters show up here automatically.
@@ -35,12 +35,10 @@ def provider_params() -> dict[str, list[str]]:
     from pipecat.audio.vad.vad_analyzer import VADParams
     from pipecat.processors.aggregators.llm_response_universal import LLMUserAggregatorParams
     from pipecat.services.google.llm import GoogleLLMService
-    from pipecat.services.sarvam.stt import SarvamRealtimeSTTService
-    from pipecat.services.sarvam.tts import SarvamTTSService
+    from pipecat.services.piper.tts import PiperTTSService
 
     return {
-        "sarvam_stt": _names(SarvamRealtimeSTTService.__init__) + _names(SarvamRealtimeSTTService.Settings),
-        "sarvam_tts": _names(SarvamTTSService.__init__) + _names(SarvamTTSService.Settings),
+        "piper_tts": _names(PiperTTSService.__init__) + _names(PiperTTSService.Settings),
         "gemini_llm": _names(GoogleLLMService.__init__) + _names(GoogleLLMService.Settings),
         "silero_vad": _names(VADParams),
         "user_turns": _names(LLMUserAggregatorParams),
@@ -57,7 +55,7 @@ def unwired(review: dict) -> dict[str, list[dict]]:
     src = BOT_SRC.read_text()
     out = {"new": [], "reviewed": [], "hardcoded": []}
     for prov, names in provider_params().items():
-        for n in sorted(set(names) - _ALWAYS_IGNORE - {"language"} | ({"language"} if prov == "sarvam_stt" else set())):
+        for n in sorted(set(names) - _ALWAYS_IGNORE):
             # set to a literal / constant instead of a config value: works, but nobody can tune it
             lit = re.search(rf"\b{n}\s*=\s*([\"'][^\"']*[\"']|[A-Z][A-Z_]+\b|Language\.\w+|-?\d[\d.]*)(?=\s*[,)\n])", src)
             if lit and f"{prov}.{n}" not in review:

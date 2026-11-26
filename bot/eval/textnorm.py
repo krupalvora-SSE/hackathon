@@ -1,6 +1,6 @@
 """Script-agnostic scoring for Hinglish transcripts.
 
-Sarvam (codemix) returns a mix of Latin and Devanagari; IndicConformer returns only Devanagari.
+Whisper returns Devanagari, or Latin script when it hears English; IndicConformer returns only Devanagari.
 Plain WER would punish whichever engine uses a different script from the reference, so both sides
 are reduced to a loose Latin "skeleton" first: Devanagari is transliterated, long vowels folded,
 doubled letters collapsed. CER on that skeleton is fair across engines.

@@ -1,4 +1,4 @@
-"""Open-source voice (Piper): Devanagari rewriting, engine switch and fallback to Sarvam."""
+"""Open-source voice (Piper): Devanagari rewriting, the voice engines, and a clear error if Piper fails."""
 import asyncio
 import re
 
@@ -6,7 +6,6 @@ import yaml
 
 from agent import bot, config
 from agent.devanagari import devanagari_transform, to_devanagari
-from agent.voice import clone_in_use
 
 LATIN = re.compile(r"[A-Za-z]")
 
@@ -33,22 +32,24 @@ def test_known_words_names_and_mai():
     assert asyncio.run(devanagari_transform("Hello?", "sentence")) == "हेलो?"
 
 
-def test_piper_voices_are_male_and_piper_disables_clone(monkeypatch):
+def test_piper_voices_are_male_and_only_local_engines():
     f = config.BY_KEY["piper_voice"]
     assert [o[0] for o in f["options"]] == ["hi_IN-pratham-medium", "hi_IN-rohan-medium", "hi_IN-jasir-medium"]
-    monkeypatch.setattr("agent.voice.active_voice_id", lambda: "svc-x")
-    assert clone_in_use({"tts_provider": "sarvam", "tts_source": "clone"}) == "svc-x"
-    assert clone_in_use({"tts_provider": "piper", "tts_source": "clone"}) is None
+    tts = config.BY_KEY["tts_provider"]
+    assert [o[0] for o in tts["options"]] == ["piper", "piper_clone"] and tts["default"] == "piper"
 
 
-def test_piper_failure_falls_back_to_sarvam(monkeypatch):
-    import pipecat.services.piper.tts as piper_tts
+def test_piper_failure_is_a_clear_error(monkeypatch):
+    import pytest
+
+    from agent import voice_local
 
     def boom(*a, **k):
         raise RuntimeError("voice download failed")
-    monkeypatch.setattr(piper_tts, "PiperTTSService", boom)
+    monkeypatch.setattr(voice_local, "BilingualPiperTTSService", boom)
     cfg = {"tts_provider": "piper", "piper_voice": "hi_IN-pratham-medium", "tts_pace": None}
-    assert bot._piper_tts(cfg, "T1", 8000) is None and cfg["tts_provider"] == "sarvam"
+    with pytest.raises(RuntimeError, match="hi_IN-pratham-medium unavailable: voice download failed"):
+        bot._piper_tts(cfg, "T1", 8000)
 
 
 def test_english_sentences_skip_devanagari_and_hindi_lines_have_no_english():

@@ -1,8 +1,7 @@
 """Speech-to-text + turn-detection bench: one call config over the audio corpus.
 
-Sarvam is driven over its realtime websocket with the exact query parameters a call sends
-(agent.bot.make_sarvam_stt builds them), audio streamed at real-time pace so latency is real.
-IndicConformer runs locally, segmented by the same Silero VAD settings a call would use.
+Both engines run locally (AI4Bharat IndicConformer, Whisper) on segments cut by the same Silero VAD
+settings a call uses, so turn starts/ends and latency match a real call.
 
 Per clip it records: transcript, entity hits, normalised CER, voice-to-transcript latency,
 turn starts/ends. Noise-only clips measure false starts (what makes the bot stop mid-sentence);
@@ -11,11 +10,7 @@ clips with a thinking pause measure premature turn ends (what makes the bot talk
 from __future__ import annotations
 
 import asyncio
-import base64
-import json
-import os
 import time
-from urllib.parse import urlencode
 
 import numpy as np
 
@@ -51,81 +46,23 @@ def silero_events(pcm: bytes, sr: int, cfg: dict) -> list[tuple[str, float]]:
     return events
 
 
-# ---------------------------------------------------------------- Sarvam realtime
-async def _sarvam_clip(clip: dict, cfg: dict) -> dict:
-    import websockets
+# ---------------------------------------------------------------- local STT engines
+def _transcriber(cfg: dict):
+    """16 kHz float audio -> text for the configured engine."""
+    if cfg["stt_provider"] == "indic":
+        from agent.stt_indic import transcribe
 
-    from agent.bot import make_sarvam_stt
+        return lambda seg: transcribe(seg, cfg["indic_language"], cfg["indic_decoding"])
+    from agent.stt_whisper import transcribe
 
-    pcm, sr = corpus.pcm(clip)
-    svc = make_sarvam_stt(cfg, sample_rate=sr)
-    svc._sample_rate = sr  # set by the pipeline at start; the bench has no pipeline
-    url = f"{svc._base_url}?{urlencode(svc._query_params())}"
-    manual = cfg["endpointing"] != "sarvam"
-    plan = silero_events(pcm, sr, cfg) if manual else []
-
-    events: list[tuple[str, float, str]] = []
-    t0 = 0.0
-    async with websockets.connect(url, additional_headers={"API-SUBSCRIPTION-KEY": os.environ["SARVAM_API_KEY"]},
-                                  open_timeout=10, max_size=None) as ws:
-        begun = asyncio.Event()
-        ended = asyncio.Event()
-
-        async def recv():
-            async for raw in ws:
-                m = json.loads(raw)
-                ev = m.get("event")
-                if ev == "session.begin":
-                    begun.set()
-                elif ev == "error":
-                    events.append(("error", time.monotonic() - t0, json.dumps(m)[:200]))
-                elif ev in ("vad.speech_start", "vad.speech_end", "transcript.final"):
-                    events.append((ev, time.monotonic() - t0, (m.get("text") or "").strip()))
-                elif ev == "session.end":
-                    ended.set()
-                    return
-
-        rt = asyncio.create_task(recv())
-        await asyncio.wait_for(begun.wait(), 10)
-        step = int(sr * CHUNK_MS / 1000) * 2
-        t0 = time.monotonic()
-        pi = 0
-        for i in range(0, len(pcm), step):
-            pos = i / 2 / sr
-            while manual and pi < len(plan) and plan[pi][1] <= pos:
-                await ws.send(json.dumps({"event": "speech_start" if plan[pi][0] == "start" else "speech_end"}))
-                pi += 1
-            await ws.send(json.dumps({"event": "audio_input", "audio": base64.b64encode(pcm[i:i + step]).decode()}))
-            lag = (i + step) / 2 / sr - (time.monotonic() - t0)
-            if lag > 0:
-                await asyncio.sleep(lag)
-        while manual and pi < len(plan):
-            await ws.send(json.dumps({"event": "speech_start" if plan[pi][0] == "start" else "speech_end"}))
-            pi += 1
-        await asyncio.sleep(1.0)  # let a trailing final arrive before closing the stream
-        await ws.send(json.dumps({"event": "end"}))
-        try:
-            await asyncio.wait_for(ended.wait(), 6)
-        except asyncio.TimeoutError:
-            pass
-        rt.cancel()
-
-    finals = [(t, x) for e, t, x in events if e == "transcript.final" and x]
-    if manual:
-        starts = [t for e, t in plan if e == "start"]
-        stops = [t for e, t in plan if e == "stop"]
-    else:
-        starts = [t for e, t, _ in events if e == "vad.speech_start"]
-        stops = [t for e, t, _ in events if e == "vad.speech_end"]
-    return {"text": " ".join(x for _, x in finals), "final_times": [t for t, _ in finals],
-            "starts": starts, "stops": stops, "errors": [x for e, _, x in events if e == "error"]}
+    return lambda seg: transcribe(seg)[0]
 
 
-# ---------------------------------------------------------------- IndicConformer (local)
-def _indic_clip(clip: dict, cfg: dict) -> dict:
-    from agent.stt_indic import SAMPLE_RATE, transcribe
-
+def _local_clip(clip: dict, cfg: dict) -> dict:
     from . import audio as A
+
+    SAMPLE_RATE = 16000
+    transcribe = _transcriber(cfg)
 
     pcm, sr = corpus.pcm(clip)
     ev = silero_events(pcm, sr, cfg)
@@ -140,7 +77,7 @@ def _indic_clip(clip: dict, cfg: dict) -> dict:
             stops.append(t)
             seg = A.resample(x[int(seg_start * sr):int(t * sr)], sr, SAMPLE_RATE)
             c = time.monotonic()
-            txt = transcribe(seg, cfg["indic_language"], cfg["indic_decoding"])
+            txt = transcribe(seg)
             final_times.append(t + time.monotonic() - c)
             if txt:
                 texts.append(txt)
@@ -202,20 +139,13 @@ async def run(cfg: dict, clips: list[dict], concurrency: int = 4) -> tuple[dict,
         if not st["ready"]:
             return {"skipped": st["message"]}, []
         await asyncio.to_thread(load_model)
-        for c in clips:
-            rows.append(score_clip(c, await asyncio.to_thread(_indic_clip, c, cfg)))
     else:
-        sem = asyncio.Semaphore(concurrency)
+        from agent.stt_whisper import status, warm_up
 
-        async def one(c):
-            async with sem:
-                for attempt in range(2):
-                    try:
-                        return score_clip(c, await _sarvam_clip(c, cfg))
-                    except Exception as e:  # noqa: BLE001
-                        err = f"{type(e).__name__}: {e}"
-                        await asyncio.sleep(1 + attempt)
-                return score_clip(c, {"text": "", "final_times": [], "starts": [], "stops": [], "errors": [err]})
-
-        rows = list(await asyncio.gather(*(one(c) for c in clips)))
+        st = status()
+        if not st["ready"]:
+            return {"skipped": st["message"]}, []
+        await asyncio.to_thread(warm_up)
+    for c in clips:  # one model, one GPU: clips run in turn (concurrency is kept for the CLI)
+        rows.append(score_clip(c, await asyncio.to_thread(_local_clip, c, cfg)))
     return summarise(rows), rows

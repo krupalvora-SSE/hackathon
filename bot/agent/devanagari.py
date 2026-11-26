@@ -1,8 +1,8 @@
 """Rewrite Latin-script words into Devanagari for the open-source Hindi voice (Piper).
 
 Piper's Hindi voices only pronounce Devanagari: "slot" came out as "लत" and "SolarSquare" was
-unrecognisable, while the same lines written as स्लॉट / सोलरस्क्वेयर were read perfectly. Sarvam
-handles mixed script itself, so this runs only on the Piper engine.
+unrecognisable, while the same lines written as स्लॉट / सोलरस्क्वेयर were read perfectly. Every bot
+line goes through this before Piper speaks it.
 
 Known words (English nouns in the flow lines, common Hinglish) use WORDS. Anything else, mostly
 customer names, is transliterated phonetically: "Sharma" -> शर्मा, "Krupal" -> क्रुपल.

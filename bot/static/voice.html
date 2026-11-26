@@ -90,9 +90,9 @@
 <body>
 <main>
   <h1>Voice Studio</h1>
-  <p class="sub">Clone your own voice on Sarvam and make it the voice the AMC bot speaks with on calls,
-    then tune how the bot listens, speaks and takes turns.</p>
-  <nav class="toc"><a href="#clone">Voice cloning</a><a href="#settings">Call settings</a></nav>
+  <p class="sub">Record your voice and make it the voice the AMC bot speaks with on calls, then tune how the
+    bot listens, speaks and takes turns. Everything runs on this machine: Piper speaks, OpenVoice V2 re-voices it.</p>
+  <nav class="toc"><a href="#clone">My voice</a><a href="#settings">Call settings</a></nav>
 
   <section class="card" id="clone">
     <h2><span class="step">1</span>Record your voice</h2>
@@ -108,12 +108,12 @@
       <button id="resetScript" type="button">Reset script</button></div>
     <ul class="tips">
       <li>Quiet room, phone-call distance from the mic, no music or other voices.</li>
-      <li>Read it the way you'd talk to a customer: warm, normal pace. The clone copies your pace and tone.</li>
-      <li>Aim for 12–15 seconds. Sarvam clones from the first 15 seconds only, so recording stops at 15.</li>
+      <li>Read it the way you'd talk to a customer: warm, normal pace.</li>
+      <li>Aim for 15–30 seconds of steady speech. Recording stops at 30.</li>
     </ul>
     <div class="row" style="margin-top:14px">
       <button class="rec primary" id="recBtn">● Start recording</button>
-      <span class="timer" id="timer">0:00</span><span class="muted">/ 0:15</span>
+      <span class="timer" id="timer">0:00</span><span class="muted">/ 0:30</span>
       <div class="meter"><div id="level"></div></div>
     </div>
     <div class="row" style="margin-top:10px">
@@ -124,50 +124,33 @@
     <div class="msg" id="recMsg"></div>
   </section>
 
-  <section class="card">
-    <h2><span class="step">2</span>Create the clone</h2>
-    <label for="name">Voice name</label>
+  <section class="card" id="local">
+    <h2><span class="step">2</span>Make it the bot's voice</h2>
+    <p class="muted" style="margin-top:-6px">Piper speaks each line and OpenVoice V2 on this machine re-voices it as
+      your recording ("Piper + my voice"). It copies your voice's sound, not your rhythm or accent. Nothing is
+      uploaded anywhere.</p>
+    <label for="name">Voice name (the bot introduces itself with the part before " - ")</label>
     <input type="text" id="name" placeholder="e.g. Krupal - AMC bot" maxlength="100">
     <label class="check"><input type="checkbox" id="consent">
-      <span>This is my own voice and I consent to SolarSquare cloning it for the AMC voice bot.</span></label>
-    <label class="check"><input type="checkbox" id="makeActive" checked>
-      <span>Use it for bot calls straight away</span></label>
-    <div class="row" style="margin-top:12px">
-      <button class="primary" id="createBtn" disabled>Create my voice</button>
-    </div>
-    <div class="msg" id="createMsg"></div>
-  </section>
-
-  <section class="card">
-    <h2><span class="step">3</span>Test and choose</h2>
-    <label for="testText">Line to speak</label>
-    <textarea id="testText">Namaste Rahul ji, mai SolarSquare se bol raha hoon. Aapke solar panel cleaning visit ke baare mai ek minute baat kar sakte hain?</textarea>
-    <div id="voices" style="margin-top:12px"><span class="muted">Loading voices…</span></div>
-    <audio id="previewAudio" controls hidden></audio>
-    <div class="msg" id="voiceMsg"></div>
-  </section>
-
-  <section class="card" id="local">
-    <h2><span class="step">★</span>Local open-source voice (Piper + my voice)</h2>
-    <p class="muted" style="margin-top:-6px">No Sarvam: Piper speaks, and OpenVoice V2 on this machine re-voices it
-      as your recording. Uses the clip from step 1 and the name and consent from step 2. It copies your voice's
-      sound, not your rhythm or accent.</p>
+      <span>This is my own voice and I consent to SolarSquare using it for the AMC voice bot.</span></label>
     <div class="msg" id="localStatus">Checking…</div>
     <div class="row" style="margin-top:12px">
-      <button class="primary" id="localSave" disabled>Save step-1 clip as my local voice</button>
-      <button id="localPreview" disabled>▶ Preview (line from step 3)</button>
+      <button class="primary" id="localSave" disabled>Save recording as my voice</button>
+      <button id="localPreview" disabled>▶ Preview</button>
       <button id="localUse" disabled>Use for bot</button>
       <button class="danger" id="localDelete" disabled>Remove sample</button>
     </div>
+    <label for="testText">Line to preview</label>
+    <textarea id="testText">Namaste Rahul ji, mai SolarSquare se bol raha hoon. Aapke solar panel cleaning visit ke baare mai ek minute baat kar sakte hain?</textarea>
     <audio id="localAudio" controls hidden></audio>
     <div class="msg" id="localMsg"></div>
   </section>
 
   <section class="card" id="settings">
-    <h2><span class="step">4</span>Call settings</h2>
+    <h2><span class="step">3</span>Call settings</h2>
     <p class="muted" style="margin-top:-6px">Saved here, these override <code>bot/.env</code> and apply from
       the next call (no restart). <strong>Bot stops mid-sentence?</strong> Line noise or echo is interrupting it:
-      turn off <em>Customer can interrupt the bot</em>, or raise the Sarvam VAD threshold and min speech.
+      turn off <em>Customer can interrupt the bot</em>, or raise Silero confidence, start and min volume.
       Cut-off replies can also mean <em>Max output tokens</em> is too low.</p>
     <div id="cfg"><span class="muted">Loading settings…</span></div>
     <div class="savebar row">
@@ -181,7 +164,7 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const SCRIPTS = {  // ~14 s read aloud: Sarvam clones from the first 15 s only
+const SCRIPTS = {  // ~15 s read aloud
   m: ["Namaste ji, mai SolarSquare se bol raha hoon.",
       "Aapke solar panel cleaning visit ke liye call kiya hai.",
       "Kya Somvar subah das baje ka time theek rahega?",
@@ -221,7 +204,7 @@ const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(
 // ---------------------------------------------------------------- recording -> 16 kHz mono WAV
 const TARGET_RATE = 16000;
 let rec = null;      // {ctx, stream, node, chunks, start, tick}
-const MAX_SECS = 15;  // Sarvam uses only the first 15 s of the sample
+const MAX_SECS = 30;
 let clip = null;     // {blob, seconds, name}
 let local = null;    // local open-source voice: {has_sample, name, converter: {ready, error, device}}
 
@@ -298,8 +281,7 @@ async function setClip(blob, name) {
     const a = new Audio(url); a.onloadedmetadata = () => res(a.duration); a.onerror = () => res(NaN);
   });
   clip = { blob, seconds, name };
-  if (seconds < 8) msg("recMsg", `Only ${seconds.toFixed(1)}s. Record at least 12 seconds for a good clone.`, "bad");
-  else if (seconds > MAX_SECS + 0.5) msg("recMsg", `${seconds.toFixed(0)}s is long. Sarvam only uses the first ${MAX_SECS} seconds; trim the clip so it starts with your best, most fluent part.`, "bad");
+  if (seconds < 8) msg("recMsg", `Only ${seconds.toFixed(1)}s. Record at least 15 seconds for a good match.`, "bad");
   else msg("recMsg", `Got ${seconds.toFixed(1)}s. Play it back; if it sounds clean, go to step 2.`, "ok");
   updateCreate();
 }
@@ -307,117 +289,21 @@ async function setClip(blob, name) {
 $("recBtn").onclick = () => (rec ? stopRec() : startRec().catch((e) => msg("recMsg", "Mic error: " + e.message, "bad")));
 $("upload").onchange = (e) => { const f = e.target.files[0]; if (f) setClip(f, f.name); };
 
-// ---------------------------------------------------------------- create
-function updateCreate() {
-  $("createBtn").disabled = !(clip && clip.seconds >= 5 && $("consent").checked && $("name").value.trim());
-  renderLocal();  // its Save button needs the same clip/name/consent
-}
+// ---------------------------------------------------------------- step 2 inputs
+function updateCreate() { renderLocal(); }  // Save needs a clip, a name and consent
 ["consent", "name"].forEach((id) => $(id).addEventListener("input", updateCreate));
-
-$("createBtn").onclick = async () => {
-  $("createBtn").disabled = true; msg("createMsg", "Uploading to Sarvam and cloning… (10–30 s)");
-  const fd = new FormData();
-  fd.append("file", clip.blob, clip.name); fd.append("name", $("name").value.trim());
-  fd.append("consent", "true"); fd.append("make_active", $("makeActive").checked ? "true" : "false");
-  try {
-    const r = await fetch("/api/voices", { method: "POST", body: fd });
-    const j = await r.json();
-    if (!r.ok) throw new Error(errText(j));
-    msg("createMsg", `Voice created (${j.voice_id}).` + ($("makeActive").checked ? " The bot will use it from the next call." : ""), "ok");
-    await loadVoices(); preview(j.voice_id);
-  } catch (e) { msg("createMsg", "Clone failed: " + e.message, "bad"); }
-  updateCreate();
-};
 
 function errText(j) {
   const e = j.error;
-  if (typeof e === "string") return e;
-  const m = e?.error?.message || e?.message || e?.detail || JSON.stringify(e);
-  if (j.status === 422) return m + " (Too noisy, too short, or more than one voice. Try re-recording in a quieter spot.)";
-  return m;
-}
-
-// ---------------------------------------------------------------- list / preview / choose
-let state = null;  // {voices, active, pinned}
-// Voice source setting (clone / bulbul): the saved value, so the list shows what the next call uses.
-const onBulbul = () => cfg?.values?.tts_source === "bulbul";
-
-async function loadVoices() {
-  const r = await fetch("/api/voices"); const j = await r.json();
-  if (!r.ok) { $("voices").innerHTML = `<span class="msg bad">Could not load voices: ${errText(j)}</span>`; return; }
-  state = { voices: j.voices, active: j.active, pinned: j.pinned_by_env };
-  if (cfg) renderConfig(); else renderVoices();  // renderConfig redraws the list too
-}
-
-function renderVoices() {
-  if (!state) return;
-  const onPiper = (cfg?.values?.tts_provider || "").startsWith("piper");
-  const bulbul = !onPiper && (onBulbul() || !state.active);
-  const j = { voices: state.voices, active: state.active, pinned_by_env: state.pinned };
-  const rows = j.voices.map((v) => `
-    <div class="voice">
-      <div><strong>${esc(v.name)}</strong>${v.id === j.active ? (bulbul || onPiper ? '<span class="badge" style="opacity:.55">picked clone</span>' : '<span class="badge">bot uses this</span>') : ""}
-        <div class="muted">${v.language} · ${v.sample_duration_seconds ? v.sample_duration_seconds.toFixed(0) + "s sample · " : ""}${new Date(v.created_at).toLocaleString()}</div></div>
-      <div class="row">
-        <button data-act="preview" data-id="${v.id}">▶ Preview</button>
-        <button data-act="use" data-id="${v.id}" data-name="${esc(v.name)}" ${(v.id === j.active && !bulbul) || (j.pinned_by_env && v.id !== j.active) ? "disabled" : ""}>Use for bot</button>
-        <button class="danger" data-act="delete" data-id="${v.id}" data-name="${esc(v.name)}">Delete</button>
-      </div>
-    </div>`).join("");
-  const spk = cfg ? `${cfg.values.tts_model} · ${cfg.values.tts_voice || "default speaker"}` : "Bulbul";
-  const stock = `<div class="voice"><div><strong>Sarvam Bulbul stock voice</strong>${bulbul ? '<span class="badge">bot uses this</span>' : ""}
-      <div class="muted">${esc(spk)} · no cloning. Model and speaker are under Call settings → Bot voice.</div></div>
-      <div class="row"><button data-act="use" data-id="" ${bulbul ? "disabled" : ""}>Use for bot</button></div></div>`;
-  const piperNote = onPiper ? '<div class="msg muted">TTS engine is Piper (open source), so calls don\'t use these Sarvam voices. Switch it under Call settings → Bot voice.</div>' : "";
-  $("voices").innerHTML = piperNote + (rows || '<span class="muted">No cloned voices yet.</span>') + stock +
-    (j.pinned_by_env ? '<div class="msg muted">SARVAM_CLONE_VOICE_ID is set in bot/.env, so it overrides the choice here.</div>' : "");
+  return typeof e === "string" ? e : e?.message || e?.detail || JSON.stringify(e);
 }
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-
-async function preview(id) {
-  msg("voiceMsg", "Generating preview…");
-  const r = await fetch("/api/voices/preview", { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ voice_id: id, text: $("testText").value }) });
-  if (!r.ok) { msg("voiceMsg", "Preview failed: " + errText(await r.json()), "bad"); return; }
-  const a = $("previewAudio"); a.src = URL.createObjectURL(await r.blob()); a.hidden = false; a.play();
-  msg("voiceMsg", "");
-}
-
-$("voices").onclick = async (e) => {
-  const b = e.target.closest("button"); if (!b) return;
-  const { act, id, name } = b.dataset;
-  if (act === "preview") return preview(id);
-  if (act === "use") {
-    // Bulbul keeps the picked clone and flips the voice source; a clone sets itself active and flips it back.
-    if (id && id !== state.active)
-      await fetch("/api/voices/active", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voice_id: id, name }) });
-    const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ values: { tts_source: id ? "clone" : "bulbul" } }) });
-    if (r.ok) { const pending = draft; cfg = await r.json(); delete pending.tts_source; draft = pending; renderConfig(); }
-    msg("voiceMsg", id ? `Bot will speak as "${name}" from the next call.` : "Bot will use the Bulbul stock voice from the next call.", "ok");
-    return loadVoices();
-  }
-  if (act === "delete") {
-    if (!confirm(`Delete "${name}" from Sarvam? This can't be undone.`)) return;
-    const r = await fetch("/api/voices/" + encodeURIComponent(id), { method: "DELETE" });
-    if (!r.ok) msg("voiceMsg", "Delete failed: " + errText(await r.json()), "bad");
-    return loadVoices();
-  }
-};
-loadVoices();
 
 // ---------------------------------------------------------------- call settings
 let cfg = null;        // {fields, values, sources, indic_status, whisper_status}
 let draft = {};        // key -> raw input value, only for edited fields
 const SRC = { page: "saved here", env: ".env", default: "default" };
-const SARVAM_ONLY = ["stt_threshold", "stt_min_speech_ms", "stt_silence_ms"];
-const LOCAL_ONLY = ["vad_confidence", "vad_start_secs", "vad_stop_secs", "vad_min_volume"];
-const SARVAM_STT_ONLY = ["stt_model", "stt_stream_type"];
 const INDIC_ONLY = ["indic_decoding", "indic_language"];
-const BULBUL_ONLY = ["tts_model", "tts_voice", "tts_pitch", "tts_loudness"];
-const SARVAM_TTS_ONLY = ["tts_source", "tts_min_buffer", "tts_max_chunk", ...BULBUL_ONLY];
-const PIPER_ONLY = ["piper_voice", "piper_voice_en"];
 
 async function loadConfig() {
   const r = await fetch("/api/config"); const j = await r.json();
@@ -448,25 +334,15 @@ function renderConfig() {
   const groups = {};
   cfg.fields.forEach((f) => (groups[f.group] ||= []).push(f));
   const indic = current("stt_provider") === "indic";
-  const localStt = indic || current("stt_provider") === "whisper";  // not streaming: local VAD cuts segments
-  const mode = localStt ? "local" : current("endpointing");
   const ist = cfg.indic_status || {};
-  const piper = (current("tts_provider") || "").startsWith("piper");
-  const cloneVoice = !piper && current("tts_source") === "clone" && !!state?.active;
   $("cfg").innerHTML = Object.entries(groups).map(([g, fs]) => `
     <div class="group"><h3>${esc(g)}</h3>${fs.map((f) => {
       const src = cfg.sources[f.key];
-      const na = (mode === "sarvam" && LOCAL_ONLY.includes(f.key)) || (mode === "local" && SARVAM_ONLY.includes(f.key))
-              || (localStt && (SARVAM_STT_ONLY.includes(f.key) || f.key === "endpointing"))
-              || (!indic && INDIC_ONLY.includes(f.key))
-              || (cloneVoice && BULBUL_ONLY.includes(f.key))
-              || (piper && SARVAM_TTS_ONLY.includes(f.key)) || (!piper && PIPER_ONLY.includes(f.key))
+      const na = (!indic && INDIC_ONLY.includes(f.key))
               || (f.key === "clone_tau" && current("tts_provider") !== "piper_clone");
       let extra = "";
-      if (f.key === "endpointing" && localStt) extra = " Local STT engines always use Local Silero.";
       if (f.key === "stt_provider")
         extra = ` AI4Bharat status: ${ist.message || "unknown"} Whisper status: ${cfg.whisper_status?.message || "unknown"}`;
-      if (f.key === "tts_source" && !state?.active && !piper) extra = " No clone is picked, so calls use Bulbul now.";
       if (f.key === "piper_voice" && current("tts_provider") === "piper_clone")
         extra = local?.has_sample
           ? ` On "Piper + my voice" this is only the base voice: calls are re-voiced as "${local.name || "your sample"}" (Local open-source voice card).`
@@ -479,7 +355,6 @@ function renderConfig() {
         ${f.help || extra ? `<div class="help">${esc(f.help || "")}${extra}</div>` : ""}
       </div>`; }).join("")}</div>`).join("");
   markDirty();
-  renderVoices();
   renderLocal();
 }
 
@@ -508,7 +383,7 @@ function markDirty() {
 $("cfg").addEventListener("input", (e) => {
   const k = e.target.dataset.k; if (!k) return;
   draft[k] = readInput(e.target);
-  if (["endpointing", "stt_provider", "tts_source", "tts_provider"].includes(k)) renderConfig(); else markDirty();
+  if (["stt_provider", "tts_provider"].includes(k)) renderConfig(); else markDirty();
   msg("cfgMsg", "");
 });
 

@@ -34,10 +34,10 @@ def test_gate_catches_unplanned_setting():
     assert any("idle_timeout" in e for e in params.coverage(p)["errors"])
 
 
-def test_indic_forces_local_vad_and_when():
-    cfg = normalise({"stt_provider": "indic", "endpointing": "sarvam"})
-    assert cfg["endpointing"] == "local"
-    assert matches(cfg, {"endpointing": "local"}) and not matches(cfg, {"stt_provider": "sarvam"})
+def test_normalise_and_when():
+    cfg = normalise({"stt_provider": "indic", "indic_decoding": "ctc"})
+    assert matches(cfg, {"stt_provider": "indic"}) and not matches(cfg, {"stt_provider": "whisper"})
+    assert matches(cfg, None)
 
 
 def test_score_gates():

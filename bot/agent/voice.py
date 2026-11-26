@@ -1,125 +1,24 @@
-"""Cloned voice: which Sarvam voice the bot speaks with, and a TTS service that streams it.
+"""Who the bot's voice is: the name it introduces itself with ("mai SolarSquare se Jasir bol raha hoon").
 
-The active clone is `SARVAM_CLONE_VOICE_ID` in .env, else the one picked on the /voice page
-(stored in bot/voice.json, git-ignored). With neither set, or the voice source
-set to Bulbul on the /voice page, the bot uses the stock Bulbul speaker.
+Voices are local Piper voices (agent/bot.py), optionally re-voiced as a recorded sample
+("Piper + my voice", agent/voice_local.py).
 """
 from __future__ import annotations
-
-import json
-import os
-import re
-from pathlib import Path
-
-from loguru import logger
-from pipecat.services.sarvam.tts import SarvamTTSService
-from pipecat.utils.text.transforms.replacements import replace_text
-
-# Words Sarvam pronounces badly, rewritten just before speech (fixed lines and LLM replies alike).
-# "main" (I) and "mein" (in) come out stiff; callers say "mai" for both. Whole words only, so
-# "maintenance" or "remaining" are untouched.
-_DEV = "\u0900-\u097F"
-SPOKEN_FIXES = [
-    (r"\b[Mm]ain\b", "mai"),
-    (r"\b[Mm]ein\b", "mai"),
-    (rf"(?<![{_DEV}])(?:में|मैं)(?![{_DEV}])", "मै"),
-]
-_FIXES = [(re.compile(p), r) for p, r in SPOKEN_FIXES]
-TTS_TEXT_TRANSFORMS = [("*", replace_text(SPOKEN_FIXES))]
-
-
-def fix_spoken_text(text: str) -> str:
-    for p, r in _FIXES:
-        text = p.sub(r, text)
-    return text
-
-
-VOICE_FILE = Path(__file__).resolve().parent.parent / "voice.json"
-CLONE_WS_URL = "wss://api.sarvam.ai/voices/clone/ws?send_completion_event=true"
-
-
-def active_voice_id() -> str | None:
-    if env := os.getenv("SARVAM_CLONE_VOICE_ID"):
-        return env
-    try:
-        return json.loads(VOICE_FILE.read_text()).get("voice_id") or None
-    except (OSError, ValueError):
-        return None
-
-
-def clone_in_use(cfg: dict | None = None) -> str | None:
-    """Clone id the call speaks with, or None on Piper, on Bulbul, or with no clone picked."""
-    if cfg is None:
-        from .config import load
-        cfg = load()
-    if cfg.get("tts_provider", "sarvam") != "sarvam" or cfg.get("tts_source", "clone") != "clone":
-        return None
-    return active_voice_id()
-
 
 STOCK_PIPER_SPEAKERS = {"pratham", "rohan"}  # Piper's own Hindi voices: not a team member
 
 
 def active_voice_name() -> str | None:
-    """Name the bot introduces itself with: the picked clone's name, up to " - " ("Krupal - AMC bot" -> "Krupal").
-    None on the Bulbul voice source or a stock Piper speaker: that isn't a team member.
-    On plain Piper with our fine-tuned voice ("hi_IN-jasir-medium") it's that speaker ("Jasir").
-    On "Piper + my voice" it's the name given with the local sample instead."""
+    """The team member the voice belongs to, or None for a stock speaker.
+
+    - Plain Piper with our fine-tuned voice ("hi_IN-jasir-medium"): that speaker ("Jasir").
+    - "Piper + my voice": the name saved with the local sample, up to " - " ("Krupal - AMC bot" -> "Krupal").
+    """
     from .config import load
 
     cfg = load()
     if cfg.get("tts_provider") == "piper_clone":
         from .voice_local import local_voice_name
         return local_voice_name()
-    if cfg.get("tts_provider") == "piper":  # a voice we fine-tuned (bot/voice_training) is that person
-        speaker = (cfg.get("piper_voice") or "").split("-")[1:2]
-        return speaker[0].title() if speaker and speaker[0] not in STOCK_PIPER_SPEAKERS else None
-    if not clone_in_use(cfg):
-        return None
-    try:
-        name = json.loads(VOICE_FILE.read_text()).get("name") or ""
-    except (OSError, ValueError):
-        return None
-    return name.split(" - ")[0].strip() or None
-
-
-def set_active_voice(voice_id: str | None, name: str | None = None) -> None:
-    if voice_id:
-        VOICE_FILE.write_text(json.dumps({"voice_id": voice_id, "name": name}))
-    else:
-        VOICE_FILE.unlink(missing_ok=True)
-
-
-class SarvamCloneTTSService(SarvamTTSService):
-    """Sarvam websocket TTS pointed at the Instant Voice Cloning endpoint.
-
-    Same streaming protocol as /text-to-speech/ws (config -> text -> flush, audio/event replies),
-    but the config carries `voice_id` instead of `speaker`/`model`, and audio is raw linear16 PCM.
-    """
-
-    def __init__(self, *, clone_voice_id: str, **kwargs):
-        super().__init__(**kwargs)
-        self._clone_voice_id = clone_voice_id
-        self._websocket_url = CLONE_WS_URL
-
-    async def _update_settings(self, delta):
-        changed = await super()._update_settings(delta)
-        self._websocket_url = CLONE_WS_URL  # a model change rebuilds the stock URL; keep ours
-        return changed
-
-    async def _send_config(self):
-        if not self._websocket:
-            raise Exception("WebSocket not connected")
-        data = {
-            "voice_id": self._clone_voice_id,
-            "target_language_code": self._settings.language,
-            "speech_sample_rate": int(self.sample_rate),
-            "output_audio_codec": "linear16",
-            "min_buffer_size": self._settings.min_buffer_size,
-            "max_chunk_length": self._settings.max_chunk_length,
-        }
-        if self._settings.pace is not None:
-            data["pace"] = self._settings.pace
-        data = {k: v for k, v in data.items() if v is not None}
-        logger.debug(f"Sarvam clone TTS config: {data}")
-        await self._websocket.send(json.dumps({"type": "config", "data": data}))
+    speaker = (cfg.get("piper_voice") or "").split("-")[1:2]  # a voice we fine-tuned (bot/voice_training)
+    return speaker[0].title() if speaker and speaker[0] not in STOCK_PIPER_SPEAKERS else None

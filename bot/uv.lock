@@ -2767,9 +2767,6 @@ runner = [
     { name = "pipecat-ai-prebuilt" },
     { name = "uvicorn" },
 ]
-sarvam = [
-    { name = "sarvamai" },
-]
 webrtc = [
     { name = "aiortc" },
     { name = "opencv-python-headless" },
@@ -3594,22 +3591,6 @@ wheels = [
 ]
 
 [[package]]
-name = "sarvamai"
-version = "0.1.28"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "pydantic-core" },
-    { name = "typing-extensions" },
-    { name = "websockets" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/23/44/57a7a37be64953bb0bec9f674e92a9f8fb7070ce6aeb44c6f22720458b40/sarvamai-0.1.28.tar.gz", hash = "sha256:bc52f0c849e429d1a4493e49b1b4b65bf06965f3936d4eb6ee3da3130452e7ea", size = 139022, upload-time = "2026-04-20T08:05:12.185Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/84/90/95cd195a3a2ae9a9973c6a05705207e8dd97b5aea90339bc24343cb54850/sarvamai-0.1.28-py3-none-any.whl", hash = "sha256:52e71c0a0f521552d4d948ec452699b44554a56e64ee354b14da2efc9d9046b3", size = 269335, upload-time = "2026-04-20T08:05:10.712Z" },
-]
-
-[[package]]
 name = "scipy"
 version = "1.18.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4064,7 +4045,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "indic-transliteration" },
-    { name = "pipecat-ai", extra = ["google", "openai", "piper", "runner", "sarvam", "webrtc"] },
+    { name = "pipecat-ai", extra = ["google", "openai", "piper", "runner", "webrtc"] },
     { name = "pytest" },
     { name = "python-dotenv" },
     { name = "python-multipart" },
@@ -4095,7 +4076,7 @@ requires-dist = [
     { name = "mlx-whisper", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'whisper'", specifier = ">=0.4.2" },
     { name = "onnx", marker = "extra == 'indic'", specifier = ">=1.23.2" },
     { name = "onnxruntime", marker = "extra == 'indic'", specifier = ">=1.20.1" },
-    { name = "pipecat-ai", extras = ["google", "openai", "piper", "runner", "sarvam", "silero", "webrtc"], specifier = ">=1.17.0" },
+    { name = "pipecat-ai", extras = ["google", "openai", "piper", "runner", "silero", "webrtc"], specifier = ">=1.17.0" },
     { name = "pipecat-ai", extras = ["whisper"], marker = "extra == 'whisper'", specifier = ">=1.17.0" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "python-dotenv", specifier = ">=1.2.4" },

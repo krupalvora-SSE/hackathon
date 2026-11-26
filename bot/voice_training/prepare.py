@@ -3,27 +3,24 @@
     uv run python voice_training/prepare.py ~/Downloads/jasir-voice-traning-data-1.mp3 --name jasir
 
 1. Decode to 22,050 Hz mono and cut at pauses (energy based).
-2. Transcribe every piece with Sarvam speech-to-text (cached, so re-runs are free).
+2. Transcribe every piece with local Whisper (agent/stt_whisper.py; cached, so re-runs are instant).
 3. Match pieces to script lines in reading order. A line read with a pause in it spans several
    pieces; stumbles and noise match nothing and are dropped; a re-read line keeps the last take.
 4. Write data/<name>/wavs/<line>.wav (trimmed, loudness-evened) + metadata.csv (`0001.wav|text`),
    report.md (what was kept / dropped and why) and data/<name>.zip for Colab.
 
-Recordings never leave this machine except the Sarvam transcription call. data/ is git-ignored.
+Recordings never leave this machine. data/ is git-ignored.
 """
 from __future__ import annotations
 
 import argparse
 import difflib
 import hashlib
-import io
 import json
-import os
 import re
 import subprocess
 import sys
 import zipfile
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -83,31 +80,26 @@ def pieces(x: np.ndarray, min_pause: float = MIN_PAUSE, offset: int = 0) -> list
 
 
 def transcribe_all(x: np.ndarray, segs, cache_path: Path) -> list[str]:
-    from sarvamai import SarvamAI
+    from scipy.signal import resample_poly
+
+    from agent.stt_whisper import transcribe, warm_up
 
     cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
-    client = SarvamAI(api_subscription_key=os.environ["SARVAM_API_KEY"])
+    warm_up()
 
     def one(seg):
         clip = x[seg[0]:seg[1]]
         key = hashlib.sha1(clip.tobytes()).hexdigest()[:16]
         if key not in cache:
-            buf = io.BytesIO()
-            sf.write(buf, clip, SR, format="WAV", subtype="PCM_16")
-            for attempt in range(3):
-                try:
-                    r = client.speech_to_text.transcribe(file=("piece.wav", buf.getvalue(), "audio/wav"),
-                                                         model="saarika:v2.5", language_code="hi-IN")
-                    cache[key] = r.transcript or ""
-                    break
-                except Exception as e:  # noqa: BLE001 - rate limit / network: retry, then give up on piece
-                    if attempt == 2:
-                        print(f"  transcription failed for piece at {seg[0] / SR:.1f}s: {e}", file=sys.stderr)
-                        return ""
+            try:
+                audio = resample_poly(clip.astype(np.float32), 16000, SR).astype(np.float32)
+                cache[key] = transcribe(audio)[0]
+            except Exception as e:  # noqa: BLE001 - give up on this piece, keep the rest
+                print(f"  transcription failed for piece at {seg[0] / SR:.1f}s: {e}", file=sys.stderr)
+                return ""
         return cache[key]
 
-    with ThreadPoolExecutor(6) as pool:
-        texts = list(pool.map(one, segs))
+    texts = [one(seg) for seg in segs]  # one model on one GPU: in turn
     cache_path.write_text(json.dumps(cache, ensure_ascii=False, indent=0))
     return texts
 
@@ -178,7 +170,7 @@ def main():
         x = load(path.expanduser())
         total += len(x) / SR
         segs = pieces(x)
-        print(f"  {len(segs)} pieces, transcribing with Sarvam")
+        print(f"  {len(segs)} pieces, transcribing with local Whisper")
         texts = transcribe_all(x, segs, out / "stt_cache.json")
         matches, dropped = align(texts, script)
         for j, f, l, score in matches:

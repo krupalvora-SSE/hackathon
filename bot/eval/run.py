@@ -1,8 +1,8 @@
 """Eval pipeline runner.
 
   uv run python -m eval.run check                 # coverage gate + provider diff (no API calls)
-  uv run python -m eval.corpus                    # build the audio corpus once (Sarvam TTS, cached)
-  uv run python -m eval.run stt  [--quick]        # STT + turn detection: Sarvam vs IndicConformer
+  uv run python -m eval.corpus                    # build the audio corpus once (local Piper voices, cached)
+  uv run python -m eval.run stt  [--quick]        # STT + turn detection: IndicConformer vs Whisper
   uv run python -m eval.run conv [--quick]        # LLM settings over simulated customers
   uv run python -m eval.run all  [--quick] [--apply]
 
@@ -36,10 +36,7 @@ def defaults() -> dict:
 
 
 def normalise(cfg: dict) -> dict:
-    cfg = dict(cfg)
-    if cfg["stt_provider"] == "indic":  # mirrors agent/bot.py: IndicConformer needs local VAD segments
-        cfg["endpointing"] = "local"
-    return cfg
+    return dict(cfg)  # both local STT engines use the same Silero turn detection
 
 
 def matches(cfg: dict, when: dict | None) -> bool:

@@ -16,14 +16,14 @@ CONFIG_FILE = Path(__file__).resolve().parent.parent / "config.json"
 # type: bool | int | float | select | text. `nullable` fields can be left blank (provider default).
 FIELDS: list[dict[str, Any]] = [
     # ---- Speech to text
-    {"key": "stt_provider", "group": "Speech to text", "type": "select", "default": "sarvam",
-     "env": "STT_PROVIDER", "label": "STT engine (switch Sarvam / AI4Bharat)",
-     "options": [["sarvam", "Sarvam (cloud, streaming)"], ["indic", "AI4Bharat IndicConformer 600M (local)"],
+    {"key": "stt_provider", "group": "Speech to text", "type": "select", "default": "indic",
+     "env": "STT_PROVIDER", "label": "STT engine (switch AI4Bharat / Whisper)",
+     "options": [["indic", "AI4Bharat IndicConformer 600M (local)"],
                  ["whisper", "Whisper large-v3-turbo (local, no account needed)"]],
-     "help": "Applies from the next call. IndicConformer and Whisper are open source and run on this machine; "
-             "they are not streaming, so turn detection switches to Local Silero. IndicConformer needs a Hugging "
-             "Face token; Whisper needs nothing (Apple GPU, ~1 s per reply). If IndicConformer isn't ready, calls "
-             "fall back to Whisper, then Sarvam."},
+     "help": "Applies from the next call. Both are open source and run on this machine; neither streams, so "
+             "the Silero settings below decide when the customer has finished. IndicConformer needs a Hugging "
+             "Face token (bot/README.md); Whisper needs nothing (Apple GPU, ~1 s per reply). If IndicConformer "
+             "isn't ready, calls fall back to Whisper."},
     {"key": "indic_decoding", "group": "Speech to text", "type": "select", "default": "ctc",
      "env": "INDIC_DECODING", "label": "IndicConformer decoding",
      "options": [["ctc", "CTC (faster)"], ["rnnt", "RNNT (often more accurate)"]],
@@ -32,62 +32,35 @@ FIELDS: list[dict[str, Any]] = [
      "env": "INDIC_LANGUAGE", "label": "IndicConformer language",
      "options": [["hi", "Hindi"], ["mr", "Marathi"]],
      "help": "IndicConformer only. The model has no English; English words come back in Devanagari."},
-    {"key": "stt_model", "group": "Speech to text", "type": "select", "default": "saaras:v4",
-     "env": "SARVAM_STT_MODEL", "label": "STT model",
-     "options": [["saaras:v4", "saaras:v4"], ["saaras:v3-realtime", "saaras:v3-realtime"]]},
-    {"key": "stt_stream_type", "group": "Speech to text", "type": "select", "default": "fast",
-     "env": "SARVAM_STT_STREAM", "label": "Stream type",
-     "options": [["fast", "fast"], ["balanced", "balanced"], ["simulated", "simulated"]],
-     "help": "fast gives the lowest latency; balanced is a little slower and more accurate."},
-
     # ---- Interruptions: the usual cause of the bot going quiet mid-sentence
     {"key": "barge_in", "group": "Interruptions", "type": "bool", "default": True,
      "env": "BARGE_IN", "label": "Customer can interrupt the bot",
      "help": "When on, any speech the turn detector hears while the bot talks cuts the bot off. "
              "Line noise, echo or a cough can do that, so the bot stops mid-sentence. Turn this off to "
              "make the bot always finish its sentence. The customer is still heard afterwards."},
-    {"key": "endpointing", "group": "Interruptions", "type": "select", "default": "sarvam",
-     "env": "TURN_DETECTION", "label": "Turn detection",
-     "options": [["sarvam", "Sarvam server VAD"], ["local", "Local Silero VAD + Smart Turn"]],
-     "help": "Who decides when the customer starts and stops talking. Sarvam uses the STT settings "
-             "below; Local uses the Silero settings below."},
-    {"key": "stt_threshold", "group": "Interruptions", "type": "float", "default": None, "nullable": True,
-     "min": 0, "max": 1, "step": 0.05, "env": "SARVAM_VAD_THRESHOLD", "label": "Sarvam VAD threshold",
-     "help": "Speech probability needed to count as talking. Raise it (e.g. 0.6-0.8) if noise or echo "
-             "interrupts the bot. Blank uses Sarvam's default. Sarvam turn detection only."},
-    {"key": "stt_min_speech_ms", "group": "Interruptions", "type": "int", "default": None, "nullable": True,
-     "min": 0, "max": 3000, "step": 50, "env": "SARVAM_MIN_SPEECH_MS", "label": "Sarvam min speech (ms)",
-     "help": "Speech shorter than this is ignored. 300-500 ms filters clicks and 'hmm's. "
-             "Sarvam turn detection only."},
-    {"key": "stt_silence_ms", "group": "Interruptions", "type": "int", "default": None, "nullable": True,
-     "min": 100, "max": 5000, "step": 50, "env": "SARVAM_SILENCE_MS", "label": "Sarvam end-of-speech silence (ms)",
-     "help": "How long the customer must pause before their turn ends. Higher waits for slow talkers "
-             "but adds latency. Sarvam turn detection only."},
     {"key": "vad_confidence", "group": "Interruptions", "type": "float", "default": 0.7,
      "min": 0.1, "max": 1, "step": 0.05, "env": "VAD_CONFIDENCE", "label": "Silero confidence",
-     "help": "Local turn detection only. Higher ignores more noise."},
+     "help": "Higher ignores more noise."},
     {"key": "vad_start_secs", "group": "Interruptions", "type": "float", "default": 0.2,
      "min": 0.05, "max": 2, "step": 0.05, "env": "VAD_START_SECS", "label": "Silero start (s)",
-     "help": "Local turn detection only. Speech must last this long to count. 0.4-0.6 s stops brief "
+     "help": "Speech must last this long to count. 0.4-0.6 s stops brief "
              "noises from interrupting."},
     {"key": "vad_stop_secs", "group": "Interruptions", "type": "float", "default": 0.2,
      "min": 0.05, "max": 2, "step": 0.05, "env": "VAD_STOP_SECS", "label": "Silero stop (s)",
-     "help": "Local turn detection only. Silence needed before speech counts as stopped."},
+     "help": "Silence needed before speech counts as stopped."},
     {"key": "vad_min_volume", "group": "Interruptions", "type": "float", "default": 0.6,
      "min": 0, "max": 1, "step": 0.05, "env": "VAD_MIN_VOLUME", "label": "Silero min volume",
-     "help": "Local turn detection only. Quieter audio is never speech. Raise it for loud lines."},
+     "help": "Quieter audio is never speech. Raise it for loud lines."},
 
     # ---- Bot voice
-    {"key": "tts_provider", "group": "Bot voice", "type": "select", "default": "sarvam",
-     "env": "TTS_PROVIDER", "label": "TTS engine (switch Sarvam / Piper)",
-     "options": [["sarvam", "Sarvam (cloud: cloned voice or Bulbul)"],
-                 ["piper", "Piper (open source, runs on this machine's CPU)"],
+    {"key": "tts_provider", "group": "Bot voice", "type": "select", "default": "piper",
+     "env": "TTS_PROVIDER", "label": "TTS engine (switch Piper / Piper + my voice)",
+     "options": [["piper", "Piper (open source, runs on this machine's CPU)"],
                  ["piper_clone", "Piper + my voice (open source, local clone of the sample below)"]],
-     "help": "Applies from the next call. Piper only reads Devanagari, so on Piper every English or "
-             "Roman-script word is rewritten in Devanagari before it is spoken (agent/devanagari.py). "
-             "If Piper fails to load, calls fall back to Sarvam. \"Piper + my voice\" re-voices Piper as the "
-             "local sample (\"Local open-source voice\" above) through the converter in bot/clone_tts; "
-             "if the converter isn't running, calls speak plain Piper."},
+     "help": "Applies from the next call. Piper only reads Devanagari, so every English or Roman-script word "
+             "is rewritten in Devanagari before it is spoken (agent/devanagari.py). \"Piper + my voice\" "
+             "re-voices Piper as the local sample (\"Local open-source voice\" above) through the converter "
+             "in bot/clone_tts; if the converter isn't running, calls speak plain Piper."},
     {"key": "piper_voice", "group": "Bot voice", "type": "select", "default": "hi_IN-pratham-medium",
      "env": "PIPER_VOICE", "label": "Piper speaker",
      "options": [["hi_IN-pratham-medium", "Pratham (male, Hindi)"], ["hi_IN-rohan-medium", "Rohan (male, Hindi)"],
@@ -105,39 +78,9 @@ FIELDS: list[dict[str, Any]] = [
      "min": 0.1, "max": 1, "step": 0.05, "env": "CLONE_TAU", "label": "My-voice conversion strength (tau)",
      "help": "Piper + my voice only. OpenVoice's tau: lower sticks closer to your sample's voice, higher keeps "
              "more of Piper's clarity. 0.3 is OpenVoice's default; try 0.2-0.5."},
-    {"key": "tts_source", "group": "Bot voice", "type": "select", "default": "clone",
-     "env": "SARVAM_TTS_SOURCE", "label": "Voice source (switch clone / Bulbul)",
-     "options": [["clone", "Cloned voice (picked in the list above)"], ["bulbul", "Sarvam Bulbul stock speaker"]],
-     "help": "Sarvam engine only. Applies from the next call. Bulbul keeps your picked clone, so switching back is one click. "
-             "With no clone picked, calls use Bulbul either way. On Bulbul the bot introduces itself without a name."},
-    {"key": "tts_model", "group": "Bot voice", "type": "select", "default": "bulbul:v4-flash",
-     "env": "SARVAM_TTS_MODEL", "label": "Bulbul model",
-     "options": [["bulbul:v4-flash", "bulbul:v4-flash"], ["bulbul:v3", "bulbul:v3"]],
-     "help": "Bulbul voice source only."},
-    {"key": "tts_voice", "group": "Bot voice", "type": "text", "default": None, "nullable": True,
-     "env": "SARVAM_TTS_VOICE", "label": "Bulbul speaker",
-     # Male bulbul:v3 speakers only: the bot is a male telecaller (masculine Hindi in prompts and flow).
-     "suggest": ["shubh", "aditya", "rahul", "rohan", "amit", "dev", "ratan", "varun", "manan", "sumit",
-                 "kabir", "aayan", "ashutosh", "advait"],
-     "help": "Bulbul voice source only. The bot is a male telecaller, so use a male speaker. Suggestions are "
-             "male bulbul:v3 speakers; bulbul:v4-flash has its own names (see Sarvam's docs). Blank uses the "
-             "model's default speaker."},
     {"key": "tts_pace", "group": "Bot voice", "type": "float", "default": None, "nullable": True,
-     "min": 0.5, "max": 2, "step": 0.05, "env": "SARVAM_TTS_PACE", "label": "Pace",
-     "help": "0.5-2.0, Sarvam and Piper. Clones copy the sample's pace; about 1.1-1.2 keeps calls snappy."},
-    {"key": "tts_pitch", "group": "Bot voice", "type": "float", "default": None, "nullable": True,
-     "min": -0.75, "max": 0.75, "step": 0.05, "env": "SARVAM_TTS_PITCH", "label": "Pitch",
-     "help": "bulbul:v4-flash stock voice only."},
-    {"key": "tts_loudness", "group": "Bot voice", "type": "float", "default": None, "nullable": True,
-     "min": 0.3, "max": 3, "step": 0.1, "env": "SARVAM_TTS_LOUDNESS", "label": "Loudness",
-     "help": "bulbul:v4-flash stock voice only."},
-    {"key": "tts_min_buffer", "group": "Bot voice", "type": "int", "default": 150,
-     "min": 30, "max": 200, "step": 10, "env": "SARVAM_TTS_MIN_BUFFER", "label": "Min buffer (chars)",
-     "help": "Text Sarvam collects before it starts speaking. Higher means fewer, longer audio chunks and "
-             "fewer pauses inside a sentence, but a slightly later start."},
-    {"key": "tts_max_chunk", "group": "Bot voice", "type": "int", "default": 300,
-     "min": 50, "max": 500, "step": 10, "env": "SARVAM_TTS_MAX_CHUNK", "label": "Max chunk (chars)",
-     "help": "Longest piece Sarvam synthesises at once. Raise it if long sentences break up."},
+     "min": 0.5, "max": 2, "step": 0.05, "env": "TTS_PACE", "label": "Pace",
+     "help": "0.5-2.0. Blank is the voice's natural speed; about 1.1-1.2 keeps calls snappy."},
 
     # ---- LLM
     {"key": "llm_provider", "group": "LLM", "type": "select", "default": "google",

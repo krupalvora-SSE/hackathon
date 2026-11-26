@@ -2,7 +2,6 @@
 import asyncio
 
 from agent import config, voice, voice_local
-from agent.voice import clone_in_use
 
 
 def _use_tmp_sample(monkeypatch, tmp_path):
@@ -10,10 +9,8 @@ def _use_tmp_sample(monkeypatch, tmp_path):
     monkeypatch.setattr(voice_local, "LOCAL_VOICE_META", tmp_path / "local_voice.json")
 
 
-def test_engine_option_and_sarvam_clone_off(monkeypatch):
+def test_engine_option():
     assert "piper_clone" in [o[0] for o in config.BY_KEY["tts_provider"]["options"]]
-    monkeypatch.setattr("agent.voice.active_voice_id", lambda: "svc-x")
-    assert clone_in_use({"tts_provider": "piper_clone", "tts_source": "clone"}) is None
 
 
 def test_intro_name_comes_from_local_sample(monkeypatch, tmp_path):

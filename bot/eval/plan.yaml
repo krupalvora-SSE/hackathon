@@ -26,20 +26,14 @@ stages:
       latency_p50: -0.005      # ms; 1000 ms costs 5 points
     gates: {errors_rate: 0.05} # a config with more failed clips than this is disqualified
     arms:
-      sarvam_server_vad: {stt_provider: sarvam, endpointing: sarvam}
-      sarvam_local_vad: {stt_provider: sarvam, endpointing: local}
-      indic: {stt_provider: indic, endpointing: local}
+      indic: {stt_provider: indic}
+      whisper: {stt_provider: whisper}
     sweep:
-      stt_model: {values: [saaras:v4, saaras:v3-realtime], when: {stt_provider: sarvam}}
-      stt_stream_type: {values: [fast, balanced, simulated], when: {stt_provider: sarvam}}
-      stt_threshold: {values: [null, 0.5, 0.7], when: {stt_provider: sarvam, endpointing: sarvam}}
-      stt_min_speech_ms: {values: [null, 300, 500], when: {stt_provider: sarvam, endpointing: sarvam}}
-      stt_silence_ms: {values: [null, 500, 900], when: {stt_provider: sarvam, endpointing: sarvam}}
       indic_decoding: {values: [ctc, rnnt], when: {stt_provider: indic}}
-      vad_confidence: {values: [0.6, 0.7, 0.8], when: {endpointing: local}}
-      vad_start_secs: {values: [0.2, 0.4], when: {endpointing: local}}
-      vad_stop_secs: {values: [0.2, 0.4, 0.6], when: {endpointing: local}}
-      vad_min_volume: {values: [0.5, 0.6, 0.7], when: {endpointing: local}}
+      vad_confidence: {values: [0.6, 0.7, 0.8]}
+      vad_start_secs: {values: [0.2, 0.4]}
+      vad_stop_secs: {values: [0.2, 0.4, 0.6]}
+      vad_min_volume: {values: [0.5, 0.6, 0.7]}
 
   conv:
     bench: conv
@@ -62,23 +56,15 @@ stages:
 # Settings deliberately not swept. A reason is required.
 pinned:
   stt_provider: {reason: "Compared as arms of the stt stage, not swept."}
-  endpointing: {reason: "Compared as arms of the stt stage, not swept."}
   llm_provider: {reason: "Compared as arms of the conv stage."}
   llm_model: {reason: "Compared as arms of the conv stage; add an arm per model to try."}
   indic_language: {reason: "Hindi is the product language; Marathi only for Marathi-speaking customers."}
   barge_in: {reason: "Decided from the winning stt config: keep on only if false_start_rate <= 0.1, else off. Report states which."}
-  tts_provider: {reason: "Needs ears: listening A/B of Piper vs Sarvam on real calls, not a metric yet."}
+  tts_provider: {reason: "Needs ears: listening A/B of Piper vs Piper + my voice on real calls, not a metric yet."}
   piper_voice: {reason: "Needs ears; male Hindi voices only."}
   piper_voice_en: {reason: "Needs ears; male English voices only, used when the customer speaks English."}
   clone_tau: {reason: "Needs ears: how close Piper + my voice sounds to the sample; tune with the /voice page preview."}
-  tts_source: {reason: "Needs ears: clone vs Bulbul is a listening choice, not a metric."}
-  tts_model: {reason: "Needs ears: blind listening test (voice-agent-eval skill). A cloned voice ignores it."}
-  tts_voice: {reason: "Needs ears; cloned voice is the plan."}
-  tts_pace: {reason: "Needs ears; target 1.1-1.2 for a clone."}
-  tts_pitch: {reason: "Stock voice only; not used with a clone."}
-  tts_loudness: {reason: "Stock voice only; not used with a clone."}
-  tts_min_buffer: {reason: "Trade-off between first-audio latency and choppy speech; measure on live calls (CallMetrics latency)."}
-  tts_max_chunk: {reason: "Same as min buffer; live calls only."}
+  tts_pace: {reason: "Needs ears; about 1.1-1.2 keeps calls snappy."}
   silence_secs: {reason: "Call policy (reprompt after N s); covered by flow scenarios, not a quality knob."}
   turn_stop_timeout: {reason: "Safety fallback; only matters when end-of-speech is lost, which the stt stage already scores."}
   idle_timeout: {reason: "Call policy."}

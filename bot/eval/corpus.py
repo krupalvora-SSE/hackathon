@@ -2,7 +2,9 @@
 and any real recordings dropped into eval/corpus/real/.
 
   uv run python -m eval.corpus                    # build/refresh (TTS results are cached)
-  uv run python -m eval.corpus --speakers rahul priya ratan --paces 0.9 1.0 1.2
+  uv run python -m eval.corpus --speakers hi_IN-pratham-medium hi_IN-rohan-medium --paces 0.9 1.0 1.2
+
+Customer voices are local Piper speakers (not Jasir: he is the bot), so building needs no account.
 
 Real recordings: put `name.wav` plus `name.txt` (exact words said) in eval/corpus/real/, optionally
 `name.json` with {"expect": [...], "forbid": [...]}. They stay local (eval/corpus/ is git-ignored),
@@ -11,10 +13,8 @@ which keeps customer audio inside the company.
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import json
-import os
 from pathlib import Path
 
 import numpy as np
@@ -41,17 +41,26 @@ CONDITIONS = {
 }
 
 
+_voices: dict = {}
+
+
 def _tts(text: str, speaker: str, pace: float) -> np.ndarray:
-    key = hashlib.sha1(f"{text}|{speaker}|{pace}".encode()).hexdigest()[:16]
+    """One customer line in a Piper voice (cached). Pace 1.2 means 20% faster than natural."""
+    key = hashlib.sha1(f"piper|{text}|{speaker}|{pace}".encode()).hexdigest()[:16]
     path = CACHE / f"{key}.wav"
     if not path.exists():
-        from sarvamai import SarvamAI
+        import wave
 
-        client = SarvamAI(api_subscription_key=os.environ["SARVAM_API_KEY"])
-        r = client.text_to_speech.convert(text=text, target_language_code="hi-IN", speaker=speaker,
-                                          model="bulbul:v3", pace=pace, speech_sample_rate=SR)
+        from piper import PiperVoice, SynthesisConfig
+        from pipecat.services.piper.tts import PIPER_CACHE_DIR
+
+        from agent.devanagari import to_devanagari
+
+        if speaker not in _voices:
+            _voices[speaker] = PiperVoice.load(PIPER_CACHE_DIR / f"{speaker}.onnx")
         CACHE.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(base64.b64decode(r.audios[0]))
+        with wave.open(str(path), "wb") as w:
+            _voices[speaker].synthesize_wav(to_devanagari(text), w, syn_config=SynthesisConfig(length_scale=1 / pace))
     x, sr = A.read_wav(path)
     x = A.resample(x, sr, SR)
     nz = np.flatnonzero(np.abs(x) > 0.01)  # trim TTS's own leading/trailing silence
@@ -167,7 +176,7 @@ def pcm(clip: dict) -> tuple[bytes, int]:
 def main() -> None:
     load_dotenv()
     ap = argparse.ArgumentParser()
-    ap.add_argument("--speakers", nargs="+", default=["rahul", "priya"])
+    ap.add_argument("--speakers", nargs="+", default=["hi_IN-pratham-medium", "hi_IN-rohan-medium"])
     ap.add_argument("--paces", nargs="+", type=float, default=[1.0, 1.2])
     ap.add_argument("--conditions", nargs="+", default=list(CONDITIONS), choices=list(CONDITIONS))
     a = ap.parse_args()

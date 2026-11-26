@@ -14,37 +14,47 @@ Browser mic ──POST /api/offer (WebRTC, 16 kHz)──► bot ──POST event
 
 ## Run
 ```bash
-cp .env.example .env            # SARVAM_API_KEY, GOOGLE_API_KEY (Gemini)
-uv sync
-uv run uvicorn server:app --port 7860
+cp .env.example .env            # GOOGLE_API_KEY (Gemini), HF_TOKEN (AI4Bharat, optional)
+uv sync --extra indic --extra whisper     # local STT engines; a plain `uv sync` removes them
+uv run --extra indic --extra whisper uvicorn server:app --port 7860
 cd ../app && npm start          # http://localhost:3000 → "Browser" button = mic test
 uv run pytest -q                # engine tests
 uv run python simulate.py       # text-mode call (or --auto "persona", --booking BK-1003, --flow checklist)
 ```
 
-## Cloned voice
-Open http://localhost:7860/voice (bot server running). Read the script for 12–30 s, tick consent,
-**Create my voice**, preview it, then **Use for bot**. The next call speaks in that voice (Sarvam
-Instant Voice Cloning, streamed over `wss://api.sarvam.ai/voices/clone/ws`, see `agent/voice.py`).
-The choice lives in `bot/voice.json` (git-ignored); `SARVAM_CLONE_VOICE_ID` in `.env` overrides it.
-Clones copy the sample's pace, so set `SARVAM_TTS_PACE=1.2` if the voice sounds slow.
+## Runs on this machine
+Speech recognition and the voice are open source and local; only the LLM (Gemini) is a cloud call.
+
+| Part | Engine | Where |
+|---|---|---|
+| Speech to text | AI4Bharat IndicConformer 600M, or Whisper large-v3-turbo (Apple GPU) | `agent/stt_indic.py`, `agent/stt_whisper.py` |
+| Turn detection | Silero VAD + Smart Turn | `agent/bot.py` |
+| Voice | Piper: `hi_IN-jasir-medium` (our fine-tuned voice, `voice_training/`), Pratham, Rohan; English lines in Ryan/Alan | `agent/voice_local.py` |
+| My voice (optional) | Piper re-voiced as a recorded sample by OpenVoice V2 | `clone_tts/` (own env, port 7861) |
+
+## My voice
+Open http://localhost:7860/voice (bot server running). Read the script for 15–30 s, give the voice a name,
+tick consent, **Save recording as my voice**, preview it, then **Use for bot**. Calls then use
+"Piper + my voice": Piper speaks and the local converter re-voices it as your sample
+(`bot/local_voice.wav`, git-ignored). Start the converter first:
+`cd clone_tts && uv run uvicorn server:app --port 7861`. Without it, calls speak plain Piper.
 
 ## Call settings
-The same page (http://localhost:7860/voice#settings) tunes barge-in, turn detection (Sarvam server VAD or
-local Silero + Smart Turn), TTS voice and chunking, STT, the LLM and silence timeouts. Each value resolves
+The same page (http://localhost:7860/voice#settings) tunes barge-in, Silero turn detection, the voice,
+STT, the LLM and silence timeouts. Each value resolves
 as page (`bot/config.json`, git-ignored) > `.env` > default, and is read at the start of every call, so
 there's no restart. If the bot stops mid-sentence, noise or echo is barging in: turn off *Customer can
-interrupt the bot*, or raise the Sarvam VAD threshold and min speech. Schema: `agent/config.py`.
+interrupt the bot*, or raise Silero confidence, start and min volume. Schema: `agent/config.py`.
 
 ## Local STT: AI4Bharat IndicConformer 600M
-Open-source (MIT) ASR for 22 Indian languages that runs on this machine instead of Sarvam's cloud STT
-(`agent/stt_indic.py`). It is not streaming: local Silero VAD cuts each customer turn and the model
-transcribes it whole, so *Turn detection* switches to Local automatically. Hindi comes back in Devanagari.
+Open-source (MIT) ASR for 22 Indian languages that runs on this machine (`agent/stt_indic.py`), the
+default STT engine. It is not streaming: Silero VAD cuts each customer turn and the model transcribes it
+whole. Hindi comes back in Devanagari. Until it's set up, calls use Whisper.
 1. Accept the terms at https://huggingface.co/ai4bharat/indic-conformer-600m-multilingual (instant).
 2. Create a read token at https://huggingface.co/settings/tokens and add `HF_TOKEN=...` to `.env`.
 3. `uv sync --extra indic` (torch, transformers, onnxruntime; a plain `uv sync` removes them again).
 4. Try it: `uv run python -m agent.stt_indic some.wav` (first run downloads ~2.4 GB, then prints CTC and RNNT).
-5. On the /voice page set *STT engine* to IndicConformer (or `STT_PROVIDER=indic` in `.env`).
+5. Or skip the token: `hf auth login` (`.venv/bin/hf auth login`) stores it in ~/.cache/huggingface, no restart.
 
 ## Where things live
 | File | Role |
@@ -59,9 +69,11 @@ transcribes it whole, so *Turn detection* switches to Local automatically. Hindi
 | `agent/bot.py` | Pipecat pipeline, silence handling (6s reprompt, 3 silences means `no_answer`), latency and cost metrics |
 | `agent/events.py` | Fire-and-forget events to the app, plus `results/<call_id>.json` backup |
 | `agent/config.py` | Tunable call settings (schema, validation, page > .env > default) |
-| `agent/voice.py` | Active cloned voice + `SarvamCloneTTSService` (clone websocket) |
-| `server.py` | `/api/offer` WebRTC, `/voice` page + `/api/voices` + `/api/config`, `/health` |
-| `static/voice.html` | Voice Studio: record, clone, preview, choose the bot's voice |
+| `agent/voice.py` | Which person the voice is (the name the bot introduces itself with) |
+| `agent/voice_local.py` | Piper TTS (Hindi + English voices), optional re-voicing through `clone_tts/` |
+| `agent/stt_indic.py`, `agent/stt_whisper.py` | Local speech recognition |
+| `server.py` | `/api/offer` WebRTC, `/voice` page + `/api/local-voice` + `/api/config`, `/health` |
+| `static/voice.html` | Voice Studio: record your voice, preview it, use it for calls; call settings |
 
 Outcomes, flow mode: see `flows/service-scheduling/README.md` (`slot_confirmed`, `site_on_hold`, `rm_callback`, …, plus `hung_up`).
 Outcomes, checklist mode: `confirmed`, `callback`, `do_not_call`, `wrong_number` (agent); `no_answer`, `handed_to_human`, `hung_up` (system).
