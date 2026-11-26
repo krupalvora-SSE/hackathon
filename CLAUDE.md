@@ -25,4 +25,5 @@ Hackathon tracks covered: **#4 Service slot scheduling** and **#5 Service slot c
 | `hindi-voice-scripting` | Writing prompts and agent lines, Hinglish, numbers, dates, TTS text |
 | `slot-booking-tools` | Building the availability, booking and reschedule APIs and LLM tools |
 | `call-robustness-handoff` | Silence, barge-in, noise, wrong person, DNC, human transfer, compliance |
+| `voice-agent-guardrails` | Code-enforced safety: dial allowlist, DNC, input/output filters, tool gating, secrets |
 | `voice-agent-eval` | Testing, simulated callers, latency measurement, demo prep |
