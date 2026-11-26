@@ -2,6 +2,13 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.15.0 (2026-11-26, SSE-15557)
+From a call where the customer told us of a death in the family and the bot kept asking when to call back:
+- New global intent `sensitive_situation` (death, funeral, accident, hospital / serious emergency): a sincere condolence, the call ends at once (new terminal SENSITIVE_CLOSE), no question and no date asked. Calls are paused for `policies.sensitive_pause_days` (14) and recorded as `site_on_hold` with reason `bereavement_or_emergency`, `hold.until` and consent.
+- New global intent `upset_customer` ("आप में कोई sensitivity है?"): an apology instead, the call ends, calls paused (reason `customer_upset`).
+- `personal_reason` is now only for mild reasons (fever, a family function) and still asks when to call back; "emergency" and "hospital" moved to `sensitive_situation`. The classifier is told that a death is always `sensitive_situation`.
+- "कभी मत करिए" / "मत कीजिए call" added to the `do_not_call` examples.
+
 ## 0.14.0 (2026-11-26, SSE-15557)
 From a fifth sample call:
 - Relative durations are understood as dates: "1 महीने बाद", "15 दिन बाद", "दो हफ़्ते बाद", "after 1 month", "next week / month" (a month counts as 30 days). Before, "when will the site be ready?" looped three times on "1 महीने बाद".

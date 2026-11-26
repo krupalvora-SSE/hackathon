@@ -351,3 +351,15 @@
   steps: [context_ready, affirm, affirm, affirm, corrects_readiness, affirm, affirm, action_ok]
   expect: slot_confirmed
 
+- name: death in the family -> condolence, call ends, calls paused
+  steps: [context_ready, affirm, sensitive_situation]
+  expect: site_on_hold
+
+- name: death mentioned while asked when to call back -> condolence, call ends
+  steps: [context_ready, affirm, personal_reason, sensitive_situation]
+  expect: site_on_hold
+
+- name: customer upset with the bot -> apology, call ends, calls paused
+  steps: [context_ready, affirm, upset_customer]
+  expect: site_on_hold
+

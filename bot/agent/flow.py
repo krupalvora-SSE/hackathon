@@ -14,7 +14,7 @@ import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
@@ -407,7 +407,7 @@ class FlowCall:
             if self.auto:
                 self._run_actions(st.get("actions") or [])
             if not st.get("silent"):
-                lines.append(self._line(target, self._main_key(st)))
+                lines.append(self._line(target, say or self._main_key(st)))
             self.outcome = outcome
             self.ended_at = datetime.now(N.IST)
             self._post_call()
@@ -430,6 +430,12 @@ class FlowCall:
             item = key.split("_", 1)[1] if key.startswith(("ask_", "arrange_")) else None
             line = self._line(state, f"explain_{item}") if item else ""
             return self._step([f"{line or self._global_line('deflection')} {self._reask()}".strip()])
+        if name in ("sensitive_situation", "upset_customer"):
+            # a death / emergency, or an upset customer: say sorry, ask nothing, no date, and pause our calls
+            until = self.today + timedelta(days=int(self.policies.get("sensitive_pause_days", 14)))
+            self.ctx.update(hold_reason="customer_upset" if name == "upset_customer" else "bereavement_or_emergency",
+                            hold_until=until.isoformat(), hold_consent=True)
+            return self._step(self._enter("SENSITIVE_CLOSE", "apology" if name == "upset_customer" else None))
         if name == "personal_reason":              # ill / family matter: sympathy, then when to call back
             self.ctx["hold_reason"] = "personal_reason"
             if self.state == "RECALL":

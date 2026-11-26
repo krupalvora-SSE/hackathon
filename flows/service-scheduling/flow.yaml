@@ -22,7 +22,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.14.0
+version: 0.15.0
 title: Service scheduling call flow
 ticket: SSE-15557
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -54,7 +54,7 @@ sections:
   anytime:
     title: 6. Can happen any time
     about: Someone else answers, the customer asks us not to call, or nobody replies.
-    states: [WRONG_PERSON, WRONG_NUMBER_CLOSE, DNC_CLOSE, NO_ANSWER_CLOSE]
+    states: [WRONG_PERSON, WRONG_NUMBER_CLOSE, DNC_CLOSE, SENSITIVE_CLOSE, NO_ANSWER_CLOSE]
 
 # Plain-English labels for diagram arrows (events and guard flags).
 labels:
@@ -466,6 +466,13 @@ states:
       primary: slot_confirmed
       alt_band: slot_confirmed_alt_band
       alt_day: slot_confirmed_alt_day
+
+  SENSITIVE_CLOSE:
+    title: Kind goodbye, calls paused
+    type: terminal
+    # Death / accident / emergency, or an upset customer: say sorry, end the call, ask nothing and no date.
+    actions: [site_on_hold]
+    outcome: site_on_hold
 
   HOLD_CLOSE:
     title: Site paused

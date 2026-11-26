@@ -311,6 +311,8 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Asks where we got the number | Bot answers briefly, then repeats its question |
 | Asks if it is a machine | Bot answers briefly, then repeats its question |
 | Asks the time | Bot answers briefly, then repeats its question |
+| Death, accident or serious emergency in the family | Kind goodbye, calls paused |
+| Upset with how the bot is behaving | Kind goodbye, calls paused |
 | Can't take the visit for a personal reason (ill, family matter) | Ask when to call back |
 | Complains about earlier service | Ask a senior to call |
 | Speaks a language other than Hindi or English | Bot asks again; after 2 times in a row: Ask a senior to call |
@@ -337,6 +339,7 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Ending | Outcome code |
 |---|---|
 | Visit booked | `slot_confirmed / slot_confirmed_alt_band / slot_confirmed_alt_day` |
+| Kind goodbye, calls paused | `site_on_hold` |
 | Site paused | `site_on_hold` |
 | Customer said no to pausing | `hold_declined` |
 | No free slot | `no_slot_available` |

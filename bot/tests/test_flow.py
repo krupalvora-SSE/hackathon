@@ -883,6 +883,69 @@ def test_a_correction_with_no_usable_item_is_not_understood():
     assert call.state == "RECAP" and call.unclear_streak == 1 and not r.end
 
 
+# ---- sixth sample call: a death in the family (SSE-15557)
+NO_QUESTION = ("?", "किस time", "कौन सी date", "कब", "when", "what time")
+
+
+@pytest.mark.parametrize("steps", [
+    [],                                                    # at the greeting
+    ["affirm"],                                            # at the offer (the reported call)
+    ["affirm", "affirm"],                                  # at a readiness question
+    ["affirm", "personal_reason"],                         # while asked when to call back
+    ["affirm", "affirm", "affirm", "affirm", "affirm"],    # at the recap
+])
+def test_a_death_in_the_family_gets_a_condolence_and_no_further_questions(steps):
+    call, _, events = live()
+    for on in steps:
+        call.handle(on)
+    r = call.handle("sensitive_situation", {"reason": "death in the family"})
+    text = " ".join(r.speak)
+    assert r.end and call.outcome == "site_on_hold" and call.state == "SENSITIVE_CLOSE"
+    assert "संवेदनाएँ" in text and "दुख" in text
+    assert not any(q in text for q in NO_QUESTION)                      # nothing is asked, no date, no time
+    assert "कोई बात नहीं" not in text                                   # not dismissive
+
+
+def test_calls_are_paused_and_recorded_without_asking_the_customer_for_anything():
+    call, _, events = live()
+    call.handle("affirm")
+    call.handle("sensitive_situation")
+    rec = call.record()
+    assert rec["outcome"] == "site_on_hold" and rec["hold"]["reason"] == "bereavement_or_emergency"
+    assert rec["hold"]["until"] == "2026-12-10" and rec["hold"]["consent"] is True       # TODAY + 14 days
+    assert beatplan(events, "site_on_hold")                             # Beat Plan is told to pause
+
+
+def test_condolence_in_english():
+    call, _, _ = live(lang="en")
+    call.handle("affirm")
+    r = call.handle("sensitive_situation")
+    assert "I'm so sorry" in r.speak[0] and "?" not in r.speak[0] and r.end
+
+
+def test_an_upset_customer_gets_an_apology_and_the_call_ends():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("upset_customer")                                   # "आप में कोई sensitivity है?"
+    assert r.end and call.outcome == "site_on_hold" and call.record()["hold"]["reason"] == "customer_upset"
+    assert "माफ़ कीजिए" in r.speak[0] and not any(q in r.speak[0] for q in NO_QUESTION)
+
+
+def test_mild_reasons_still_ask_when_to_call_back():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("personal_reason", {"reason": "fever"})
+    assert not r.end and call.state == "RECALL" and "किस time" in r.speak[-1]
+
+
+def test_a_firm_no_to_calling_ends_the_call_politely():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("personal_reason")
+    r = call.handle("do_not_call")                                      # "कभी मत करिए"
+    assert r.end and call.outcome == "do_not_call"
+
+
 def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")

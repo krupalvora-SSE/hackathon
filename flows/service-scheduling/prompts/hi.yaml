@@ -112,6 +112,10 @@ CONFIRMED_CLOSE:
   main_family: "{name} जी की visit {weekday}, {date_spoken} के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
   with_time_family: "{name} जी की visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
 
+SENSITIVE_CLOSE:
+  main: "ओह, यह जानकर बहुत दुख हुआ। हमारी संवेदनाएँ आपके और आपके परिवार के साथ हैं। हम आपको अभी परेशान नहीं करेंगे। कृपया अपना और परिवार का ध्यान रखिए।"
+  apology: "माफ़ कीजिए, मेरा इरादा आपको परेशान करने का नहीं था। हम आपको अभी call नहीं करेंगे। कृपया अपना ध्यान रखिए।"
+
 HOLD_CLOSE:
   main: "आपकी site {hold_until_spoken} तक hold पर है। उसके बाद हम आपसे संपर्क करेंगे। धन्यवाद!"
 

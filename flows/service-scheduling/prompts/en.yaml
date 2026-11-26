@@ -105,6 +105,10 @@ CONFIRMED_CLOSE:
   main_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
   with_time_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{sms_line} Thank you, have a great day!"
 
+SENSITIVE_CLOSE:
+  main: "I'm so sorry to hear that. Our thoughts are with you and your family. We won't trouble you now. Please take care of yourselves."
+  apology: "I'm sorry, I didn't mean to trouble you. We won't call you for now. Please take care."
+
 HOLD_CLOSE:
   main: "Your site is on hold until {hold_until_spoken}. We'll reach out after that. Thank you!"
 

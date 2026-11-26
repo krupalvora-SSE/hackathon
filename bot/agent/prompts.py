@@ -137,7 +137,10 @@ other_language; do not guess an answer from garbled text.
 Correcting an earlier answer at the recap ("mere paas ladder nahi hai", "light nahi hai asal mein") is
 corrects_readiness with the readiness entity (false = they don't have it), not change_date or change_time.
 For "when will it be ready?" put the customer's own words in the date entity, including "1 mahine baad" or "after 2 weeks".
-Illness or a family matter ("mujhe bukhar hai", "ghar mein koi bimar hai") is personal_reason, not not_serviceable
+A death, funeral, accident or serious emergency in the family is ALWAYS sensitive_situation (never personal_reason,
+call_later or not_serviceable): the bot says sorry and ends the call without asking anything. If the customer is upset
+with the bot ("aap mein sensitivity hai?") use upset_customer. "Kabhi mat kariye" / "mat kijiye call" is do_not_call.
+Mild illness or a family function ("mujhe bukhar hai") is personal_reason, not not_serviceable
 (that one is for the site: out of town, roof work). A complaint about earlier service is complaint, not price_or_offtopic.
 If they say who they are (brother, son, wife) and tell you to go ahead ("bataiye", "bolo"), that is household_member,
 not wrong_person. Chit-chat ("how are you", "Apple khaya?") is small_talk.
