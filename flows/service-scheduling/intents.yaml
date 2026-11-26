@@ -1,0 +1,111 @@
+# Intents the LLM classifies each customer turn into.
+# ---------------------------------------------------
+# scope: global -> works in every conversation state (unless the state disables it)
+#                  and jumps to `goto`. `goto: $stay` answers and stays in the state.
+# scope: local  -> only meaningful where a state's transition uses it as `on:`.
+# `entities` are extracted alongside the intent and stored in call context.
+# Examples are seed phrases for the classifier prompt and for test calls; extend
+# them from real call recordings.
+
+global:
+
+  not_serviceable:
+    goto: SITE_ON_HOLD
+    entities: [hold_reason, hold_until]
+    examples:
+      hi: ["main abhi gaon gaya hua hoon", "hum shift ho rahe hain", "chhat pe kaam chal raha hai", "do mahine bahar hoon"]
+      en: ["I'm out of town", "we are moving house", "roof repair is going on"]
+
+  call_later:
+    goto: RECALL
+    entities: [recall_window]
+    examples:
+      hi: ["abhi busy hoon, baad mein call karo", "meeting mein hoon", "shaam ko phone karna"]
+      en: ["I'm busy, call me later", "call me in the evening"]
+
+  wants_human:
+    goto: ESCALATE_RM
+    set: {rm_callback_reason: customer_asked_for_human}
+    examples:
+      hi: ["kisi insaan se baat karao", "senior se baat karni hai", "manager ko do"]
+      en: ["let me talk to a person", "connect me to your senior"]
+
+  do_not_call:
+    goto: DNC_CLOSE
+    examples:
+      hi: ["call mat karo", "pareshan mat karo", "DND pe daalo", "band karo yeh calls"]
+      en: ["don't call me again", "stop calling", "unsubscribe me"]
+
+  wrong_person:
+    goto: WRONG_PERSON
+    examples:
+      hi: ["main unka beta bol raha hoon", "wo ghar pe nahi hain", "galat number hai"]
+      en: ["this is his son", "she's not here", "wrong number"]
+
+  price_or_offtopic:
+    goto: $stay
+    say: deflection
+    examples:
+      hi: ["kitna charge lagega", "generation kam ho raha hai", "inverter mein error aa raha hai"]
+      en: ["how much will it cost", "my generation is low"]
+
+local:
+
+  affirm:
+    examples:
+      hi: ["haan", "ji haan", "theek hai", "chalega", "ho jayega", "sab ready hai"]
+      en: ["yes", "okay", "that works", "everything is ready"]
+
+  deny:
+    examples:
+      hi: ["nahi", "us din nahi ho payega", "ladder nahi hai", "nahi chalega"]
+      en: ["no", "I'm not available that day", "we don't have a ladder"]
+
+  ask_time:
+    examples:
+      hi: ["kitne baje aayenge", "time kya hoga", "subah aayenge ya shaam ko"]
+      en: ["what time will they come", "morning or evening?"]
+
+  wants_exact_time:
+    entities: [preferred_exact_time]
+    examples:
+      hi: ["exact time batao", "theek 10 baje aana", "mujhe fix time chahiye"]
+      en: ["I need an exact time", "come at 10 sharp"]
+
+  wants_other_band:
+    entities: [preferred_band]
+    examples:
+      hi: ["subah nahi, shaam ko aa sakte ho", "dopahar mein bhejo"]
+      en: ["not morning, can they come in the evening", "afternoon works better"]
+
+  household_member:
+    examples:
+      hi: ["main unki wife hoon, mujhe bata do", "haan ghar ka hi hoon, bolo"]
+      en: ["I'm his wife, you can tell me", "I live here, go ahead"]
+
+  customer_unavailable:
+    examples:
+      hi: ["wo abhi nahi hain, baad mein call karo", "mere bete se baat karna"]
+      en: ["he isn't here, call later", "talk to my son"]
+
+  date_given:
+    entities: [hold_until]
+    examples:
+      hi: ["agle hafte tak ho jayega", "15 tareekh ke baad", "Diwali ke baad"]
+      en: ["by next week", "after the 15th"]
+
+  time_range_given:
+    entities: [recall_window]
+    examples:
+      hi: ["kal shaam 5 se 7", "do ghante baad", "Sunday subah"]
+      en: ["tomorrow 5 to 7 pm", "in two hours"]
+
+  change_date:
+    examples:
+      hi: ["date badalni hai", "us din nahi, koi aur din"]
+      en: ["can we change the date", "a different day"]
+
+  change_time:
+    examples:
+      hi: ["time badal do", "shaam ka kar do"]
+      en: ["change the time", "make it evening"]

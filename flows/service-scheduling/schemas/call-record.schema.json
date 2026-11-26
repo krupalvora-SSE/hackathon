@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Call record posted to Beat Plan",
+  "description": "Built by code from action results. The LLM only supplies summary, sentiment and free-text reasons.",
+  "type": "object",
+  "required": ["call_id", "site_id", "flow_version", "outcome", "summary"],
+  "properties": {
+    "call_id": {"type": "string"},
+    "site_id": {"type": "string"},
+    "flow_version": {"type": "string"},
+    "language": {"type": "string", "enum": ["hi", "en"]},
+    "outcome": {
+      "type": "string",
+      "enum": ["slot_confirmed", "slot_confirmed_alt_band", "slot_confirmed_alt_day", "site_on_hold", "hold_declined",
+               "no_slot_available", "rm_callback", "recall_requested", "do_not_call", "wrong_number", "no_answer",
+               "needs_manual_confirmation", "not_dialled"]
+    },
+    "spoke_to": {"type": "string", "enum": ["customer", "family_member", "other", "nobody"]},
+    "confirmed_slot": {
+      "type": ["object", "null"],
+      "properties": {
+        "date": {"type": "string", "format": "date"},
+        "band": {"type": "string", "enum": ["morning", "afternoon", "evening"]},
+        "hero_id": {"type": "string"}
+      }
+    },
+    "slot_source": {"type": ["string", "null"], "enum": ["primary", "alt_band", "alt_day", null]},
+    "preferred_exact_time": {"type": ["string", "null"], "description": "Logged whenever the customer asked for one, even if not escalated"},
+    "readiness": {
+      "type": ["object", "null"],
+      "properties": {
+        "ladder": {"type": ["boolean", "null"]},
+        "water": {"type": ["boolean", "null"]},
+        "light": {"type": ["boolean", "null"]}
+      }
+    },
+    "hold": {
+      "type": ["object", "null"],
+      "properties": {
+        "reason": {"type": "string"},
+        "missing_items": {"type": "array", "items": {"type": "string"}},
+        "until": {"type": "string", "format": "date"},
+        "consent": {"type": "boolean"}
+      }
+    },
+    "recall_window": {"type": ["string", "null"]},
+    "rm_callback_reason": {"type": ["string", "null"]},
+    "summary": {"type": "string", "description": "2-3 lines, plain English, for the ops team"},
+    "sentiment": {"type": "string", "enum": ["positive", "neutral", "negative"]},
+    "needs_review": {"type": "boolean"},
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "duration_s": {"type": "number"},
+        "turns": {"type": "integer"},
+        "p50_latency_ms": {"type": "number"}
+      }
+    }
+  }
+}

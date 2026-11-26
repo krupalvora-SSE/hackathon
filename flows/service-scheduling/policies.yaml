@@ -1,0 +1,49 @@
+# Tunable business rules. Change values here; no code change needed.
+
+persona:
+  name: Pooja
+  gender: female            # drives Hindi verb forms in prompts (karti hoon / karta hoon)
+
+languages: [hi, en]         # every conversation/terminal state needs a line in prompts/<lang>.yaml
+default_language: hi        # switch to en if the customer speaks mostly English
+
+# ~4-hour bands we commit to. We never commit to an exact time.
+time_bands:
+  morning:   {start: "08:00", end: "12:00"}
+  afternoon: {start: "12:00", end: "16:00"}
+  evening:   {start: "16:00", end: "20:00"}
+
+max_options_per_turn: 2       # never read more than 2 alternate slots in one turn
+exact_time_insist_limit: 1    # repeat "can't guarantee" this many times, then escalate to RM
+backup_slot_order: closest_first
+
+# What the customer must have ready for the Service Hero. Asked one at a time.
+readiness_items:
+  - id: ladder
+    label: A-type ladder
+  - id: water
+    label: Water source near the panels
+  - id: light
+    label: Light / power connection
+
+# What to do when a readiness item is missing:
+#   site_on_hold                -> ask ready-by date, put site on hold (current spec)
+#   reschedule_after_ready_date -> first try a Beat Plan backup slot after that date
+on_missing_prereq: site_on_hold
+
+site_on_hold:
+  max_hold_days: 90           # cap on hold_until; longer -> RM callback
+  require_explicit_consent: true
+
+calling_hours: {start: "09:00", end: "20:00", timezone: Asia/Kolkata}
+
+silence:
+  reprompt_after_s: 5
+  max_reprompts: 2            # then silence_timeout -> NO_ANSWER_CLOSE
+
+retries_per_question: 2       # misunderstood twice on the same step -> yes/no fallback, then RM
+
+compliance:
+  recording_disclosure: true
+  test_numbers_only: true     # hackathon rule: dial only ALLOWED_TEST_NUMBERS
+  never_promise: [price, savings, generation, subsidy]

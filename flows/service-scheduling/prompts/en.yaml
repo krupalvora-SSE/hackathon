@@ -1,0 +1,75 @@
+# English lines per state. Same keys and placeholders as prompts/hi.yaml.
+
+_global:
+  deflection: "Our team will share those details with you separately. Shall we finalise the service day for now?"
+  reprompt: "Hello, can you hear me?"
+  didnt_catch: "Sorry, the line broke a little. Could you say that again?"
+
+GREET:
+  main: "Hello, am I speaking with {name}? This is {bot_name} from SolarSquare. This call is being recorded."
+
+WRONG_PERSON:
+  main: "No problem. Am I speaking with someone from {name}'s home?"
+
+OFFER_PRIMARY:
+  main: "{name}, your solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will you be available that day?"
+
+TIME_BAND:
+  main: "Our service hero will come between {band_spoken} that day. Does that work for you?"
+  no_exact_guarantee: "I can't guarantee an exact time, but we'll do our best to send the hero at your preferred time. Does {band_spoken} work?"
+
+ALTERNATE_DAYS:
+  main: "No problem. Would {options_spoken} work for you?"
+  band_full: "Sorry, that time slot isn't free on that day. Would {options_spoken} work instead?"
+  next_options: "Okay, how about {options_spoken}?"
+
+READINESS_CHECK:
+  main: "Great. A few things need to be ready for the service, let me quickly confirm."
+  ask_ladder: "Do you have an A-type ladder so the hero can reach the roof?"
+  ask_water: "Is there a water source near the panels?"
+  ask_light: "And is there a light connection there?"
+
+ASK_READY_DATE:
+  main: "Understood. By when can the {missing_item} be arranged? Could you give me a date?"
+
+RECAP:
+  main: "So that's {weekday}, {date_spoken}, between {band_spoken}, with the ladder, water and light ready. Shall I confirm it?"
+
+SITE_ON_HOLD:
+  main: "Understood. From which date will your site be ready for service?"
+
+HOLD_CONSENT:
+  main: "Okay, we'll put your site on hold until {hold_until_spoken}. Until then you won't get service calls from SolarSquare. Is that okay?"
+
+RECALL:
+  main: "Of course. What time would be good to call you back?"
+
+CONFIRMED_CLOSE:
+  main: "Your slot is confirmed for {weekday}, {date_spoken}, between {band_spoken}. Thank you, have a great day!"
+
+HOLD_CLOSE:
+  main: "Your site is on hold until {hold_until_spoken}. We'll reach out after that. Thank you!"
+
+HOLD_DECLINED_CLOSE:
+  main: "No problem, thank you for your time. Have a great day!"
+
+NO_SLOT_CLOSE:
+  main: "Sorry, we don't have any other slots right now. Our team will reach out as soon as a new slot opens. Thank you!"
+
+RM_CLOSE:
+  main: "I'll arrange a callback from our senior, they'll speak with you soon. Thank you!"
+
+RECALL_CLOSE:
+  main: "Sure, we'll call you {recall_window_spoken}. Thank you!"
+
+DNC_CLOSE:
+  main: "Sorry for the trouble. You won't receive further calls. Thank you."
+
+WRONG_NUMBER_CLOSE:
+  main: "Sorry, I may have dialled the wrong number. Have a good day."
+
+NO_ANSWER_CLOSE:
+  main: "I can't seem to hear you, we'll call you back. Thank you."
+
+MANUAL_CONFIRM_CLOSE:
+  main: "I've noted your details, our team will confirm shortly. Thank you!"
