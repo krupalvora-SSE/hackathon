@@ -19,6 +19,7 @@ from pipecat.frames.frames import (
     EndFrame,
     Frame,
     FunctionCallResultProperties,
+    LLMContextFrame,
     MetricsFrame,
     TTSSpeakFrame,
     UserStoppedSpeakingFrame,
@@ -59,6 +60,24 @@ RATE = {
 }
 KEYTERMS = ["SolarSquare", "seedhi", "ladder", "light", "paani", "nal", "subah", "dopahar", "shaam", "tarikh",
             "Somvar", "Mangalvar", "Budhvar", "Guruvar", "Shukravar", "Shanivar", "haan", "nahi"]
+
+
+class GreetingGate(FrameProcessor):
+    """The bot opens with "Hello?". The customer's first reply is held back from the LLM and the
+    real greeting is spoken instead (on_first_reply)."""
+
+    def __init__(self, on_first_reply):
+        super().__init__()
+        self._on_first_reply = on_first_reply
+        self._greeted = False
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, LLMContextFrame) and not self._greeted:
+            self._greeted = True
+            await self._on_first_reply()
+            return
+        await self.push_frame(frame, direction)
 
 
 class CallMetrics(FrameProcessor):
@@ -223,8 +242,12 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     )
     metrics = CallMetrics(emitter, telephony)
 
+    async def speak_opening() -> None:
+        await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
+
     pipeline = Pipeline([
-        transport.input(), stt, aggregators.user(), llm, tts, transport.output(),
+        transport.input(), stt, aggregators.user(), GreetingGate(speak_opening), llm, tts,
+        transport.output(),
         aggregators.assistant(), metrics,
     ])
     worker = PipelineWorker(
@@ -316,7 +339,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if engine.outcome:  # blocked before dialling (DNC / allowlist / hours): say nothing, hang up
             await worker.queue_frames([EndFrame()])
             return
-        await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
+        await worker.queue_frames([TTSSpeakFrame("Hello?", append_to_context=True)])
 
     @transport.event_handler("on_client_disconnected")
     async def _disconnected(_t, _client):
