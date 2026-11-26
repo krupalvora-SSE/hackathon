@@ -4,6 +4,7 @@ The same run_bot() serves Exotel (8 kHz phone) and SmallWebRTC (browser fallback
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import statistics
 import time
@@ -259,10 +260,28 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if frames:
             await worker.queue_frames(frames)
 
+    # Checklist mode: one LLM response can hold several save_slot calls (date + slot together).
+    # Each asks for the next question; speak it once, just after the batch, using the latest one.
+    # Cancelled if any call in the batch wants the LLM to respond instead (e.g. a validation error).
+    pending_ask: dict = {"text": None, "task": None}
+
+    async def speak_next() -> None:
+        await asyncio.sleep(0.05)
+        text, pending_ask["text"], pending_ask["task"] = pending_ask["text"], None, None
+        if text and not engine.outcome:
+            await worker.queue_frames([TTSSpeakFrame(text, append_to_context=True)])
+
     async def handle_tool(params: FunctionCallParams) -> None:
         args = dict(params.arguments or {})
         action = engine.dispatch(params.function_name, args)
         logger.info(f"tool {params.function_name}({args}) -> {action.result}")
+        if action.ask_next:
+            pending_ask["text"] = action.ask_next
+            if not pending_ask["task"]:
+                pending_ask["task"] = asyncio.create_task(speak_next())
+        elif pending_ask["task"] and (action.run_llm or action.speak):
+            pending_ask["task"].cancel()
+            pending_ask["text"] = pending_ask["task"] = None
         await perform(action)
         await params.result_callback(
             action.result, properties=FunctionCallResultProperties(run_llm=action.run_llm))

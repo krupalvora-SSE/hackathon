@@ -53,6 +53,10 @@ class Action:
     speak: list[str] = field(default_factory=list)   # spoken verbatim by TTS, in order
     end: bool = False                # end the call after speaking
     run_llm: bool = True             # let the LLM respond to the result
+    ask_next: str | None = None      # spoken after this turn's tool calls (skips a 2nd LLM round trip)
+
+
+ACKS = ["Theek hai.", "Ji, bilkul.", "Achha ji."]
 
 
 def _end(state: CallState, outcome: str, callback_time: str | None = None, system: bool = False,
@@ -78,7 +82,11 @@ def dispatch(state: CallState, name: str, args: dict) -> Action:
             return Action(result={**r, "read_back_spoken": text,
                                   "next": "Wait for the customer's answer, then call confirm_details."},
                           speak=[text], run_llm=False)
-        return Action(result={**r, "next_question": state.next_question()})
+        q = state.next_question()
+        if q and not state.read_back:  # fixed next question: speak it directly, no 2nd LLM call
+            return Action(result={**r, "next_question_spoken": q}, run_llm=False,
+                          ask_next=f"{ACKS[len(state.values) % len(ACKS)]} {q}")
+        return Action(result={**r, "next_question": q})
 
     if name == "read_back":
         if state.missing():

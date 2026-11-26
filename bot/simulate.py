@@ -65,7 +65,7 @@ def main() -> None:
             if not m.tool_calls:
                 print(f"AGENT: {m.content}")
                 break
-            run_llm = True
+            run_llm, ask_next = True, None
             for tc in m.tool_calls:
                 act = engine.dispatch(tc.function.name, json.loads(tc.function.arguments or "{}"))
                 print(f"   ⚙ {tc.function.name}{tc.function.arguments} -> {act.result}")
@@ -74,6 +74,10 @@ def main() -> None:
                     print(f"AGENT (system): {line}")
                     msgs.append({"role": "assistant", "content": line})
                 run_llm = run_llm and act.run_llm
+                ask_next = getattr(act, "ask_next", None) or (None if act.run_llm or act.speak else ask_next)
+            if ask_next and not engine.outcome:
+                print(f"AGENT (system): {ask_next}")
+                msgs.append({"role": "assistant", "content": ask_next})
             if engine.outcome or not run_llm:
                 break
         if engine.outcome:
