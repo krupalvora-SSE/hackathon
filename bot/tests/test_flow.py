@@ -218,7 +218,7 @@ def test_confirm_api_failure_needs_manual_confirmation():
 def test_english_switch():
     call, _, _ = live()
     r = call.handle("affirm", {"language": "en"})
-    assert "maitenance is due" in r.speak[0] and "Saturday" in r.speak[0]
+    assert "maintenance is due" in r.speak[0] and "Saturday" in r.speak[0]
 
 
 def test_booking_without_beatplan_block_falls_back_to_date_and_window():

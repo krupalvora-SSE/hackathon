@@ -34,8 +34,8 @@
     - context_ready
     - affirm
     - deny
-    - {on: deny, flags: {options_remaiing: true}}
-    - {on: deny, flags: {options_remaiing: false}}
+    - {on: deny, flags: {options_remaining: true}}
+    - {on: deny, flags: {options_remaining: false}}
   expect: no_slot_available
 
 - name: Beat Plan has no backup slots at all

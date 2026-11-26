@@ -17,7 +17,7 @@ export async function connectCall({ to, customField, statusCallback }, { env = p
 
   const sid = env.EXOTEL_ACCOUNT_SID;
   // Singapore cluster: api.exotel.com / my.exotel.com. Mumbai: api.in.exotel.com / my.in.exotel.com.
-  const host = env.EXOTEL_SUBDOmai || 'api.exotel.com';
+  const host = env.EXOTEL_SUBDOMAIN || 'api.exotel.com';
   const flowHost = host.replace(/^api\./, 'my.');
   const form = new URLSearchParams({
     From: to,

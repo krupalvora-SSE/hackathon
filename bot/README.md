@@ -1,6 +1,6 @@
 # visit-bot (Python, Pipecat 1.17)
 
-Voice agent for solar maitenance visits. Two call engines, picked with `CALL_FLOW` in `.env`:
+Voice agent for solar maintenance visits. Two call engines, picked with `CALL_FLOW` in `.env`:
 
 - **`service-scheduling` (default):** runs the YAML flow in `../flows/service-scheduling/` (SSE-15527). Offers the Beat Plan primary slot, 4-hour bands, backup days, checks ladder / water / light, puts sites on hold with consent, recall, RM callback, and posts a Beat Plan comment after every call. The LLM only classifies what the customer said (`customer_said(intent, …)`); `agent/flow.py` picks the next step and the exact line to speak. Change behaviour by editing the YAML, not Python.
 - **`checklist`:** the original engine. Collects 4 keys

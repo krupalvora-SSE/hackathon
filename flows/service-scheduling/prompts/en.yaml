@@ -6,70 +6,70 @@ _global:
   didnt_catch: "Sorry, the line broke a little. Could you say that again?"
 
 GREET:
-  mai: "Hello, am I speaking with {name}? This is {bot_name} from SolarSquare. This call is being recorded."
+  main: "Hello, am I speaking with {name}? This is {bot_name} from SolarSquare. This call is being recorded."
 
 WRONG_PERSON:
-  mai: "No problem. Am I speaking with someone from {name}'s home?"
+  main: "No problem. Am I speaking with someone from {name}'s home?"
 
 OFFER_PRIMARY:
-  mai: "{name}, your solar system maitenance is due. We have a slot on {weekday}, {date_spoken}. Will you be available that day?"
+  main: "{name}, your solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will you be available that day?"
 
 TIME_BAND:
-  mai: "Our service hero will come between {band_spoken} that day. Does that work for you?"
+  main: "Our service hero will come between {band_spoken} that day. Does that work for you?"
   no_exact_guarantee: "I can't guarantee an exact time, but we'll do our best to send the hero at your preferred time. Does {band_spoken} work?"
 
 ALTERNATE_DAYS:
-  mai: "No problem. Would {options_spoken} work for you?"
+  main: "No problem. Would {options_spoken} work for you?"
   band_full: "Sorry, that time slot isn't free on that day. Would {options_spoken} work instead?"
   next_options: "Okay, how about {options_spoken}?"
 
 READINESS_CHECK:
-  mai: "Great. A few things need to be ready for the service, let me quickly confirm."
+  main: "Great. A few things need to be ready for the service, let me quickly confirm."
   ask_ladder: "Do you have an A-type ladder so the hero can reach the roof?"
   ask_water: "Is there a water source near the panels?"
   ask_light: "And is there a light connection there?"
 
 ASK_READY_DATE:
-  mai: "Understood. By when can the {missing_item} be arranged? Could you give me a date?"
+  main: "Understood. By when can the {missing_item} be arranged? Could you give me a date?"
 
 RECAP:
-  mai: "So that's {weekday}, {date_spoken}, between {band_spoken}, with the ladder, water and light ready. Shall I confirm it?"
+  main: "So that's {weekday}, {date_spoken}, between {band_spoken}, with the ladder, water and light ready. Shall I confirm it?"
 
 SITE_ON_HOLD:
-  mai: "Understood. From which date will your site be ready for service?"
+  main: "Understood. From which date will your site be ready for service?"
 
 HOLD_CONSENT:
-  mai: "Okay, we'll put your site on hold until {hold_until_spoken}. Until then you won't get service calls from SolarSquare. Is that okay?"
+  main: "Okay, we'll put your site on hold until {hold_until_spoken}. Until then you won't get service calls from SolarSquare. Is that okay?"
 
 RECALL:
-  mai: "Of course. What time would be good to call you back?"
+  main: "Of course. What time would be good to call you back?"
 
 CONFIRMED_CLOSE:
-  mai: "Your slot is confirmed for {weekday}, {date_spoken}, between {band_spoken}. Thank you, have a great day!"
+  main: "Your slot is confirmed for {weekday}, {date_spoken}, between {band_spoken}. Thank you, have a great day!"
 
 HOLD_CLOSE:
-  mai: "Your site is on hold until {hold_until_spoken}. We'll reach out after that. Thank you!"
+  main: "Your site is on hold until {hold_until_spoken}. We'll reach out after that. Thank you!"
 
 HOLD_DECLINED_CLOSE:
-  mai: "No problem, thank you for your time. Have a great day!"
+  main: "No problem, thank you for your time. Have a great day!"
 
 NO_SLOT_CLOSE:
-  mai: "Sorry, we don't have any other slots right now. Our team will reach out as soon as a new slot opens. Thank you!"
+  main: "Sorry, we don't have any other slots right now. Our team will reach out as soon as a new slot opens. Thank you!"
 
 RM_CLOSE:
-  mai: "I'll arrange a callback from our senior, they'll speak with you soon. Thank you!"
+  main: "I'll arrange a callback from our senior, they'll speak with you soon. Thank you!"
 
 RECALL_CLOSE:
-  mai: "Sure, we'll call you {recall_window_spoken}. Thank you!"
+  main: "Sure, we'll call you {recall_window_spoken}. Thank you!"
 
 DNC_CLOSE:
-  mai: "Sorry for the trouble. You won't receive further calls. Thank you."
+  main: "Sorry for the trouble. You won't receive further calls. Thank you."
 
 WRONG_NUMBER_CLOSE:
-  mai: "Sorry, I may have dialled the wrong number. Have a good day."
+  main: "Sorry, I may have dialled the wrong number. Have a good day."
 
 NO_ANSWER_CLOSE:
-  mai: "I can't seem to hear you, we'll call you back. Thank you."
+  main: "I can't seem to hear you, we'll call you back. Thank you."
 
 MANUAL_CONFIRM_CLOSE:
-  mai: "I've noted your details, our team will confirm shortly. Thank you!"
+  main: "I've noted your details, our team will confirm shortly. Thank you!"

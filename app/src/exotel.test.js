@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { connectCall, isAllowedNumber, missingConfig } from './exotel.js';
 
-const env = { EXOTEL_API_KEY: 'k', EXOTEL_API_TOKEN: 't', EXOTEL_ACCOUNT_SID: 'acme', EXOTEL_CALLER_ID: '0800', EXOTEL_FLOW_ID: '42', EXOTEL_SUBDOmai: 'api.exotel.com', EXOTEL_TEST_NUMBERS: '+910000000001, +91 99999 00000' }; // Singapore cluster
+const env = { EXOTEL_API_KEY: 'k', EXOTEL_API_TOKEN: 't', EXOTEL_ACCOUNT_SID: 'acme', EXOTEL_CALLER_ID: '0800', EXOTEL_FLOW_ID: '42', EXOTEL_SUBDOMAIN: 'api.exotel.com', EXOTEL_TEST_NUMBERS: '+910000000001, +91 99999 00000' }; // Singapore cluster
 
 test('missing config is reported without calling Exotel', async () => {
   assert.deepEqual(missingConfig({ EXOTEL_API_KEY: 'k' }), ['EXOTEL_API_TOKEN', 'EXOTEL_ACCOUNT_SID', 'EXOTEL_CALLER_ID', 'EXOTEL_FLOW_ID', 'EXOTEL_TEST_NUMBERS']);
@@ -27,7 +27,7 @@ test('connect request shape', async () => {
 test('Mumbai cluster uses the .in. flow host', async () => {
   let req;
   const fetch = async (url, init) => { req = { url, init }; return { ok: true, json: async () => ({ Call: { Sid: 'S' } }) }; };
-  await connectCall({ to: '+910000000001', customField: 'C' }, { env: { ...env, EXOTEL_SUBDOmai: 'api.in.exotel.com' }, fetch });
+  await connectCall({ to: '+910000000001', customField: 'C' }, { env: { ...env, EXOTEL_SUBDOMAIN: 'api.in.exotel.com' }, fetch });
   assert.equal(req.url, 'https://api.in.exotel.com/v1/Accounts/acme/Calls/connect.json');
   assert.equal(req.init.body.get('Url'), 'http://my.in.exotel.com/acme/exoml/start_voice/42');
 });

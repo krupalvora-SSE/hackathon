@@ -101,7 +101,7 @@ def flow_system_prompt(call) -> str:
     c = call.context
     primary = c.get("primary_slot") or {}
     return f"""You are the listening brain of {persona['name']}, a SolarSquare phone agent calling an existing customer
-to schedule their solar system maitenance from the Beat Plan. You do NOT speak. The system speaks fixed lines.
+to schedule their solar system maintenance from the Beat Plan. You do NOT speak. The system speaks fixed lines.
 
 Customer: {c.get('customer', {}).get('name', '')} | Site: {c.get('site_id', '')}
 Beat Plan primary slot: {primary.get('date')} {primary.get('band')}
