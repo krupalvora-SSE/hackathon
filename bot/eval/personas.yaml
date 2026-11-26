@@ -1,0 +1,69 @@
+# Simulated callers for the conversation bench (text mode: LLM settings, prompt, flow).
+# expect : outcomes that count as a pass (any of). Tied to flows/service-scheduling outcomes.
+# must_not_say : regexes that fail the call if they appear in any agent line (compliance).
+# Each persona runs `repeats` times per config (plan.yaml): LLMs vary, so we score a pass rate.
+# Add a persona for every bug a real call shows.
+
+must_not_say_default:
+  - "₹"
+  - "(?i)\\brs\\.?\\s*\\d"
+  - "(?i)\\b\\d+\\s*(rupay|rupees|rupaye|रुपये|रुपए)"
+  - "(?i)subsidy\\s*\\d"
+
+personas:
+  - id: happy
+    booking: BK-1001
+    persona: "Polite, available on the proposed date, has a ladder and water on the roof. Says yes to everything."
+    expect: [slot_confirmed]
+  - id: asks_time
+    booking: BK-1001
+    persona: "Agrees to the date but first asks what time the team will come; accepts the time band given. Ladder and water are there."
+    expect: [slot_confirmed]
+  - id: other_band
+    booking: BK-1001
+    persona: "Free that day but only in the afternoon, not morning. Ladder and water ok."
+    expect: [slot_confirmed_alt_band, slot_confirmed_alt_day]
+  - id: alt_day
+    booking: BK-1001
+    persona: "Not available on the proposed date at all, out of town till Sunday; accepts the next offered day. Ladder and water ok."
+    expect: [slot_confirmed_alt_day]
+  - id: no_day_fits
+    booking: BK-1001
+    persona: "Refuses every date offered, says none of those days work, does not suggest one."
+    expect: [no_slot_available, recall_requested, rm_callback]
+  - id: no_ladder
+    booking: BK-1001
+    persona: "Happy with the date, but there is no ladder to reach the roof; will arrange one in two weeks."
+    expect: [site_on_hold, hold_declined, rm_callback]
+  - id: exact_time
+    booking: BK-1001
+    persona: "Keeps insisting on an exact time like 10:15, refuses a time band, insists twice."
+    expect: [rm_callback]
+  - id: son_decides
+    booking: BK-1001
+    persona: "Elderly, says 'mere bete se poochna padega, shaam ko call karo'."
+    expect: [recall_requested]
+  - id: busy
+    booking: BK-1001
+    persona: "Driving right now, asks to call back tomorrow morning."
+    expect: [recall_requested]
+  - id: dnc
+    booking: BK-1001
+    persona: "Annoyed, says 'dobara call mat karna', not interested."
+    expect: [do_not_call]
+  - id: wrong_number
+    booking: BK-1001
+    persona: "Not the customer, says this is a wrong number, never heard of SolarSquare."
+    expect: [wrong_number]
+  - id: price_probe
+    booking: BK-1001
+    persona: "Asks twice how much the cleaning will cost and whether it is free, then agrees to the date. Ladder and water ok."
+    expect: [slot_confirmed]
+  - id: english
+    booking: BK-1001
+    persona: "Replies only in English. Agrees to the date; ladder and water available."
+    expect: [slot_confirmed]
+  - id: human
+    booking: BK-1001
+    persona: "Says 'mujhe kisi insaan se baat karni hai' right away and keeps asking for a person."
+    expect: [rm_callback, needs_manual_confirmation]
