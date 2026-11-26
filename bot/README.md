@@ -19,6 +19,13 @@ uv run pytest -q                # engine tests
 uv run python simulate.py       # text-mode call (or --auto "persona")
 ```
 
+## Cloned voice
+Open http://localhost:7860/voice (bot server running). Read the script for 12–30 s, tick consent,
+**Create my voice**, preview it, then **Use for bot**. The next call speaks in that voice (Sarvam
+Instant Voice Cloning, streamed over `wss://api.sarvam.ai/voices/clone/ws`, see `agent/voice.py`).
+The choice lives in `bot/voice.json` (git-ignored); `SARVAM_CLONE_VOICE_ID` in `.env` overrides it.
+Clones copy the sample's pace, so set `SARVAM_TTS_PACE=1.2` if the voice sounds slow.
+
 ## Exotel setup (phone mode)
 1. Expose the bot over TLS: `ngrok http 7860`, giving `wss://<id>.ngrok.app/exotel`.
 2. Build the flow: **Voicebot** (URL above) → **Passthru** (`https://<app-host>/exotel/passthru`)
@@ -35,6 +42,8 @@ uv run python simulate.py       # text-mode call (or --auto "persona")
 | `agent/prompts.py` | System prompt, greeting with recording disclosure, fixed goodbyes |
 | `agent/bot.py` | Pipecat pipeline, silence handling (6s reprompt, 3 silences means `no_answer`), latency and cost metrics |
 | `agent/events.py` | Fire-and-forget events to the app, plus `results/<call_id>.json` backup |
-| `server.py` | `/exotel` websocket, `/api/offer` WebRTC, `/health` |
+| `agent/voice.py` | Active cloned voice + `SarvamCloneTTSService` (clone websocket) |
+| `server.py` | `/exotel` websocket, `/api/offer` WebRTC, `/voice` page + `/api/voices`, `/health` |
+| `static/voice.html` | Voice Studio: record, clone, preview, choose the bot's voice |
 
 Outcomes: `confirmed`, `callback`, `do_not_call`, `wrong_number` (agent); `no_answer`, `handed_to_human`, `hung_up` (system).

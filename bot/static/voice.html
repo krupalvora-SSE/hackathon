@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Studio</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #14171c; --muted: #5d6573; --line: #e2e5ea;
+    --accent: #e8590c; --accent-ink: #ffffff; --ok: #2b8a3e; --bad: #c92a2a; --soft: #fff4e6;
+    --meter: #2b8a3e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --card: #181b21; --ink: #e9ecf1; --muted: #9aa3b2; --line: #2a2f38;
+            --accent: #ff7a2e; --accent-ink: #14171c; --ok: #51cf66; --bad: #ff6b6b; --soft: #2a1f15;
+            --meter: #51cf66; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 12px; display: flex; gap: 10px; align-items: center; }
+  .step { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+          background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px;
+          margin-bottom: 16px; }
+  .script { background: var(--soft); border-radius: 10px; padding: 16px 18px; font-size: 18px;
+            line-height: 1.7; margin: 12px 0; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+           border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+                   font-weight: 600; }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.rec { min-width: 150px; }
+  button.rec.on { background: var(--bad); border-color: var(--bad); color: #fff; }
+  input[type=text], textarea { font: inherit; width: 100%; padding: 8px 10px; border-radius: 8px;
+           border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  textarea { min-height: 72px; resize: vertical; }
+  label { display: block; font-weight: 600; margin: 12px 0 6px; }
+  label.check { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; }
+  .seg button.sel { background: var(--accent); color: var(--accent-ink); }
+  .meter { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
+  .meter > div { height: 100%; width: 0; background: var(--meter); transition: width .06s; }
+  .timer { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 52px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .msg { margin-top: 10px; font-size: 14px; }
+  .msg.ok { color: var(--ok); } .msg.bad { color: var(--bad); }
+  audio { width: 100%; margin-top: 10px; }
+  .voice { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap;
+           padding: 12px 0; border-top: 1px solid var(--line); }
+  .voice:first-child { border-top: 0; }
+  .badge { font-size: 12px; background: var(--ok); color: var(--card); border-radius: 999px;
+           padding: 2px 8px; margin-left: 6px; font-weight: 600; }
+  ul.tips { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Voice Studio</h1>
+  <p class="sub">Clone your own voice on Sarvam and make it the voice the AMC bot speaks with on calls.</p>
+
+  <section class="card">
+    <h2><span class="step">1</span>Record your voice</h2>
+    <div class="row">
+      <span class="muted">I say</span>
+      <div class="seg" id="genderSeg">
+        <button data-g="m" class="sel">"bol raha hoon"</button>
+        <button data-g="f">"bol rahi hoon"</button>
+      </div>
+    </div>
+    <div class="script" id="script"></div>
+    <ul class="tips">
+      <li>Quiet room, phone-call distance from the mic, no music or other voices.</li>
+      <li>Read it the way you'd talk to a customer: warm, normal pace. The clone copies your pace and tone.</li>
+      <li>Aim for 12–30 seconds.</li>
+    </ul>
+    <div class="row" style="margin-top:14px">
+      <button class="rec primary" id="recBtn">● Start recording</button>
+      <span class="timer" id="timer">0:00</span>
+      <div class="meter"><div id="level"></div></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <span class="muted">or upload a clip</span>
+      <input type="file" id="upload" accept="audio/*">
+    </div>
+    <audio id="playback" controls hidden></audio>
+    <div class="msg" id="recMsg"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">2</span>Create the clone</h2>
+    <label for="name">Voice name</label>
+    <input type="text" id="name" placeholder="e.g. Krupal - AMC bot" maxlength="100">
+    <label class="check"><input type="checkbox" id="consent">
+      <span>This is my own voice and I consent to SolarSquare cloning it for the AMC voice bot.</span></label>
+    <label class="check"><input type="checkbox" id="makeActive" checked>
+      <span>Use it for bot calls straight away</span></label>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="createBtn" disabled>Create my voice</button>
+    </div>
+    <div class="msg" id="createMsg"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">3</span>Test and choose</h2>
+    <label for="testText">Line to speak</label>
+    <textarea id="testText">Namaste Rahul ji, main SolarSquare se bol raha hoon. Aapke solar panel cleaning visit ke baare mein ek minute baat kar sakte hain?</textarea>
+    <div id="voices" style="margin-top:12px"><span class="muted">Loading voices…</span></div>
+    <audio id="previewAudio" controls hidden></audio>
+    <div class="msg" id="voiceMsg"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SCRIPTS = {
+  m: ["Namaste ji, main SolarSquare se bol raha hoon.",
+      "Aapke solar panels ki saal bhar ki cleaning ka time aa gaya hai, isliye aapko call kiya.",
+      "Bataiye, is hafte kaunsa din aapke liye theek rahega? Subah nau se barah, dopahar barah se teen, ya shaam teen se chhe?",
+      "Achha, aur chhat tak jaane ke liye ghar pe seedhi hai na? Aur paani ka nal bhi paas mein hai?",
+      "Theek hai, main ek baar confirm kar leta hoon. Bahut dhanyavaad ji, aapka din shubh ho!"],
+  f: ["Namaste ji, main SolarSquare se bol rahi hoon.",
+      "Aapke solar panels ki saal bhar ki cleaning ka time aa gaya hai, isliye aapko call kiya.",
+      "Bataiye, is hafte kaunsa din aapke liye theek rahega? Subah nau se barah, dopahar barah se teen, ya shaam teen se chhe?",
+      "Achha, aur chhat tak jaane ke liye ghar pe seedhi hai na? Aur paani ka nal bhi paas mein hai?",
+      "Theek hai, main ek baar confirm kar leti hoon. Bahut dhanyavaad ji, aapka din shubh ho!"],
+};
+let gender = "m";
+function renderScript() {
+  $("script").innerHTML = SCRIPTS[gender].map((s) => `<div>${s}</div>`).join("");
+  $("testText").value = $("testText").value.replace(/bol rah[ai] hoon/, gender === "m" ? "bol raha hoon" : "bol rahi hoon");
+}
+document.querySelectorAll("#genderSeg button").forEach((b) => b.onclick = () => {
+  gender = b.dataset.g;
+  document.querySelectorAll("#genderSeg button").forEach((x) => x.classList.toggle("sel", x === b));
+  renderScript();
+});
+renderScript();
+
+function msg(el, text, kind) { $(el).textContent = text; $(el).className = "msg " + (kind || ""); }
+const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+// ---------------------------------------------------------------- recording -> 16 kHz mono WAV
+const TARGET_RATE = 16000;
+let rec = null;      // {ctx, stream, node, chunks, start, tick}
+let clip = null;     // {blob, seconds, name}
+
+async function startRec() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  const ctx = new AudioContext();
+  const src = ctx.createMediaStreamSource(stream);
+  const node = ctx.createScriptProcessor(4096, 1, 1);
+  const chunks = [];
+  node.onaudioprocess = (e) => {
+    const d = e.inputBuffer.getChannelData(0);
+    chunks.push(new Float32Array(d));
+    let peak = 0; for (let i = 0; i < d.length; i += 8) peak = Math.max(peak, Math.abs(d[i]));
+    $("level").style.width = Math.min(100, peak * 140) + "%";
+  };
+  src.connect(node); node.connect(ctx.destination);
+  const start = performance.now();
+  const tick = setInterval(() => {
+    const s = (performance.now() - start) / 1000;
+    $("timer").textContent = fmt(s);
+    if (s >= 60) stopRec();
+  }, 200);
+  rec = { ctx, stream, node, chunks, start, tick };
+  $("recBtn").textContent = "■ Stop"; $("recBtn").classList.add("on");
+  msg("recMsg", "Recording… read the script above.");
+}
+
+async function stopRec() {
+  if (!rec) return;
+  const { ctx, stream, node, chunks, tick } = rec; rec = null;
+  clearInterval(tick); node.disconnect(); stream.getTracks().forEach((t) => t.stop());
+  $("level").style.width = "0"; $("recBtn").textContent = "● Record again"; $("recBtn").classList.remove("on");
+  const len = chunks.reduce((n, c) => n + c.length, 0);
+  const pcm = new Float32Array(len); let o = 0; for (const c of chunks) { pcm.set(c, o); o += c.length; }
+  const rate = ctx.sampleRate; await ctx.close();
+  const resampled = await resample(pcm, rate, TARGET_RATE);
+  setClip(encodeWav(trimSilence(resampled, TARGET_RATE), TARGET_RATE), "recording.wav");
+}
+
+async function resample(pcm, from, to) {
+  if (from === to) return pcm;
+  const off = new OfflineAudioContext(1, Math.ceil(pcm.length * to / from), to);
+  const buf = off.createBuffer(1, pcm.length, from); buf.copyToChannel(pcm, 0);
+  const s = off.createBufferSource(); s.buffer = buf; s.connect(off.destination); s.start();
+  return (await off.startRendering()).getChannelData(0);
+}
+
+function trimSilence(pcm, rate) {   // drop leading/trailing silence, keep 0.25 s padding
+  const th = 0.02, pad = Math.floor(rate * 0.25);
+  let a = 0, b = pcm.length - 1;
+  while (a < b && Math.abs(pcm[a]) < th) a++;
+  while (b > a && Math.abs(pcm[b]) < th) b--;
+  return pcm.subarray(Math.max(0, a - pad), Math.min(pcm.length, b + pad));
+}
+
+function encodeWav(pcm, rate) {
+  const buf = new ArrayBuffer(44 + pcm.length * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + pcm.length * 2, true); w(8, "WAVE"); w(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i++) {
+    const x = Math.max(-1, Math.min(1, pcm[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true);
+  }
+  return new Blob([buf], { type: "audio/wav" });
+}
+
+async function setClip(blob, name) {
+  const url = URL.createObjectURL(blob);
+  $("playback").src = url; $("playback").hidden = false;
+  const seconds = await new Promise((res) => {
+    const a = new Audio(url); a.onloadedmetadata = () => res(a.duration); a.onerror = () => res(NaN);
+  });
+  clip = { blob, seconds, name };
+  if (seconds < 8) msg("recMsg", `Only ${seconds.toFixed(1)}s. Record at least 12 seconds for a good clone.`, "bad");
+  else if (seconds > 60) msg("recMsg", `${seconds.toFixed(0)}s is long. Sarvam works best with 12–30 seconds.`, "bad");
+  else msg("recMsg", `Got ${seconds.toFixed(1)}s. Play it back; if it sounds clean, go to step 2.`, "ok");
+  updateCreate();
+}
+
+$("recBtn").onclick = () => (rec ? stopRec() : startRec().catch((e) => msg("recMsg", "Mic error: " + e.message, "bad")));
+$("upload").onchange = (e) => { const f = e.target.files[0]; if (f) setClip(f, f.name); };
+
+// ---------------------------------------------------------------- create
+function updateCreate() {
+  $("createBtn").disabled = !(clip && clip.seconds >= 5 && $("consent").checked && $("name").value.trim());
+}
+["consent", "name"].forEach((id) => $(id).addEventListener("input", updateCreate));
+
+$("createBtn").onclick = async () => {
+  $("createBtn").disabled = true; msg("createMsg", "Uploading to Sarvam and cloning… (10–30 s)");
+  const fd = new FormData();
+  fd.append("file", clip.blob, clip.name); fd.append("name", $("name").value.trim());
+  fd.append("consent", "true"); fd.append("make_active", $("makeActive").checked ? "true" : "false");
+  try {
+    const r = await fetch("/api/voices", { method: "POST", body: fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error(errText(j));
+    msg("createMsg", `Voice created (${j.voice_id}).` + ($("makeActive").checked ? " The bot will use it from the next call." : ""), "ok");
+    await loadVoices(); preview(j.voice_id);
+  } catch (e) { msg("createMsg", "Clone failed: " + e.message, "bad"); }
+  updateCreate();
+};
+
+function errText(j) {
+  const e = j.error;
+  if (typeof e === "string") return e;
+  const m = e?.error?.message || e?.message || e?.detail || JSON.stringify(e);
+  if (j.status === 422) return m + " (Too noisy, too short, or more than one voice. Try re-recording in a quieter spot.)";
+  return m;
+}
+
+// ---------------------------------------------------------------- list / preview / choose
+let state = { voices: [], active: null, pinned: false };
+
+async function loadVoices() {
+  const r = await fetch("/api/voices"); const j = await r.json();
+  if (!r.ok) { $("voices").innerHTML = `<span class="msg bad">Could not load voices: ${errText(j)}</span>`; return; }
+  state = { voices: j.voices, active: j.active, pinned: j.pinned_by_env };
+  const rows = j.voices.map((v) => `
+    <div class="voice">
+      <div><strong>${esc(v.name)}</strong>${v.id === j.active ? '<span class="badge">bot uses this</span>' : ""}
+        <div class="muted">${v.language} · ${v.sample_duration_seconds ? v.sample_duration_seconds.toFixed(0) + "s sample · " : ""}${new Date(v.created_at).toLocaleString()}</div></div>
+      <div class="row">
+        <button data-act="preview" data-id="${v.id}">▶ Preview</button>
+        <button data-act="use" data-id="${v.id}" data-name="${esc(v.name)}" ${v.id === j.active || j.pinned_by_env ? "disabled" : ""}>Use for bot</button>
+        <button class="danger" data-act="delete" data-id="${v.id}" data-name="${esc(v.name)}">Delete</button>
+      </div>
+    </div>`).join("");
+  const stock = `<div class="voice"><div><strong>Stock Sarvam voice</strong>${!j.active ? '<span class="badge">bot uses this</span>' : ""}
+      <div class="muted">Default Bulbul speaker, no cloning</div></div>
+      <div class="row"><button data-act="use" data-id="" ${!j.active || j.pinned_by_env ? "disabled" : ""}>Use for bot</button></div></div>`;
+  $("voices").innerHTML = (rows || '<span class="muted">No cloned voices yet.</span>') + stock +
+    (j.pinned_by_env ? '<div class="msg muted">SARVAM_CLONE_VOICE_ID is set in bot/.env, so it overrides the choice here.</div>' : "");
+}
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function preview(id) {
+  msg("voiceMsg", "Generating preview…");
+  const r = await fetch("/api/voices/preview", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ voice_id: id, text: $("testText").value }) });
+  if (!r.ok) { msg("voiceMsg", "Preview failed: " + errText(await r.json()), "bad"); return; }
+  const a = $("previewAudio"); a.src = URL.createObjectURL(await r.blob()); a.hidden = false; a.play();
+  msg("voiceMsg", "");
+}
+
+$("voices").onclick = async (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  const { act, id, name } = b.dataset;
+  if (act === "preview") return preview(id);
+  if (act === "use") {
+    await fetch("/api/voices/active", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ voice_id: id || null, name }) });
+    msg("voiceMsg", id ? `Bot will speak as "${name}" from the next call.` : "Bot is back on the stock voice.", "ok");
+    return loadVoices();
+  }
+  if (act === "delete") {
+    if (!confirm(`Delete "${name}" from Sarvam? This can't be undone.`)) return;
+    const r = await fetch("/api/voices/" + encodeURIComponent(id), { method: "DELETE" });
+    if (!r.ok) msg("voiceMsg", "Delete failed: " + errText(await r.json()), "bad");
+    return loadVoices();
+  }
+};
+loadVoices();
+</script>
+</body>
+</html>

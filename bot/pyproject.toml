@@ -8,6 +8,7 @@ dependencies = [
     "pipecat-ai[google,openai,runner,sarvam,silero,webrtc]>=1.17.0",
     "pytest>=9.2.0",
     "python-dotenv>=1.2.4",
+    "python-multipart>=0.0.34",
     "uvicorn[standard]>=0.54.0",
 ]
 

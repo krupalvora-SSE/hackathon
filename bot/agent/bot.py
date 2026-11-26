@@ -42,6 +42,7 @@ from .events import Emitter, save_result
 from .prompts import HANDOVER_BROWSER_NOTE, greeting, system_prompt
 from .slots import CallState
 from .tools import TOOLS, Action, dispatch, on_silence
+from .voice import SarvamCloneTTSService, active_voice_id
 
 # Rough INR rates for the cost-per-call estimate; override in .env with real contract prices.
 RATE = {
@@ -161,15 +162,19 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             mode="codemix",
         ),
     )
-    tts = SarvamTTSService(
-        api_key=os.environ["SARVAM_API_KEY"],
-        sample_rate=sample_rate,
-        settings=SarvamTTSService.Settings(
-            model=os.getenv("SARVAM_TTS_MODEL", "bulbul:v4-flash"),
-            voice=os.getenv("SARVAM_TTS_VOICE") or None,
-            language=Language.HI_IN,
-        ),
+    tts_settings = SarvamTTSService.Settings(
+        model=os.getenv("SARVAM_TTS_MODEL", "bulbul:v4-flash"),
+        voice=os.getenv("SARVAM_TTS_VOICE") or None,
+        language=Language.HI_IN,
+        **({"pace": float(p)} if (p := os.getenv("SARVAM_TTS_PACE")) else {}),
     )
+    if clone_id := active_voice_id():  # team member's cloned voice (see /voice page)
+        logger.info(f"call {call_id} TTS voice: cloned {clone_id}")
+        tts = SarvamCloneTTSService(api_key=os.environ["SARVAM_API_KEY"], sample_rate=sample_rate,
+                                    clone_voice_id=clone_id, settings=tts_settings)
+    else:
+        tts = SarvamTTSService(api_key=os.environ["SARVAM_API_KEY"], sample_rate=sample_rate,
+                               settings=tts_settings)
     llm = _llm()
 
     tools = ToolsSchema(standard_tools=[
