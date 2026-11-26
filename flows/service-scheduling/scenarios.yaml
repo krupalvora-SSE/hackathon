@@ -81,6 +81,14 @@
   steps: [context_ready, repeat_request, affirm, repeat_request, affirm, repeat_request, affirm, affirm, action_ok]
   expect: slot_confirmed
 
+- name: asks to hold on, comes back and confirms
+  steps: [context_ready, affirm, wait_a_moment, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: asks who is calling, where the number came from and if it is a robot, then confirms
+  steps: [context_ready, who_are_you, number_source, is_robot, affirm, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
 - name: price question, then confirms
   steps: [context_ready, affirm, price_or_offtopic, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
@@ -159,7 +167,7 @@
   expect: line_issue
 
 - name: quick questions don't move the call on
-  steps: [context_ready, affirm, who_is_this, is_bot, visit_question, someone_home, site_issue, hold_on, change_language, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, who_are_you, number_source, is_robot, visit_question, someone_home, site_issue, wait_a_moment, change_language, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: ladder not needed counts as ready

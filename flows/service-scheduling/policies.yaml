@@ -71,6 +71,7 @@ calling_hours: {start: "09:00", end: "20:00", timezone: Asia/Kolkata}
 
 silence:
   reprompt_after_s: 5
+  hold_s: 25                  # "ek minute ruko": wait this long before the first reprompt
   max_reprompts: 2            # then silence_timeout -> NO_ANSWER_CLOSE
 
 retries_per_question: 2       # misunderstood twice on the same step -> yes/no fallback, then RM

@@ -100,15 +100,6 @@ global:
       hi: ["English mein boliye", "Hindi mein baat karo", "Marathi mein bolo"]
       en: ["please speak in English", "can you speak Hindi"]
 
-  hold_on:
-    label: Asks to wait
-    goto: $stay
-    say: on_line
-    then_repeat: false
-    examples:
-      hi: ["ek minute ruko", "hold karo", "ruko zara"]
-      en: ["one minute", "hold on please"]
-
   site_issue:
     label: Mentions a problem at the site
     goto: $stay
@@ -117,23 +108,6 @@ global:
     examples:
       hi: ["ek panel toot gaya hai", "inverter mai error aa raha hai", "generation kam ho raha hai", "chhat se paani tapakta hai", "panel pe chidiya ka ghonsla hai"]
       en: ["one panel is cracked", "the inverter shows an error"]
-
-  who_is_this:
-    label: Asks who is calling
-    goto: $stay
-    say: who_we_are
-    examples:
-      hi: ["aap kaun bol rahe ho", "mera number kahan se mila", "fraud toh nahi ho"]
-      en: ["who is this", "where did you get my number"]
-
-  is_bot:
-    label: Asks if it's a robot
-    goto: $stay
-    say: i_am_ai
-    then_repeat: false
-    examples:
-      hi: ["aap robot ho kya", "machine bol rahi hai kya"]
-      en: ["are you a robot", "is this a recording"]
 
   visit_question:
     label: Asks what the visit involves
@@ -184,6 +158,38 @@ global:
     examples:
       hi: ["phir se boliye", "kya bola", "kya kaha aapne", "dobara bolo", "ek baar aur bolna", "samjha nahi, repeat karo", "kya?"]
       en: ["sorry, what?", "can you repeat that", "say that again", "I didn't get that"]
+
+  wait_a_moment:
+    label: Asks us to hold on
+    goto: $stay
+    say: hold_ack                  # spoken alone: the question is not repeated; silence waits policies.silence.hold_s
+    examples:
+      hi: ["ek minute ruko", "ek second", "ruko zara", "hold karo", "abhi aata hoon", "ek minute line pe rahiye"]
+      en: ["hold on", "one minute please", "just a second", "give me a moment"]
+
+  who_are_you:
+    label: Asks who is calling
+    goto: $stay
+    say: identity_who
+    examples:
+      hi: ["kaun bol raha hai", "aap kaun ho", "kahan se bol rahe ho", "kis company se ho"]
+      en: ["who is this", "who are you", "which company is this"]
+
+  number_source:
+    label: Asks where we got the number
+    goto: $stay
+    say: identity_source
+    examples:
+      hi: ["mera number kahan se mila", "ye number kisne diya", "mera number aapke paas kaise aaya"]
+      en: ["where did you get my number", "how did you get this number"]
+
+  is_robot:
+    label: Asks if it is a machine
+    goto: $stay
+    say: identity_robot            # must admit it is an AI assistant
+    examples:
+      hi: ["aap robot ho", "machine bol rahi hai kya", "insaan ho ya computer", "kya ye AI hai"]
+      en: ["are you a robot", "am I talking to a machine", "is this an AI"]
 
   price_or_offtopic:
     label: Asks about price

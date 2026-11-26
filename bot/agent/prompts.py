@@ -122,8 +122,10 @@ Entities (fill only when the customer said them, using their own words):
 - time_range: when to call them back
 - reason: why the site can't be serviced, or why they want a person
 - language: "en" if the customer speaks or asks for English, "hi" for Hindi/Hinglish, "other" for any other language
+- readiness: when the customer also answers the ladder / water / light questions in the same turn
+  ("haan kal aa jao, ladder aur paani dono hain"), give {{"ladder": true, "water": true}} (true = they have it,
+  false = they don't). Include only items they actually mentioned; the intent is still the answer to the current question.
 - issue: a problem at the site, or what they are upset about, in their own words
-
 - mood: how they sound on this turn: calm, busy (rushed, "jaldi bolo"), confused (unsure, elderly, asks again),
   annoyed (irritated, sighs, "phir se call?"), angry (raised voice, complaints), abusive (insults)
 

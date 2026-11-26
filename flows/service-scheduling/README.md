@@ -39,14 +39,11 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 
 1. **PRE_CALL**: load the Beat Plan context. Don't dial if the customer is DNC, it's outside calling hours, or the number is not on the test allowlist.
 2. **GREET**: name, "calling from SolarSquare", recording disclosure, identity check. Family member → can continue; doesn't know the customer → wrong number.
-3. **OFFER_PRIMARY** (the bot never mentions a time window unless the customer asks about time, so the team can still move the slot within the day): "Your maintenance is due, we have a slot on {date}. Will you be available?"
+3. **OFFER_PRIMARY**: "Your maintenance is due, we have a slot on {date}. Will you be available?"
    - **Yes** → readiness check.
-   - **Asks the time** → **TIME_BAND**: share the 3-hour time window (9–12, 12–3, 3–6). If they want an exact time, say we can't guarantee it but will try (and log their preferred time). If they insist again → **RM callback**. If they want a different band that day → check Beat Plan: free → readiness; full → alternate days.
-   - **Not needed yet** ("plan is new", "panels are clean") → **NOT_NEEDED**: one short explanation (an early visit is a check-up), then ask again. Still no → `not_needed_now`.
-   - **Suggests their own date** → if Beat Plan has that day, book it; otherwise **ASK_BAND_FOR_DATE** (morning / afternoon / evening) → `date_requested`: "the date isn't fixed yet, the team will confirm".
-   - **Asks for a time outside 9 am to 6 pm** → say the service hours and repeat the question.
+   - **Asks the time** → **TIME_BAND**: share the 4-hour band. If they want an exact time, say we can't guarantee it but will try (and log their preferred time). If they insist again → **RM callback**. If they want a different band that day → check Beat Plan: free → readiness; full → alternate days.
    - **Not that day** → **ALTERNATE_DAYS**: Beat Plan backup slots, closest first, 2 at a time. None fit → "no other slots now, team will reconnect".
-4. **READINESS_CHECK**: A-type ladder, water source, light connection, one at a time. No ladder → first ask "can you arrange one before the visit?"; yes → carry on booking (noted as `will_arrange`). All yes → **RECAP** → **BOOK** (`confirm_slot`). Anything missing → ask by when it'll be ready → site on hold (or, if `on_missing_prereq: reschedule_after_ready_date`, first try a backup slot after that date).
+4. **READINESS_CHECK**: A-type ladder, water source, light connection, one at a time. All yes → **RECAP** → **BOOK** (`confirm_slot`). Anything missing → ask by when it'll be ready → site on hold (or, if `on_missing_prereq: reschedule_after_ready_date`, first try a backup slot after that date).
 5. **At any point**:
    - out of town / not serviceable → **SITE_ON_HOLD**: ask the date, then **explicit consent** ("you won't get calls from SolarSquare until then"). Yes → hold API. No → thank and close.
    - "call me later" → **RECALL**: ask a time range. The recall API doesn't exist yet (`stub`), so we post it as a Beat Plan comment and create a scheduler task.
@@ -80,7 +77,7 @@ Rules the bot follows with upset customers, from de-escalation practice:
 | Outcome | Meaning |
 |---|---|
 | `slot_confirmed` | Primary Beat Plan slot confirmed |
-| `slot_confirmed_alt_band` | Same date, different time window |
+| `slot_confirmed_alt_band` | Same date, different 4-hour band |
 | `slot_confirmed_alt_day` | Backup date confirmed |
 | `site_on_hold` | Customer consented to hold until a date |
 | `hold_declined` | Not serviceable, but declined the hold |
@@ -334,16 +331,17 @@ The bot doesn't speak here. **Done** → Call ends: Supervisor will call; **Syst
 | Abusive | Arrange a supervisor call |
 | Can't hear the bot | Bot asks again; after 1 times in a row: Can't hear, call back |
 | Wants another language | Bot answers briefly, then repeats its question |
-| Asks to wait | Bot answers briefly, then repeats its question |
 | Mentions a problem at the site | Bot answers briefly, then repeats its question |
-| Asks who is calling | Bot answers briefly, then repeats its question |
-| Asks if it's a robot | Bot answers briefly, then repeats its question |
 | Asks what the visit involves | Bot answers briefly, then repeats its question |
 | Asks if someone must be home | Bot answers briefly, then repeats its question |
 | Not needed yet | Explain why the visit helps now |
 | Wants a time outside 9 am to 6 pm | Bot answers briefly, then repeats its question |
 | Not clear | Bot asks again; after 2 times in a row: Arrange a supervisor call |
 | Asks to repeat | Bot answers briefly, then repeats its question |
+| Asks us to hold on | Bot answers briefly, then repeats its question |
+| Asks who is calling | Bot answers briefly, then repeats its question |
+| Asks where we got the number | Bot answers briefly, then repeats its question |
+| Asks if it is a machine | Bot answers briefly, then repeats its question |
 | Asks about price | Bot answers briefly, then repeats its question |
 | No reply | No answer |
 

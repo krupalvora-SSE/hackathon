@@ -193,6 +193,7 @@ class Step:
     state: str | None = None
     allowed: list[str] = field(default_factory=list)
     tone: dict | None = None      # {"name", "pace", "pitch", "loudness"} for the voice, from policies.tones
+    idle_timeout: float | None = None   # new silence timeout in seconds (customer asked us to hold)
 
 
 @dataclass
@@ -375,10 +376,15 @@ class FlowCall:
                     lines.append(self._line(target, pre["key"]))
                 if st.get("checklist") and say is None:
                     self.readiness_idx = 0
+                    if self.auto and self._skip_known_readiness():   # everything already answered
+                        tr = self._pick(target, self._checklist_final(), None)
+                        self._apply_set(tr)
+                        target, say = tr["to"], tr.get("say")
+                        continue
                     if not self._short():
                         lines.append(self._line(target, "main"))
                     lines.append(self._checklist_question())
-                    key = f"ask_{self.policies[st['checklist']][0]['id']}"
+                    key = self._checklist_key()
                 else:
                     key = say or self._main_key(st)
                     short = self._line(target, f"repeat_{key}") if self._short() else ""
@@ -431,6 +437,10 @@ class FlowCall:
             return self._step([self._repeat_line()])
         if name == "change_language" and self.asked_lang not in self.spec.prompts:
             return self._step([self._global_line("only_hi_en")])
+        if name == "wait_a_moment":
+            step = self._step([self._global_line("hold_ack")])
+            step.idle_timeout = float(self.policies["silence"]["hold_s"])
+            return step
         self._apply_set(gi)
         if name == "not_serviceable" and self.ctx.get("_date") and self.auto:
             self._enter(gi["goto"])          # date already given: skip "from which date?"
@@ -454,6 +464,10 @@ class FlowCall:
     # ------------------------------------------------------------ per-state rules
     def _absorb(self, on: str, e: dict) -> None:
         """Store entities the LLM extracted, parsed by code (never trusted as-is)."""
+        if isinstance(e.get("readiness"), dict):  # several answers in one turn: only known items, only booleans
+            ids = {i["id"] for i in self.policies["readiness_items"]}
+            known = self.ctx.setdefault("known_readiness", {})
+            known.update({k: v for k, v in e["readiness"].items() if k in ids and isinstance(v, bool)})
         intent = {**self.spec.global_intents, **self.spec.local_intents}.get(on) or {}
         if intent.get("shares_time"):
             self.ctx["time_shared"] = True
@@ -520,14 +534,11 @@ class FlowCall:
             self._emit_readiness(item["id"], ok, arranging=item["id"] in self.ctx["will_arrange"],
                                  note=self.ctx["readiness_notes"].get(item["id"]))
             self.readiness_idx += 1
-            if self.readiness_idx < len(items):
+            if not self._skip_known_readiness():
                 q = self._checklist_question()
-                self.last_line, self.last_ref = q, (self.state, f"ask_{items[self.readiness_idx]['id']}")
+                self.last_line, self.last_ref = q, (self.state, self._checklist_key())
                 return self._step(lead + [q])
-            final = "deny" if self.ctx["missing_items"] else "affirm"
-            if final == "deny":
-                self.ctx["hold_reason"] = "prerequisites_missing"
-            tr = self._pick(self.state, final, None)
+            tr = self._pick(self.state, self._checklist_final(), None)
             self._apply_set(tr)
             return self._step(lead + self._enter(tr["to"], tr.get("say")))
 
@@ -589,15 +600,40 @@ class FlowCall:
             return None
         return self.offered[0] if len(self.offered) == 1 else None
 
+    def _skip_known_readiness(self) -> bool:
+        """Record checklist items the customer already answered in an earlier turn; True when none are left to ask."""
+        items = self.policies[self.spec.states[self.state]["checklist"]]
+        known = self.ctx.get("known_readiness", {})
+        while self.readiness_idx < len(items) and items[self.readiness_idx]["id"] in known:
+            it = items[self.readiness_idx]
+            item, ok = it["id"], known[it["id"]]
+            if not ok and it.get("ask_if_can_arrange") and item not in self.ctx["will_arrange"]:
+                self.arranging = item            # same step as when they say "no" to the question itself
+                return False
+            self.ctx["readiness"][item] = ok
+            if not ok:
+                self.ctx["missing_items"].append(item)
+            self._emit_readiness(item, ok)
+            self.readiness_idx += 1
+        return self.readiness_idx >= len(items)
+
+    def _checklist_final(self) -> str:
+        if self.ctx["missing_items"]:
+            self.ctx["hold_reason"] = "prerequisites_missing"
+            return "deny"
+        return "affirm"
+
     def _main_key(self, st: dict) -> str:
         """Prompt key to speak on entering a state: its time_line once the customer asked about time."""
         key = st.get("time_line")
         return key if key and self.ctx.get("time_shared") else "main"
 
+    def _checklist_key(self) -> str:
+        item = self.policies[self.spec.states[self.state]["checklist"]][self.readiness_idx]["id"]
+        return f"{'arrange' if self.arranging == item else 'ask'}_{item}"
+
     def _checklist_question(self) -> str:
-        st = self.spec.states[self.state]
-        item = self.policies[st["checklist"]][self.readiness_idx]
-        return self._line(self.state, f"ask_{item['id']}")
+        return self._line(self.state, self._checklist_key())
 
     # ------------------------------------------------------------ actions
     def _run_actions(self, names: list[str]) -> str:

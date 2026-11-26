@@ -210,6 +210,122 @@ def test_repeat_request_without_short_form_falls_back_to_lead_in_plus_full_line(
     assert r.speak[0].startswith("जी, फिर से बता देता हूँ।") and r.speak[0].endswith(call.last_line)
 
 
+def test_hold_on_acknowledges_alone_and_asks_for_a_longer_silence_timeout():
+    call, _, _ = live()
+    call.handle("affirm")
+    full = call.last_line
+    r = call.handle("wait_a_moment")
+    assert call.state == "OFFER_PRIMARY" and r.speak == ["जी, मैं line पर हूँ, आप देख लीजिए।"]
+    assert full not in r.speak[0]                      # the question is not repeated
+    assert r.idle_timeout == 25.0 and r.end is False
+    assert call.handle("price_or_offtopic").idle_timeout is None
+
+
+def test_hold_on_english_and_never_counts_as_unclear():
+    call, _, _ = live(lang="en")
+    call.handle("affirm")
+    for _ in range(4):
+        r = call.handle("wait_a_moment")
+    assert not r.end and r.speak == ["Sure, I'm on the line, take your time."]
+
+
+def test_hold_on_reaches_the_engine_action():
+    from agent.engine import FlowEngine
+
+    e = FlowEngine("H", BOOKING)
+    e.dispatch("customer_said", {"intent": "affirm"})
+    a = e.dispatch("customer_said", {"intent": "wait_a_moment"})
+    assert a.idle_timeout == 25.0 and a.speak == ["जी, मैं line पर हूँ, आप देख लीजिए।"]
+
+
+@pytest.mark.parametrize("intent,lang,said", [
+    ("who_are_you", "hi", "SolarSquare"), ("who_are_you", "en", "SolarSquare"),
+    ("number_source", "hi", "records"), ("number_source", "en", "records"),
+    ("is_robot", "hi", "AI"), ("is_robot", "en", "AI"),
+])
+def test_identity_questions_get_an_honest_answer_then_the_question_again(intent, lang, said):
+    call, _, _ = live(lang=lang)
+    call.handle("affirm")
+    question = call.last_line
+    r = call.handle(intent)
+    assert call.state == "OFFER_PRIMARY" and said in r.speak[0] and r.speak[0].endswith(question)
+    assert "₹" not in r.speak[0] and "rupee" not in r.speak[0].lower()
+
+
+def test_identity_questions_never_count_as_unclear():
+    call, _, _ = live()
+    call.handle("affirm")
+    for intent in ("who_are_you", "number_source", "is_robot", "who_are_you"):
+        r = call.handle(intent)
+    assert not r.end
+
+
+def test_several_answers_at_once_skip_the_questions_already_answered():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("affirm", {"readiness": {"ladder": True, "water": True}})     # yes + ladder + water
+    assert call.state == "READINESS_CHECK" and "light" in r.speak[-1] and "ladder" not in r.speak[-1].lower()
+    assert call.ctx["readiness"] == {"ladder": True, "water": True}
+    r = call.handle("affirm")                                                     # light -> recap
+    assert call.state == "RECAP"
+    assert [e["key"] for e in events if e["type"] == "slot" and e["key"].endswith("_available")] == [
+        "ladder_available", "water_source_available", "light_available"]
+
+
+def test_all_three_answered_at_once_goes_straight_to_the_recap():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("affirm", {"readiness": {"ladder": True, "water": True, "light": True}})
+    assert call.state == "RECAP" and "confirm" in r.speak[-1]
+    assert not call.ctx["missing_items"]
+
+
+def test_answers_given_mid_checklist_skip_the_following_questions():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")                                                         # asked about the ladder
+    r = call.handle("affirm", {"readiness": {"water": True}})                     # "yes, and water too"
+    assert call.state == "READINESS_CHECK" and "light" in r.speak[0]
+    assert call.ctx["readiness"] == {"ladder": True, "water": True}
+
+
+def test_a_missing_ladder_given_up_front_still_asks_if_they_can_arrange_one():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("affirm", {"readiness": {"ladder": False, "water": True}})    # no ladder, has water
+    assert call.state == "READINESS_CHECK" and "arrange" in r.speak[-1]           # PR #4's arrange question first
+    assert call.handle("repeat_request").speak == ["क्या आप ladder arrange कर पाएँगे?"]
+    r = call.handle("deny")                                                       # cannot arrange one -> on to light
+    assert call.state == "READINESS_CHECK" and "light" in r.speak[0]
+    call.handle("affirm")                                                         # light
+    assert call.state == "ASK_READY_DATE" and call.ctx["missing_items"] == ["ladder"]
+    assert call.ctx["readiness"] == {"ladder": False, "water": True, "light": True}
+
+
+def test_a_ladder_they_will_arrange_keeps_the_booking_when_given_up_front():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm", {"readiness": {"ladder": False, "water": True, "light": True}})
+    r = call.handle("affirm")                                                     # "yes, I can arrange one"
+    assert call.state == "RECAP" and call.ctx["will_arrange"] == ["ladder"] and not call.ctx["missing_items"]
+
+
+def test_repeat_inside_the_arrange_question_repeats_that_question():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")                                                         # ladder question
+    call.handle("deny")                                                           # -> "can you arrange one?"
+    assert call.handle("repeat_request").speak == ["क्या आप ladder arrange कर पाएँगे?"]
+
+
+def test_junk_readiness_entities_are_ignored():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("affirm", {"readiness": {"roof": True, "water": "maybe", "light": False}})
+    assert call.ctx["known_readiness"] == {"light": False}      # "roof" and the non-boolean "water" are dropped
+    assert call.ctx["readiness"] == {} and "ladder" in r.speak[-1].lower()  # the ladder is still asked
+
+
 def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")
@@ -549,13 +665,6 @@ def test_language_switch_repeats_question_in_new_language():
     assert "Hindi or English" in r.speak[0] and call.lang == "en"
 
 
-def test_hold_on_does_not_repeat_the_question():
-    call, _, _ = live()
-    call.handle("affirm")
-    r = call.handle("hold_on")
-    assert r.speak == ["जी, कोई बात नहीं, मैं line पर हूँ।"] and call.state == "OFFER_PRIMARY"
-
-
 def test_site_issue_is_noted_and_goes_to_beat_plan():
     call, _, events = live()
     call.handle("affirm")
@@ -601,4 +710,4 @@ def test_repeat_arrange_question_is_short():
     call.handle("affirm")
     call.handle("deny")
     r = call.handle("repeat_request")
-    assert r.speak == ["क्या visit से पहले A-type ladder का इंतज़ाम हो पाएगा?"]
+    assert r.speak == ["क्या आप ladder arrange कर पाएँगे?"]

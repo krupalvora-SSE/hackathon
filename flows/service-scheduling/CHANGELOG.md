@@ -2,13 +2,12 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
-## 0.5.0 (2026-11-26, SSE-15527)
+## 0.8.0 (2026-11-26, SSE-15527)
+Developed as 0.4.0 and 0.5.0 on the SSE-15527 branch after PR #4; merged on top of 0.7.0. Teammates' `wait_a_moment` (0.4.0) and `who_are_you` / `number_source` / `is_robot` (0.5.0) replace this branch's `hold_on`, `who_is_this` and `is_bot`.
 - Helpline 9830003000, read out digit by digit in groups of five ("nine eight three zero zero, zero three zero zero zero"), after "please take a pen". The bot asks whether it was noted; if not, it repeats it twice slowly, and says it once more when the call ends.
 - "Nobody came last time" (`missed_visit_complaint`) is no longer a dead end: the bot owns the miss, apologises and offers the planned date again (MISSED_VISIT). Other complaints still go to the support ticket.
 - Anything outside this call (`off_script`: new panels, loans, refunds…) and abuse (`abusive`) → "I'll arrange a call from our supervisor" (ESCALATE_RM / RM_CLOSE now say supervisor).
 - Emotion-aware delivery: the LLM reports the customer's `mood` each turn (calm, busy, confused, annoyed, angry, abusive). `policies.moods` picks a voice `tone` (pace, pitch, loudness for Sarvam bulbul:v4-flash), short questions for busy/confused customers, and one "I understand" per step for annoyed/angry ones. States can force a tone (`tone:` in flow.yaml), e.g. the helpline is always slow and clear. Set `TONE_CONTROL=0` to turn voice changes off.
-
-## 0.4.0 (2026-11-26, SSE-15527)
 From 3 more sample calls (upset customers, repeated calls, a bad line) and a call-script review:
 - Upset or complaining customers (`frustrated`): the bot stops the script, apologises once, raises a support ticket (`create_support_ticket`), gives the helpline (`support_number` in policies.yaml, empty until confirmed) and asks once whether to fix the visit. No → `support_ticket`.
 - Call limits before dialling (`call_limits`: 24 h between calls, 3 a week) and an apology first when Beat Plan marks the last visit as missed (`prefix_if`).
@@ -18,8 +17,8 @@ From 3 more sample calls (upset customers, repeated calls, a bad line) and a cal
 - "Aaj aa jao" gets the minimum-notice line; a date and time of day in one answer ("kal afternoon") no longer asks the time again.
 - Engine: per-intent escalation (`escalate_after`/`escalate_to` on any global intent), `then_repeat: false`, and the checker follows escalation paths.
 
-## 0.3.0 (2026-11-26, SSE-15527)
-Changes from listening to 4 real sample calls:
+## 0.7.0 (2026-11-26, SSE-15527 PR #4, merged in SSE-15542)
+Changes from listening to 4 real sample calls (developed as 0.3.0 on its own branch; renumbered when merged after 0.4.0-0.6.0):
 - Time windows now match service hours: morning 9–12, afternoon 12–3, evening 3–6; asking for a time outside 9 am–6 pm gets the hours and the question again (`outside_service_hours`).
 - "Not needed yet / plan is new" gets one explanation, then `not_needed_now` (NOT_NEEDED, NOT_NEEDED_CLOSE).
 - No ladder → "can you arrange one before the visit?" first; yes keeps the booking (`will_arrange` in the record).
@@ -27,6 +26,18 @@ Changes from listening to 4 real sample calls:
 - Reminder-SMS sentence on the booked line, behind `sms_reminder` in policies.yaml (off until Beat Plan sends it); now a `{sms_line}` placeholder instead of a separate line.
 - The bot only mentions a time window if the customer asks about time (`shares_time` on intents, `time_line` on RECAP and CONFIRMED_CLOSE). A plain yes gets the date only, and backup days are offered without a time of day, so the slot can still move within the day. `time_window_told` is in the call record.
 - Repaired words broken by the repo-wide main→mai replace (`maintenance`, `options_remaining`, the `main` prompt key, `__main__`).
+- Merge fixes (SSE-15542) so PR #4 and the 0.3.0-0.6.0 changes work together: a missing ladder given up front (several answers in one turn) still asks "can you arrange one before the visit?" first; "phir se boliye" in that question repeats it in short form (`repeat_arrange_ladder`); the RECAP repeat line mentions the time window only when the customer asked about time (`repeat_main` / `repeat_with_time`).
+
+## 0.6.0 (2026-11-26, SSE-15539)
+- Several answers in one turn: `customer_said` takes a `readiness` entity ({ladder, water, light} booleans). READINESS_CHECK records those items (including missing ones and the dashboard events) and only asks the rest; if all are answered it goes straight on, and a missing item still leads to the hold flow. Unknown items and non-boolean values are ignored.
+
+## 0.5.0 (2026-11-26, SSE-15538)
+- New global intents `who_are_you`, `number_source` and `is_robot` ("kaun bol raha hai?", "number kahan se mila?", "aap robot ho?"): short honest answers (SolarSquare and the maintenance topic; number comes from the service records; yes, an AI voice assistant), then the current question is repeated. No prices or promises.
+
+## 0.4.0 (2026-11-26, SSE-15537)
+- New global intent `wait_a_moment` ("ek minute ruko", "hold on"): the bot says "main line pe hoon" and does not repeat the question. The silence reprompt is delayed to `policies.silence.hold_s` (25 s) instead of 5-6 s, and goes back to normal when the customer speaks or the first reprompt fires.
+
+## 0.3.0 (2026-11-26, SSE-15527)
 - New global intent `repeat_request` ("phir se boliye", "kya bola?", "sorry, what?"): the bot repeats the last question in a shorter, simpler form (`repeat_<key>` lines per question in `prompts/`), without leaving the state or counting as `unclear`.
 - `unclear` no longer lists "kya?" / "what?" and its `didnt_catch` line no longer asks the customer to repeat before the bot repeats the question itself.
 
