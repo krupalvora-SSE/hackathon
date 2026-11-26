@@ -1,7 +1,7 @@
 {
   "name": "app",
   "version": "1.0.0",
-  "mai": "index.js",
+  "main": "index.js",
   "scripts": {
     "test": "node --test",
     "start": "node index.js",

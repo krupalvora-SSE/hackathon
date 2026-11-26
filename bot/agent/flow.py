@@ -292,7 +292,7 @@ class FlowCall:
     def _flags(self) -> dict:
         return {
             "exact_time_limit_reached": self.exact_time_asks > self.policies["exact_time_insist_limit"],
-            "options_remaiing": bool(self.backup_queue),
+            "options_remaining": bool(self.backup_queue),
             "reschedule_after_ready_date": self.policies["on_missing_prereq"] == "reschedule_after_ready_date",
         }
 
@@ -343,10 +343,10 @@ class FlowCall:
                         continue
                 if st.get("checklist") and say is None:
                     self.readiness_idx = 0
-                    lines.append(self._line(target, "mai"))
+                    lines.append(self._line(target, "main"))
                     lines.append(self._checklist_question())
                 else:
-                    lines.append(self._line(target, say or "mai"))
+                    lines.append(self._line(target, say or "main"))
                 self.last_line = lines[-1]
                 return lines
 
@@ -355,7 +355,7 @@ class FlowCall:
             if self.auto:
                 self._run_actions(st.get("actions") or [])
             if not st.get("silent"):
-                lines.append(self._line(target, "mai"))
+                lines.append(self._line(target, "main"))
             self.outcome = outcome
             self.ended_at = datetime.now(N.IST)
             self._post_call()

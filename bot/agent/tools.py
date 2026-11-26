@@ -124,7 +124,7 @@ def on_silence(state: CallState, max_silences: int = 3) -> Action:
     if state.silences >= max_silences:
         return _end(state, "no_answer", system=True)
     lead = SILENCE_PROMPTS[(state.silences - 1) % len(SILENCE_PROMPTS)]
-    follow = state.next_question() if not state.read_back else "Kya maie jo details boli, woh sahi hain?"
+    follow = state.next_question() if not state.read_back else "Kya maine jo details boli, woh sahi hain?"
     return Action(result={}, speak=[f"{lead} {follow}"], run_llm=False)
 
 

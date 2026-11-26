@@ -20,7 +20,7 @@ GEMINI_OPENAI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 BOOKINGS = json.loads((Path(__file__).resolve().parent.parent / "app" / "data" / "bookings.json").read_text())
 
 
-def mai() -> None:
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--auto", help="persona for an LLM-played customer")
     ap.add_argument("--max-turns", type=int, default=16)
@@ -87,5 +87,5 @@ def mai() -> None:
     print("\nRECORD:", json.dumps(engine.record(), ensure_ascii=False, indent=2))
 
 
-if __name__ == "__mai__":
-    mai()
+if __name__ == "__main__":
+    main()

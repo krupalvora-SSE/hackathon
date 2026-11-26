@@ -59,7 +59,7 @@ nav.tabs a { flex: none; padding: 7px 12px; border-radius: var(--radius-sm); col
 nav.tabs a:hover { background: var(--sunken); }
 nav.tabs a[aria-current="page"] { background: var(--brand-soft); color: var(--brand-ink); }
 
-mai .wrap { padding-block: 24px 48px; }
+main .wrap { padding-block: 24px 48px; }
 .view[hidden] { display: none; }
 h2 { margin: 0 0 4px; font-size: 20px; letter-spacing: -0.01em; font-weight: 600; text-wrap: balance; }
 .lead { margin: 0 0 16px; color: var(--fg-3); font-size: 14px; max-width: 70ch; }
@@ -164,7 +164,7 @@ footer .wrap { padding-block: 0 32px; }
   </div>
 </header>
 <nav class="tabs" aria-label="Parts of the call"><div class="wrap" id="tabs"></div></nav>
-<mai>
+<main>
   <div class="wrap">
     <section class="view" id="view-overview" aria-labelledby="ov-title">
       <div class="block">
@@ -202,7 +202,7 @@ footer .wrap { padding-block: 0 32px; }
       </div>
     </section>
   </div>
-</mai>
+</main>
 <footer><div class="wrap"><p id="foot"></p></div></footer>
 
 <script id="flow-data" type="application/json">__DATA__</script>
@@ -324,7 +324,7 @@ footer .wrap { padding-block: 0 32px; }
     const out = [`<h3>${esc(s.title)}</h3><span class="kind ${s.type}">${KIND[s.type] || s.type}</span>`];
     if (lines.length) {
       out.push(`<h4>The bot says</h4>` + lines.map(([k, t]) =>
-        `<div class="say">${k === 'mai' ? '' : `<span class="when">${esc(WHEN[k] || k.replace(/_/g, ' '))}</span>`}${marks(t)}</div>`).join(''));
+        `<div class="say">${k === 'main' ? '' : `<span class="when">${esc(WHEN[k] || k.replace(/_/g, ' '))}</span>`}${marks(t)}</div>`).join(''));
     } else if (s.type === 'system') {
       out.push(`<h4>What happens</h4><p class="also">The bot doesn't speak here. The system ${s.actions.length ? 'updates Beat Plan / Zeus' : 'checks the call details'} and moves on.</p>`);
     }

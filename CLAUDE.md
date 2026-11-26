@@ -1,6 +1,6 @@
 # AMC Cleaning Voice Bot — SolarSquare AI Voice Agent Hackathon
 
-We are building an outbound/inbound **phone voice agent** that handles the **AMC (Annual maitenance Contract) solar panel cleaning** journey for existing SolarSquare customers, in **Hindi (Hinglish)** first.
+We are building an outbound/inbound **phone voice agent** that handles the **AMC (Annual maintenance Contract) solar panel cleaning** journey for existing SolarSquare customers, in **Hindi (Hinglish)** first.
 
 Hackathon tracks covered: **#4 Service slot scheduling** and **#5 Service slot confirmation** (plus reschedule / cancel / handover).
 
