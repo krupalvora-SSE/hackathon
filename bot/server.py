@@ -21,7 +21,11 @@ from fastapi import FastAPI, Form, Request, UploadFile, WebSocket  # noqa: E402
 from fastapi.responses import FileResponse, JSONResponse, Response  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from loguru import logger  # noqa: E402
-from pipecat.audio.filters.rnnoise_filter import RNNoiseFilter  # noqa: E402
+try:  # pyrnnoise has no wheel for some platforms (e.g. macOS < 26); run without it there
+    from pipecat.audio.filters.rnnoise_filter import RNNoiseFilter  # noqa: E402
+except Exception as e:  # noqa: BLE001
+    RNNoiseFilter = None
+    logger.warning(f"RNNoise unavailable ({e}); phone audio runs without noise suppression")
 from pipecat.serializers.exotel import ExotelFrameSerializer  # noqa: E402
 from pipecat.transports.base_transport import TransportParams  # noqa: E402
 from pipecat.transports.smallwebrtc.connection import SmallWebRTCConnection  # noqa: E402
@@ -182,7 +186,7 @@ async def exotel_ws(ws: WebSocket):
         params=FastAPIWebsocketParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
-            audio_in_filter=RNNoiseFilter(),  # phone line has no browser-side suppression
+            audio_in_filter=RNNoiseFilter() if RNNoiseFilter else None,  # phone line has no browser-side suppression
             add_wav_header=False,
             serializer=ExotelFrameSerializer(stream_sid=stream_sid, call_sid=call_sid),
         ),

@@ -5,7 +5,9 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.165.0",
     "httpx>=0.28.1",
-    "pipecat-ai[google,openai,rnnoise,runner,sarvam,silero,webrtc]>=1.17.0",
+    "pipecat-ai[google,openai,runner,sarvam,silero,webrtc]>=1.17.0",
+    # RNNoise wheels: Linux, Windows, macOS 26+ (Darwin 25+) only
+    "pyrnnoise~=0.4.5; sys_platform != 'darwin' or platform_release >= '25'",
     "pytest>=9.2.0",
     "python-dotenv>=1.2.4",
     "python-multipart>=0.0.34",
