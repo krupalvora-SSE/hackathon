@@ -202,6 +202,7 @@ class FlowCall:
     backup_queue: list | None = None
     offered: list = field(default_factory=list)
     last_line: str = ""
+    last_ref: tuple[str, str] = ("", "")   # (state, prompt key) of last_line, for its short repeat form
     path: list = field(default_factory=list)
     started_at: datetime = field(default_factory=lambda: datetime.now(N.IST))
     ended_at: datetime | None = None
@@ -345,9 +346,11 @@ class FlowCall:
                     self.readiness_idx = 0
                     lines.append(self._line(target, "main"))
                     lines.append(self._checklist_question())
+                    key = f"ask_{self.policies[st['checklist']][0]['id']}"
                 else:
                     lines.append(self._line(target, say or "main"))
-                self.last_line = lines[-1]
+                    key = say or "main"
+                self.last_line, self.last_ref = lines[-1], (target, key)
                 return lines
 
             # terminal
@@ -371,6 +374,8 @@ class FlowCall:
             if gi.get("escalate_to") and self.unclear_streak > int(gi.get("escalate_after", 2)):
                 self.ctx["rm_callback_reason"] = "repeated_misunderstanding"
                 return self._step(self._enter(gi["escalate_to"]))
+        if name == "repeat_request":
+            return self._step([self._repeat_line()])
         self._apply_set(gi)
         if name == "not_serviceable" and self.ctx.get("_date") and self.auto:
             self._enter(gi["goto"])          # date already given: skip "from which date?"
@@ -378,6 +383,12 @@ class FlowCall:
         if gi.get("goto") == "$stay":
             return self._step([f"{self._global_line(gi.get('say'))} {self.last_line}".strip()])
         return self._step(self._enter(gi["goto"]))
+
+    def _repeat_line(self) -> str:
+        """The last question again, shorter and simpler; a generic lead-in plus the full line if it has no short form."""
+        state, key = self.last_ref
+        short = self._line(state, f"repeat_{key}") if state else ""
+        return short or f"{self._global_line('repeat_lead')} {self.last_line}".strip()
 
     # ------------------------------------------------------------ per-state rules
     def _absorb(self, on: str, e: dict) -> None:
@@ -418,7 +429,7 @@ class FlowCall:
             self.readiness_idx += 1
             if self.readiness_idx < len(items):
                 q = self._checklist_question()
-                self.last_line = q
+                self.last_line, self.last_ref = q, (self.state, f"ask_{items[self.readiness_idx]['id']}")
                 return self._step([q])
             final = "deny" if self.ctx["missing_items"] else "affirm"
             if final == "deny":

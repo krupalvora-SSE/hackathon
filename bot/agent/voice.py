@@ -11,6 +11,7 @@ import os
 import re
 from pathlib import Path
 
+import httpx
 from loguru import logger
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.utils.text.transforms.replacements import replace_text
@@ -65,6 +66,31 @@ def active_voice_name() -> str | None:
     except (OSError, ValueError):
         return None
     return name.split(" - ")[0].strip() or None
+
+
+async def _account_voice_ids() -> set[str] | None:
+    """Voice ids on the Sarvam account, or None if that can't be checked right now."""
+    try:
+        async with httpx.AsyncClient(timeout=3) as c:
+            r = await c.get("https://api.sarvam.ai/voices", params={"limit": 200},
+                            headers={"api-subscription-key": os.environ["SARVAM_API_KEY"]})
+        r.raise_for_status()
+        return {v["id"] for v in r.json()["data"]["voices"] if v.get("status") == "active"}
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"could not check the cloned voice, assuming it exists: {e}")
+        return None
+
+
+async def drop_stale_clone() -> None:
+    """If the picked clone is gone from the account, clear it so the call uses the stock voice
+    (and the stock persona name) instead of going silent on "Voice not found"."""
+    voice_id = active_voice_id()
+    if not voice_id or os.getenv("SARVAM_CLONE_VOICE_ID"):  # an id pinned in .env is the user's call
+        return
+    ids = await _account_voice_ids()
+    if ids is not None and voice_id not in ids:
+        logger.warning(f"cloned voice {voice_id} no longer exists on Sarvam; using the stock voice")
+        set_active_voice(None)
 
 
 def set_active_voice(voice_id: str | None, name: str | None = None) -> None:
