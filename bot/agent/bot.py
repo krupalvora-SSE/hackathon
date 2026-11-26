@@ -25,6 +25,7 @@ from pipecat.frames.frames import (
     LLMFullResponseStartFrame,
     MetricsFrame,
     TTSSpeakFrame,
+    UserIdleTimeoutUpdateFrame,
     UserStoppedSpeakingFrame,
     VADUserStoppedSpeakingFrame,
 )
@@ -354,8 +355,19 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         logger.info(f"call {call_id} ended ({reason}): {record}")
         await emitter.close()
 
+    on_hold = {"on": False}
+
+    async def end_hold() -> None:
+        """Back to the normal silence timeout once the customer is back (or the hold ran out)."""
+        if on_hold["on"]:
+            on_hold["on"] = False
+            await worker.queue_frames([UserIdleTimeoutUpdateFrame(timeout=cfg["silence_secs"])])
+
     async def perform(action: Action) -> None:
         frames: list[Frame] = [TTSSpeakFrame(t, append_to_context=True) for t in action.speak]
+        if action.idle_timeout:  # "ek minute ruko": wait longer before the first reprompt
+            on_hold["on"] = True
+            frames.append(UserIdleTimeoutUpdateFrame(timeout=action.idle_timeout))
         if action.end:
             if engine.outcome == "handed_to_human" and not telephony:
                 emitter.emit({"type": "transcript", "role": "agent", "text": HANDOVER_BROWSER_NOTE})
@@ -403,6 +415,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         turn_over.set()
         if getattr(message, "content", None):
             engine.heard_customer()
+            await end_hold()
             filler.customer_stopped()
             yielded["turns"] += 1
             emitter.emit({"type": "transcript", "role": "customer", "text": message.content})
@@ -411,6 +424,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     async def _silence(_agg):
         if engine.outcome:
             return
+        await end_hold()
         if not gate.greeted:  # no reply to "Hello?": give the greeting itself, not a second "Hello?"
             gate.greeted = True
             await speak_opening()

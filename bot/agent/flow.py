@@ -178,6 +178,7 @@ class Step:
     error: str | None = None
     state: str | None = None
     allowed: list[str] = field(default_factory=list)
+    idle_timeout: float | None = None   # new silence timeout in seconds (customer asked us to hold)
 
 
 @dataclass
@@ -376,6 +377,10 @@ class FlowCall:
                 return self._step(self._enter(gi["escalate_to"]))
         if name == "repeat_request":
             return self._step([self._repeat_line()])
+        if name == "wait_a_moment":
+            step = self._step([self._global_line("hold_ack")])
+            step.idle_timeout = float(self.policies["silence"]["hold_s"])
+            return step
         self._apply_set(gi)
         if name == "not_serviceable" and self.ctx.get("_date") and self.auto:
             self._enter(gi["goto"])          # date already given: skip "from which date?"

@@ -296,5 +296,6 @@ Handled in place at any step (the bot answers, then repeats its question):
 
 - **Not clear** (`unclear`); after 2 in a row → Ask a senior to call
 - **Asks to repeat** (`repeat_request`)
+- **Asks us to hold on** (`wait_a_moment`)
 - **Asks price or something else** (`price_or_offtopic`)
 <!-- flow-diagram:end -->

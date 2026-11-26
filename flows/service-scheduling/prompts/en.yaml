@@ -5,6 +5,7 @@ _global:
   reprompt: "Hello, can you hear me?"
   didnt_catch: "Sorry, I didn't catch that."
   repeat_lead: "Sure, let me say that again."
+  hold_ack: "Sure, I'm on the line, take your time."
 
 GREET:
   main: "Hello, am I speaking with {name}? This is {bot_name} from SolarSquare. This call is being recorded."

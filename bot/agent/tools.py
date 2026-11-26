@@ -54,6 +54,7 @@ class Action:
     end: bool = False                # end the call after speaking
     run_llm: bool = True             # let the LLM respond to the result
     ask_next: str | None = None      # spoken after this turn's tool calls (skips a 2nd LLM round trip)
+    idle_timeout: float | None = None  # lengthen the silence timer (customer asked us to hold)
 
 
 ACKS = ["Theek hai.", "Ji, bilkul.", "Achha ji."]
