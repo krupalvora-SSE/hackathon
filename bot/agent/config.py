@@ -78,13 +78,23 @@ FIELDS: list[dict[str, Any]] = [
      "help": "Noise suppression on the Exotel input. Phone calls only; ignored where RNNoise isn't installed."},
 
     # ---- Bot voice
+    {"key": "tts_source", "group": "Bot voice", "type": "select", "default": "clone",
+     "env": "SARVAM_TTS_SOURCE", "label": "Voice source (switch clone / Bulbul)",
+     "options": [["clone", "Cloned voice (picked in the list above)"], ["bulbul", "Sarvam Bulbul stock speaker"]],
+     "help": "Applies from the next call. Bulbul keeps your picked clone, so switching back is one click. "
+             "With no clone picked, calls use Bulbul either way. On Bulbul the bot introduces itself without a name."},
     {"key": "tts_model", "group": "Bot voice", "type": "select", "default": "bulbul:v4-flash",
-     "env": "SARVAM_TTS_MODEL", "label": "TTS model",
+     "env": "SARVAM_TTS_MODEL", "label": "Bulbul model",
      "options": [["bulbul:v4-flash", "bulbul:v4-flash"], ["bulbul:v3", "bulbul:v3"]],
-     "help": "Ignored when a cloned voice is active (see the voice list above)."},
+     "help": "Bulbul voice source only."},
     {"key": "tts_voice", "group": "Bot voice", "type": "text", "default": None, "nullable": True,
-     "env": "SARVAM_TTS_VOICE", "label": "Stock speaker",
-     "help": "Sarvam speaker name for the stock voice. Blank uses the model's default speaker."},
+     "env": "SARVAM_TTS_VOICE", "label": "Bulbul speaker",
+     "suggest": ["aditya", "ritu", "priya", "neha", "rahul", "pooja", "rohan", "simran", "kavya", "amit", "dev",
+                 "ishita", "shreya", "ratan", "varun", "manan", "sumit", "roopa", "kabir", "aayan", "shubh",
+                 "ashutosh", "advait", "amelia", "sophia"],
+     "help": "Bulbul voice source only. Blank uses the model's default speaker. The suggestions are bulbul:v3 "
+             "speakers; bulbul:v4-flash has its own names (see Sarvam's docs). The prompt is written for a "
+             "male caller, so pick a male speaker."},
     {"key": "tts_pace", "group": "Bot voice", "type": "float", "default": None, "nullable": True,
      "min": 0.5, "max": 2, "step": 0.05, "env": "SARVAM_TTS_PACE", "label": "Pace",
      "help": "0.5-2.0. Clones copy the sample's pace; about 1.1-1.2 keeps calls snappy."},
