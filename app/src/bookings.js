@@ -14,10 +14,30 @@ export function createStore(rows = seed) {
     return { booking: b };
   }
 
+  // Voice-agent outcome: always applies (re-calls allowed), unlike the one-shot confirm/reject above.
+  function applyCallResult(id, record) {
+    const b = bookings.get(id);
+    if (!b) return { error: 'not_found' };
+    const ok = record.outcome === 'confirmed';
+    const s = record.slots ?? {};
+    Object.assign(b, {
+      status: record.outcome,
+      rejectReason: ok ? null : record.outcome,
+      callId: record.call_id ?? null,
+      updatedAt: new Date().toISOString(),
+      ...(ok && {
+        visitDate: s.visit_date, visitSlot: s.visit_time_slot,
+        ladder: s.ladder_available, water: s.water_source_available,
+      }),
+    });
+    return { booking: b };
+  }
+
   return {
     list: () => [...bookings.values()],
     get: (id) => bookings.get(id),
     confirm: (id, opts) => decide(id, 'confirmed', opts),
     reject: (id, opts) => decide(id, 'rejected', opts),
+    applyCallResult,
   };
 }

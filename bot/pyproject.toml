@@ -1,0 +1,16 @@
+[project]
+name = "visit-bot"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.165.0",
+    "httpx>=0.28.1",
+    "pipecat-ai[openai,runner,sarvam,silero,webrtc]>=1.17.0",
+    "pytest>=9.2.0",
+    "python-dotenv>=1.2.4",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
