@@ -65,3 +65,18 @@ def test_disabled_and_ended_calls_stay_silent():
 def test_settings_have_defaults():
     cfg = config.load()
     assert cfg["filler"] is True and cfg["filler_delay_ms"] == 1000
+
+
+def test_filler_is_cancelled_when_the_llm_starts_replying():
+    from pipecat.frames.frames import LLMFullResponseStartFrame
+    from pipecat.tests.utils import run_test
+
+    from agent.bot import CallMetrics
+
+    class Quiet:
+        def emit(self, _): pass
+
+    cancelled = []
+    metrics = CallMetrics(Quiet(), False, on_bot_started=lambda: cancelled.append(1))
+    asyncio.run(run_test(metrics, frames_to_send=[LLMFullResponseStartFrame()]))
+    assert cancelled

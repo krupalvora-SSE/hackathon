@@ -22,6 +22,7 @@ from pipecat.frames.frames import (
     Frame,
     FunctionCallResultProperties,
     LLMContextFrame,
+    LLMFullResponseStartFrame,
     MetricsFrame,
     TTSSpeakFrame,
     UserStoppedSpeakingFrame,
@@ -106,6 +107,8 @@ class CallMetrics(FrameProcessor):
             if self._on_bot_started:
                 self._on_bot_started()
             self._speaking_since = time.monotonic()
+        elif isinstance(frame, LLMFullResponseStartFrame) and self._on_bot_started:
+            self._on_bot_started()  # the reply is being generated: too late for a filler
         elif isinstance(frame, BotStoppedSpeakingFrame):
             self._bot_speaking = False
         elif (isinstance(frame, InterruptionFrame) and self._bot_speaking and self._on_cut_in
@@ -372,6 +375,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             await worker.queue_frames([TTSSpeakFrame(text, append_to_context=True)])
 
     async def handle_tool(params: FunctionCallParams) -> None:
+        filler.cancel()  # the LLM has answered; the real line follows in a moment
         args = dict(params.arguments or {})
         action = engine.dispatch(params.function_name, args)
         logger.info(f"tool {params.function_name}({args}) -> {action.result}")
