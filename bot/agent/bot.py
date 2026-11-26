@@ -76,9 +76,17 @@ class GreetingGate(FrameProcessor):
         super().__init__()
         self._on_first_reply = on_first_reply
         self.greeted = False
+        self._protected_until = 0.0
+
+    def protect(self, secs: float) -> None:
+        """Ignore interruptions for `secs`: early line noise must not cancel "Hello?" before it is heard."""
+        self._protected_until = time.monotonic() + secs
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
+        if (isinstance(frame, InterruptionFrame) and direction == FrameDirection.DOWNSTREAM
+                and time.monotonic() < self._protected_until):
+            return
         if isinstance(frame, LLMContextFrame) and not self.greeted:
             self.greeted = True
             await self._on_first_reply()
@@ -445,6 +453,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if engine.outcome:  # blocked before dialling (DNC / allowlist / hours): say nothing, hang up
             await worker.queue_frames([EndFrame()])
             return
+        gate.protect(float(os.getenv("OPENER_PROTECT_S", "2")))
         await worker.queue_frames([TTSSpeakFrame("Hello?", append_to_context=True)])
 
     @transport.event_handler("on_client_disconnected")
