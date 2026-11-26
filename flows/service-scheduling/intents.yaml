@@ -70,8 +70,16 @@ global:
     escalate_after: 2              # this many unclear turns in a row on one step...
     escalate_to: ESCALATE_RM       # ...then hand over (reason: repeated_misunderstanding)
     examples:
-      hi: ["hmm", "kya?", "(noise)", "(answer unrelated to the question)"]
-      en: ["what?", "(noise)", "(answer unrelated to the question)"]
+      hi: ["hmm", "(noise)", "(answer unrelated to the question)"]
+      en: ["(noise)", "(answer unrelated to the question)"]
+
+  repeat_request:
+    label: Asks to repeat
+    goto: $stay
+    say: repeat_lead               # fallback; each question has its own short form (repeat_<key> in prompts)
+    examples:
+      hi: ["phir se boliye", "kya bola", "kya kaha aapne", "dobara bolo", "ek baar aur bolna", "samjha nahi, repeat karo", "kya?"]
+      en: ["sorry, what?", "can you repeat that", "say that again", "I didn't get that"]
 
   price_or_offtopic:
     label: Asks price or something else

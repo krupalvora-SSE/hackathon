@@ -277,6 +277,7 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Not needed yet | Explain why the visit helps now |
 | Wants a time outside 9 am to 6 pm | Bot answers briefly, then repeats its question |
 | Not clear | Bot asks again; after 2 times in a row: Ask a senior to call |
+| Asks to repeat | Bot answers briefly, then repeats its question |
 | Asks price or something else | Bot answers briefly, then repeats its question |
 | No reply | No answer |
 

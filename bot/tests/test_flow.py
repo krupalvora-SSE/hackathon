@@ -171,6 +171,45 @@ def test_call_later_uses_recall_stub():
     assert "fallback" in beatplan(events, "schedule_recall")[0]
 
 
+def test_repeat_request_repeats_the_question_shorter_and_stays():
+    call, first, _ = live()
+    r = call.handle("repeat_request")                      # GREET
+    assert call.state == "GREET" and r.speak == ["जी, क्या मैं Rahul जी से बात कर रहा हूँ?"]
+    assert len(r.speak[0]) < len(first.speak[0])
+    call.handle("affirm")
+    full = call.last_line
+    r = call.handle("repeat_request")                      # OFFER_PRIMARY
+    assert call.state == "OFFER_PRIMARY" and len(r.speak[0]) < len(full) and "28 नवंबर" in r.speak[0]
+    assert "सुनाई नहीं" not in r.speak[0] and "कट गई" not in r.speak[0]
+
+
+def test_repeat_request_on_each_readiness_question():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")                                  # -> ladder question
+    assert call.handle("repeat_request").speak == ["आपके पास A-type ladder है?"]
+    call.handle("affirm")                                  # -> water question
+    assert call.handle("repeat_request").speak == ["Panels के पास पानी मिल जाएगा?"]
+    r = call.handle("affirm")                              # still advances normally
+    assert "light" in r.speak[0]
+
+
+def test_repeat_request_english_and_not_counted_as_unclear():
+    call, _, _ = live(lang="en")
+    call.handle("affirm")
+    for _ in range(4):                                     # would escalate if counted as unclear
+        r = call.handle("repeat_request")
+    assert not r.end and r.speak == ["Are you free on Saturday, 28 November?"]
+
+
+def test_repeat_request_without_short_form_falls_back_to_lead_in_plus_full_line():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.last_ref = ("OFFER_PRIMARY", "no_such_key")
+    r = call.handle("repeat_request")
+    assert r.speak[0].startswith("जी, फिर से बता देता हूँ।") and r.speak[0].endswith(call.last_line)
+
+
 def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")

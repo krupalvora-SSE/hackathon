@@ -77,6 +77,10 @@
   steps: [context_ready, affirm, ask_time, wants_human, action_ok]
   expect: rm_callback
 
+- name: asks to repeat a question, then confirms
+  steps: [context_ready, repeat_request, affirm, repeat_request, affirm, repeat_request, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
 - name: price question, then confirms
   steps: [context_ready, affirm, price_or_offtopic, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
