@@ -571,9 +571,9 @@ def test_a_clock_time_outside_service_hours_gets_the_hours_then_the_question():
 
 def test_re_asks_use_the_short_form_and_never_repeat_the_recording_disclosure():
     call, first, _ = live()
-    assert "रिकॉर्ड" in first.speak[0]                            # said once, at the start
+    assert "record" in first.speak[0]                             # said once, at the start
     r = call.handle("unclear")                                    # the reported "सुबह।" at the greeting
-    assert "रिकॉर्ड" not in r.speak[0] and r.speak[0].endswith("क्या मैं Rahul जी से बात कर रहा हूँ?")
+    assert "record" not in r.speak[0] and r.speak[0].endswith("क्या मैं Rahul जी से बात कर रहा हूँ?")
     call.handle("affirm")
     r = call.handle("price_or_offtopic")
     assert len(r.speak[0]) < 140 and "maintenance due" not in r.speak[0]
@@ -651,6 +651,123 @@ def test_a_sunday_only_request_gets_the_visit_days_and_the_question_again():
     assert call.state == "OFFER_PRIMARY" and "सोमवार से शनिवार" in r.speak[0] and r.speak[0].endswith(call._reask())
     r = call.handle("proposes_date", {"date": "agle somwar ya ravivar"})      # the reported request
     assert call.state == "READINESS_CHECK" and call.ctx["selected_slot"]["date"] == "2026-11-30"
+
+
+# ---- fourth sample call (SSE-15557)
+def test_the_greeting_is_short_but_still_discloses_the_recording():
+    call, first, _ = live()
+    old_hindi = "नमस्ते, क्या मेरी बात Rahul जी से हो रही है? मैं Krupal, SolarSquare से बोल रहा हूँ। यह कॉल रिकॉर्ड की जा रही है।"
+    assert len(first.speak[0]) < len(old_hindi) - 15                     # clearly shorter than before
+    assert "record" in first.speak[0] and "SolarSquare" in first.speak[0] and "Rahul" in first.speak[0]
+    call, first, _ = live(lang="en")
+    assert "recorded" in first.speak[0] and "SolarSquare" in first.speak[0] and len(first.speak[0]) < 100
+
+
+@pytest.mark.parametrize("item,intent,asked", [
+    ("ladder", "unsure", "ladder arrange"), ("water", "unsure", "पानी का इंतज़ाम"), ("light", "unsure", "light का connection हो जाएगा"),
+    ("ladder", "dont_know", "ladder arrange"),
+])
+def test_a_maybe_is_never_booked_as_ready_it_gets_one_clear_follow_up(item, intent, asked):
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")                                           # ladder question
+    for before in {"ladder": [], "water": ["affirm"], "light": ["affirm", "affirm"]}[item]:
+        call.handle(before)
+    r = call.handle(intent)
+    assert call.state == "READINESS_CHECK" and call.arranging == item and asked in r.speak[0]
+    assert item not in call.ctx["readiness"]                        # not recorded as ready yet
+    assert call.handle("repeat_request").speak[0].startswith("क्या ")   # the short form of that follow-up
+
+
+def test_a_maybe_that_becomes_a_yes_is_recorded_as_will_arrange_and_the_recap_says_so():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    call.handle("unsure")                                           # ladder: "शायद"
+    call.handle("affirm")                                           # "yes, I'll get one"
+    call.handle("affirm")                                           # water
+    r = call.handle("affirm")                                       # light -> recap
+    assert call.state == "RECAP" and call.ctx["will_arrange"] == ["ladder"]
+    assert "ladder का इंतज़ाम आप visit से पहले कर लेंगे" in r.speak[0] and "पानी और light ready रहेंगे" in r.speak[0]
+    assert "ladder, पानी" not in r.speak[0]                          # no longer claims the ladder is ready
+
+
+def test_a_maybe_that_stays_a_maybe_counts_as_missing_and_leads_to_the_hold_flow():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    call.handle("unsure")                                           # "शायद"
+    call.handle("unsure")                                           # "शायद" again to the follow-up
+    call.handle("affirm")
+    call.handle("affirm")
+    assert call.state == "ASK_READY_DATE" and call.ctx["missing_items"] == ["ladder"]
+
+
+@pytest.mark.parametrize("asked_at,words", [
+    ([], "सीढ़ी"), (["affirm"], "पानी"), (["affirm", "affirm"], "बिजली"),
+])
+def test_what_does_that_mean_is_explained_not_answered_with_could_not_hear(asked_at, words):
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    for on in asked_at:
+        call.handle(on)
+    r = call.handle("asks_meaning")                                 # "ये A type ladder क्या होता है?"
+    assert words in r.speak[0] and "सुनाई नहीं दिया" not in r.speak[0] and call.unclear_streak == 0
+    assert r.speak[0].endswith(call._reask())                       # then the question again, short
+
+
+def test_asking_what_something_means_outside_the_checklist_gets_the_deflection():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("asks_meaning")
+    assert r.speak[0].startswith(call._global_line("deflection")) and call.state == "OFFER_PRIMARY"
+
+
+def test_beat_plan_slots_on_sunday_are_never_offered():
+    b = {"id": "BK-3", "sseId": "SSE-MUM-1", "customerName": "Amit Mehta", "phone": "+910000000003",
+         "beatPlan": {"primary_slot": {"date": "2026-11-29", "band": "evening", "hero_id": "SH-14"},     # Sunday
+                      "backup_slots": [{"date": "2026-12-01", "band": "evening", "hero_id": "SH-14"}],
+                      "availability": {}}}
+    call, first, _ = live(b)
+    r = call.handle("affirm")
+    assert call.context["primary_slot"]["date"] == "2026-12-01" and "मंगलवार" in r.speak[0]
+    assert "रविवार" not in r.speak[0]
+
+
+def test_a_call_whose_every_slot_is_a_sunday_is_not_placed():
+    b = {"id": "BK-3", "sseId": "SSE-MUM-1", "customerName": "Amit Mehta", "phone": "+910000000003",
+         "beatPlan": {"primary_slot": {"date": "2026-11-29", "band": "evening", "hero_id": "SH-14"},
+                      "backup_slots": [], "availability": {}}}
+    call, first, _ = live(b)
+    assert first.end and call.outcome == "not_dialled" and call.ctx["blocked_reason"] == "no_visit_day_slot"
+
+
+def test_confirming_a_sunday_is_refused_so_the_team_confirms_by_hand():
+    from agent.beatplan import MockBeatPlan
+
+    call, _, _ = live()
+    call.ctx["selected_slot"] = {"date": "2026-11-29", "band": "morning", "hero_id": "SH-7"}
+    assert MockBeatPlan().confirm_slot(call, "BOOK") == "action_failed"
+    call.ctx["selected_slot"] = {"date": "2026-11-30", "band": "morning", "hero_id": "SH-7"}
+    assert MockBeatPlan().confirm_slot(call, "BOOK") is None
+
+
+def test_a_family_member_is_spoken_to_as_family_not_as_the_customer():
+    call, _, _ = live()
+    r = call.handle("household_member")
+    assert "Rahul जी के solar system" in r.speak[0] and "आपके solar system" not in r.speak[0]
+    assert "घर पर कोई available" in r.speak[0]
+    assert call.handle("price_or_offtopic").speak[0].endswith("घर पर कोई available रहेगा?")      # short form too
+    for _ in range(5):                                              # offer, ladder, water, light, recap
+        last = call.handle("affirm")
+    assert call.outcome == "slot_confirmed" and "Rahul जी की visit" in last.speak[-1] and "आपकी visit" not in last.speak[-1]
+
+
+def test_the_customer_himself_still_hears_your():
+    call, _, _ = live()
+    r = call.handle("affirm")
+    assert "आपके solar system" in r.speak[0]
 
 
 def test_price_question_deflects_and_repeats_question():
@@ -737,7 +854,7 @@ def test_english_switch():
 
 
 def test_booking_without_beatplan_block_falls_back_to_date_and_window():
-    call, first, _ = live({"id": "BK-9", "customerName": "Amit Mehta", "date": "2026-11-29", "window": "15-18"})
+    call, first, _ = live({"id": "BK-9", "customerName": "Amit Mehta", "date": "2026-11-30", "window": "15-18"})
     assert call.context["primary_slot"]["band"] == "evening"
 
 

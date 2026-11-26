@@ -111,7 +111,7 @@ flowchart LR
 
 #### Step 1. Say hello, check it's the customer
 
-> Hello, am I speaking with Rahul? This is Krupal from SolarSquare. This call is being recorded.
+> Hello, is this Rahul? This is Krupal from SolarSquare. This call is being recorded.
 
 | Customer says | What happens |
 |---|---|
@@ -141,10 +141,12 @@ flowchart LR
 |---|---|
 | Yes | Step 4: Repeat the details, get a yes |
 | No | Pause the site: Ask when it will be ready |
+| Maybe / not sure (to a yes-no question) | Bot answers and asks again |
+| Can't say / doesn't know | Bot answers and asks again |
 
 #### Step 4. Repeat the details, get a yes
 
-> So that's Saturday, 28 November, with the ladder, water and light ready. Shall I confirm it?
+> So that's Saturday, 28 November, and {ready_note}. Shall I confirm it?
 
 | Customer says | What happens |
 |---|---|
@@ -311,6 +313,7 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Complains about earlier service | Ask a senior to call |
 | Speaks a language other than Hindi or English | Bot asks again; after 2 times in a row: Ask a senior to call |
 | Chit-chat that is not an answer | Bot answers briefly, then repeats its question |
+| Asks what something means or why it is needed | Bot answers briefly, then repeats its question |
 | Asks price or something else | Bot answers briefly, then repeats its question |
 | No reply | No answer |
 

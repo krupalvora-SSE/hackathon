@@ -19,7 +19,7 @@ _global:
   not_a_visit_day: "Our visits are Monday to Saturday only."
 
 GREET:
-  main: "Hello, am I speaking with {name}? This is {bot_name} from SolarSquare. This call is being recorded."
+  main: "Hello, is this {name}? This is {bot_name} from SolarSquare. This call is being recorded."
   repeat_main: "Am I speaking with {name}?"
 
 WRONG_PERSON:
@@ -29,6 +29,8 @@ WRONG_PERSON:
 OFFER_PRIMARY:
   main: "{name}, your solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will you be available that day?"
   repeat_main: "Are you free on {weekday}, {date_spoken}?"
+  main_family: "{name}'s solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will someone be home that day?"
+  repeat_main_family: "Will someone be home on {weekday}, {date_spoken}?"
 
 TIME_BAND:
   main: "Our service hero will come between {band_spoken} that day. Does that work for you?"
@@ -62,14 +64,21 @@ READINESS_CHECK:
   repeat_ask_ladder: "Do you have an A-type ladder?"
   repeat_ask_water: "Is there water near the panels?"
   repeat_ask_light: "Is there a light connection there?"
+  arrange_water: "Okay. Will you be able to arrange water near the panels before the visit?"
+  arrange_light: "Okay. Will you be able to arrange a light connection before the visit?"
+  repeat_arrange_water: "Can you arrange water before the visit?"
+  repeat_arrange_light: "Can you arrange a light connection?"
+  explain_ladder: "An A-type ladder is a folding ladder shaped like the letter A that stands on its own; our hero uses it to reach the roof."
+  explain_water: "We need water to clean the panels."
+  explain_light: "We need a power connection for the work."
 
 ASK_READY_DATE:
   main: "Understood. By when can the {missing_item} be arranged? Could you give me a date?"
   repeat_main: "By what date can the {missing_item} be ready?"
 
 RECAP:
-  main: "So that's {weekday}, {date_spoken}, with the ladder, water and light ready. Shall I confirm it?"
-  with_time: "So that's {weekday}, {date_spoken}, between {band_spoken}, with the ladder, water and light ready. Shall I confirm it?"
+  main: "So that's {weekday}, {date_spoken}, and {ready_note}. Shall I confirm it?"
+  with_time: "So that's {weekday}, {date_spoken}, between {band_spoken}, and {ready_note}. Shall I confirm it?"
   repeat_main: "{weekday}, {date_spoken}. Shall I confirm?"
   repeat_with_time: "{weekday}, {date_spoken}, {band_spoken}. Shall I confirm?"
 
@@ -92,6 +101,8 @@ RECALL:
 CONFIRMED_CLOSE:
   main: "Your visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
   with_time: "Your visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{sms_line} Thank you, have a great day!"
+  main_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
+  with_time_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{sms_line} Thank you, have a great day!"
 
 HOLD_CLOSE:
   main: "Your site is on hold until {hold_until_spoken}. We'll reach out after that. Thank you!"

@@ -339,3 +339,11 @@
   steps: [context_ready, household_member, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
+- name: says maybe to a readiness question, then confirms
+  steps: [context_ready, affirm, affirm, unsure, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: asks what an item means, then confirms
+  steps: [context_ready, affirm, affirm, asks_meaning, affirm, affirm, action_ok]
+  expect: slot_confirmed
+

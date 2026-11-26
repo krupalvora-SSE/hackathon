@@ -22,7 +22,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.12.0
+version: 0.13.0
 title: Service scheduling call flow
 ticket: SSE-15557
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -312,6 +312,10 @@ states:
       - on: deny
         to: ASK_READY_DATE
         set: {hold_reason: prerequisites_missing}
+      - on: unsure                       # "maybe": asked once whether they will have it by the visit
+        to: READINESS_CHECK
+      - on: dont_know
+        to: READINESS_CHECK
 
   ASK_READY_DATE:
     title: Ask when it will be ready

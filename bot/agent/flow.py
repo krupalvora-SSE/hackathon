@@ -421,6 +421,11 @@ class FlowCall:
                 return self._step(self._enter(gi["escalate_to"]))
         if name == "repeat_request":
             return self._step([self._repeat_line()])
+        if name == "asks_meaning":                 # "ye A type ladder kya hota hai?"
+            state, key = self.last_ref
+            item = key.split("_", 1)[1] if key.startswith(("ask_", "arrange_")) else None
+            line = self._line(state, f"explain_{item}") if item else ""
+            return self._step([f"{line or self._global_line('deflection')} {self._reask()}".strip()])
         if name == "personal_reason":              # ill / family matter: sympathy, then when to call back
             self.ctx["hold_reason"] = "personal_reason"
             if self.state == "RECALL":
@@ -501,7 +506,7 @@ class FlowCall:
             return None
         st = self.spec.states[self.state]
 
-        if st.get("checklist") and on in ("affirm", "deny"):
+        if st.get("checklist") and on in ("affirm", "deny", "unsure", "dont_know"):
             items = self.policies[st["checklist"]]
             item = items[self.readiness_idx]
             if self.arranging == item["id"]:          # answer to "can you arrange it before the visit?"
@@ -509,7 +514,8 @@ class FlowCall:
                 if on == "affirm":
                     self.ctx["will_arrange"].append(item["id"])
                 ok = on == "affirm"
-            elif on == "deny" and item.get("ask_if_can_arrange"):
+            elif on in ("unsure", "dont_know") or (on == "deny" and item.get("ask_if_can_arrange")):
+                # "maybe" is never booked as ready: ask once whether they will have it by the visit
                 self.arranging = item["id"]
                 q = self._line(self.state, f"arrange_{item['id']}")
                 self.last_line, self.last_ref = q, (self.state, f"arrange_{item['id']}")
@@ -613,7 +619,11 @@ class FlowCall:
     def _main_key(self, st: dict) -> str:
         """Prompt key to speak on entering a state: its time_line once the customer asked about time."""
         key = st.get("time_line")
-        return key if key and self.ctx.get("time_shared") else "main"
+        key = key if key and self.ctx.get("time_shared") else "main"
+        family = f"{key}_family"        # spoken to a family member: "Amit's solar system", not "your solar system"
+        if self.ctx.get("spoke_to") == "family_member" and (self.spec.prompts[self.lang].get(self.state) or {}).get(family):
+            return family
+        return key
 
     def _checklist_key(self) -> str:
         item = self.policies[self.spec.states[self.state]["checklist"]][self.readiness_idx]["id"]
@@ -675,7 +685,25 @@ class FlowCall:
             v["requested_date_spoken"] = f"{speak_weekday(d, self.lang)}, {speak_day(d, self.lang)}"
         if self.ctx.get("requested_band"):
             v["requested_band_spoken"] = (HI_PART if self.lang == "hi" else EN_PART)[self.ctx["requested_band"]]
+        v["ready_note"] = self._ready_note()
         return v
+
+    def _ready_note(self) -> str:
+        """"ladder, water and light will be ready" - or which of them the customer will arrange before the visit."""
+        hi = self.lang == "hi"
+        short = {"ladder": "ladder", "water": "पानी" if hi else "water", "light": "light"}
+        name = lambda i: short.get(i, i)
+        arrange = list(self.ctx.get("will_arrange") or [])
+        ready = [i["id"] for i in self.policies["readiness_items"]
+                 if self.ctx["readiness"].get(i["id"]) and i["id"] not in arrange]
+        join = " और " if hi else " and "
+        parts = []
+        if ready:
+            parts.append(join.join(map(name, ready)) + (" ready रहेंगे" if hi else " will be ready"))
+        if arrange:
+            parts.append(join.join(map(name, arrange)) + (" का इंतज़ाम आप visit से पहले कर लेंगे" if hi
+                                                          else " you will arrange before the visit"))
+        return join.join(parts) if parts else ("सब ready रहेगा" if hi else "everything will be ready")
 
     def _line(self, state: str, key: str) -> str:
         p = self.spec.prompts[self.lang].get(state) or {}

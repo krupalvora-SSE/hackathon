@@ -2,6 +2,14 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.13.0 (2026-11-26, SSE-15557)
+From a fourth sample call:
+- "Maybe" (शायद / हो सकता है, intents `unsure` and `dont_know`) to the ladder, water or light question is no longer booked as ready: the bot asks once whether they will arrange it before the visit (`arrange_<item>` for all three items). Yes is recorded as `will_arrange`, no or another maybe as missing (hold flow). The recap now says which items the customer will arrange (`{ready_note}`) instead of claiming everything is ready.
+- New global intent `asks_meaning` ("ये A type ladder क्या होता है?"): the bot explains the item being asked (`explain_ladder / water / light`) and asks again, instead of "could not hear".
+- Beat Plan slots on a day we do not visit (Sunday) are dropped before offering; the next valid slot becomes the plan, and a call with none is not placed (`blocked_reason: no_visit_day_slot`). `confirm_slot` refuses a non-visit day so the team confirms by hand.
+- A family member is spoken to as family: `main_family` lines for the offer ("Amit जी के solar system…", "घर पर कोई available रहेगा?") and the goodbye ("Amit जी की visit…").
+- Shorter greeting, recording disclosure kept: "नमस्ते, क्या {name} जी बोल रहे हैं? मैं SolarSquare से {bot_name}। यह call record हो रही है।"
+
 ## 0.12.0 (2026-11-26, SSE-15557)
 From three sample calls and two requests:
 - Fix: the Devanagari "सुबह / शाम / दोपहर" were never understood (the word splitter dropped vowel signs), so the band question looped. A clock time outside the service hours at the band question ("सुबह 7:00 बजे") now gets "visits are 9 to 6" and the question again.

@@ -162,6 +162,14 @@ global:
       hi: ["Apple खाया?", "आप कैसे हैं", "खाना खाया?", "मौसम बहुत गर्म है", "Nice, nice"]
       en: ["how are you", "have you eaten", "nice weather"]
 
+  asks_meaning:
+    label: Asks what something means or why it is needed
+    goto: $stay
+    say: deflection                # explained from the step's own explain_<item> line when it has one
+    examples:
+      hi: ["ये A type ladder क्या होता है?", "इसका मतलब क्या है", "ये क्यों चाहिए", "पानी क्यों चाहिए"]
+      en: ["what is an A-type ladder", "what does that mean", "why do you need water"]
+
   price_or_offtopic:
     label: Asks price or something else
     goto: $stay
@@ -239,6 +247,12 @@ local:
     examples:
       hi: ["kal shaam 5 se 7", "do ghante baad", "Sunday subah"]
       en: ["tomorrow 5 to 7 pm", "in two hours"]
+
+  unsure:
+    label: Maybe / not sure (to a yes-no question)
+    examples:
+      hi: ["शायद", "हो सकता है", "हो सकती है", "पता नहीं, देखना पड़ेगा", "maybe", "लगता है है"]
+      en: ["maybe", "I think so", "not sure"]
 
   dont_know:
     label: Can't say / doesn't know

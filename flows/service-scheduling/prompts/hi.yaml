@@ -26,7 +26,7 @@ _global:
   not_a_visit_day: "हमारी visits सोमवार से शनिवार तक ही होती हैं।"
 
 GREET:
-  main: "नमस्ते, क्या मेरी बात {name} जी से हो रही है? मैं {bot_name}, SolarSquare से बोल रहा हूँ। यह कॉल रिकॉर्ड की जा रही है।"
+  main: "नमस्ते, क्या {name} जी बोल रहे हैं? मैं SolarSquare से {bot_name}। यह call record हो रही है।"
   repeat_main: "जी, क्या मैं {name} जी से बात कर रहा हूँ?"
 
 WRONG_PERSON:
@@ -36,6 +36,8 @@ WRONG_PERSON:
 OFFER_PRIMARY:
   main: "{name} जी, आपके solar system का maintenance due है। {weekday}, {date_spoken} को हमारे पास slot है, क्या आप उस दिन available रहेंगे?"
   repeat_main: "{weekday}, {date_spoken} को आप available हैं?"
+  main_family: "{name} जी के solar system का maintenance due है। {weekday}, {date_spoken} को हमारे पास slot है, क्या उस दिन घर पर कोई available रहेगा?"
+  repeat_main_family: "{weekday}, {date_spoken} को घर पर कोई available रहेगा?"
 
 TIME_BAND:
   main: "उस दिन हमारे service hero {band_spoken} के बीच आएँगे। क्या यह time आपको ठीक लगेगा?"
@@ -69,14 +71,21 @@ READINESS_CHECK:
   repeat_ask_ladder: "आपके पास A-type ladder है?"
   repeat_ask_water: "Panels के पास पानी मिल जाएगा?"
   repeat_ask_light: "वहाँ light का connection है?"
+  arrange_water: "ठीक है। क्या visit से पहले panels के पास पानी का इंतज़ाम हो जाएगा?"
+  arrange_light: "ठीक है। क्या visit से पहले light का connection हो जाएगा?"
+  repeat_arrange_water: "क्या पानी का इंतज़ाम हो जाएगा?"
+  repeat_arrange_light: "क्या light का connection हो जाएगा?"
+  explain_ladder: "A-type ladder वह सीढ़ी है जो दोनों तरफ़ से खड़ी होकर टिकती है; hero उससे छत तक पहुँचता है।"
+  explain_water: "Panels साफ़ करने के लिए पानी चाहिए होता है।"
+  explain_light: "काम के लिए बिजली का connection चाहिए होता है।"
 
 ASK_READY_DATE:
   main: "समझ गया। {missing_item} कब तक arrange हो जाएगा, कोई date बता सकते हैं?"
   repeat_main: "{missing_item} किस date तक हो जाएगा?"
 
 RECAP:
-  main: "तो {weekday}, {date_spoken}, और ladder, पानी और light ready रहेंगे। मैं यह confirm कर दूँ?"
-  with_time: "तो {weekday}, {date_spoken}, {band_spoken} के बीच, और ladder, पानी और light ready रहेंगे। मैं यह confirm कर दूँ?"
+  main: "तो {weekday}, {date_spoken}, और {ready_note}। मैं यह confirm कर दूँ?"
+  with_time: "तो {weekday}, {date_spoken}, {band_spoken} के बीच, और {ready_note}। मैं यह confirm कर दूँ?"
   repeat_main: "{weekday}, {date_spoken}। मैं यह confirm कर दूँ?"
   repeat_with_time: "{weekday}, {date_spoken}, {band_spoken}। मैं यह confirm कर दूँ?"
 
@@ -99,6 +108,8 @@ RECALL:
 CONFIRMED_CLOSE:
   main: "आपकी visit {weekday}, {date_spoken} के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
   with_time: "आपकी visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+  main_family: "{name} जी की visit {weekday}, {date_spoken} के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+  with_time_family: "{name} जी की visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
 
 HOLD_CLOSE:
   main: "आपकी site {hold_until_spoken} तक hold पर है। उसके बाद हम आपसे संपर्क करेंगे। धन्यवाद!"
