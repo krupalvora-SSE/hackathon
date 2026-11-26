@@ -94,10 +94,17 @@ def flow_system_prompt(call) -> str:
     lines = []
     for name, i in {**spec.global_intents, **spec.local_intents}.items():
         ex = (i or {}).get("examples") or {}
-        sample = "; ".join([*ex.get("hi", [])[:6], *ex.get("en", [])[:3]])
+        taught = (getattr(call, "knowledge", None) or {}).get("intents", {}).get(name, [])    # phrases an admin taught us
+        sample = "; ".join([*ex.get("hi", [])[:6], *ex.get("en", [])[:3], *taught[:6]])
         scope = " (any time)" if name in spec.global_intents else ""
         lines.append(f"- {name}{scope}: e.g. {sample}")
     intents = "\n".join(lines)
+    faqs = (getattr(call, "knowledge", None) or {}).get("faqs", [])
+    approved = ""
+    if faqs:
+        approved = ("\nApproved answers: when the customer asks one of these, even in other words, use the intent "
+                    "known_question with that faq_id (the system speaks the answer):\n"
+                    + "\n".join(f'- faq_id={f["id"]}: "{f["question"]}"' for f in faqs[:40]) + "\n")
     c = call.context
     primary = c.get("primary_slot") or {}
     return f"""You are the listening brain of {persona['name']}, a SolarSquare phone agent calling an existing customer
@@ -113,7 +120,7 @@ pick only from those. If nothing fits or you could not understand, use "unclear"
 
 Intents:
 {intents}
-
+{approved}
 Entities (fill only when the customer said them, using their own words):
 - date: a date they mention (when the site will be ready, which alternate day, back from travel)
 - option: 1 or 2 when they pick one of the two days just offered
@@ -137,7 +144,8 @@ other_language; do not guess an answer from garbled text.
 Correcting an earlier answer at the recap ("mere paas ladder nahi hai", "light nahi hai asal mein") is
 corrects_readiness with the readiness entity (false = they don't have it), not change_date or change_time.
 For "when will it be ready?" put the customer's own words in the date entity, including "1 mahine baad" or "after 2 weeks".
-"Do you charge / is it free / kitne paise" is asks_price. Other things we can't answer (generation, savings, subsidy,
+"Do you charge / is it free / kitne paise" is asks_price. A question that matches an "Approved answers" entry is
+known_question with its faq_id, checked before price_or_offtopic. Other things we can't answer (generation, savings, subsidy,
 inverter problems) are price_or_offtopic. A plain "haan, boliye / haan bolo" at the greeting is affirm: the customer
 saying yes, not household_member (that needs a relationship: brother, son, wife...).
 A death, funeral, accident or serious emergency in the family is ALWAYS sensitive_situation (never personal_reason,

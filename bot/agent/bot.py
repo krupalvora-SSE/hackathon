@@ -51,6 +51,7 @@ from . import config as call_config
 from .events import Emitter, save_result
 from .engine import make_engine
 from .filler import Filler
+from .knowledge import fetch_knowledge
 from .prompts import HANDOVER_BROWSER_NOTE
 from .tools import Action
 from .voice import TTS_TEXT_TRANSFORMS, SarvamCloneTTSService, clone_in_use, drop_stale_clone
@@ -236,7 +237,8 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
                    call_sid: str | None = None) -> None:
     emitter = Emitter(call_id)
     await drop_stale_clone()  # before the engine, which takes the bot's name from the picked voice
-    engine = make_engine(call_id, booking, on_event=emitter.emit)  # CALL_FLOW picks YAML flow or checklist
+    knowledge = await fetch_knowledge()      # answers and phrases an admin taught on the Questions view
+    engine = make_engine(call_id, booking, on_event=emitter.emit, knowledge=knowledge)  # CALL_FLOW picks YAML flow or checklist
     logger.info(f"call {call_id} booking={booking.get('id')} telephony={telephony} flow={engine.name}")
 
     cfg = call_config.load()  # read per call: /voice page edits apply from the next call
@@ -394,11 +396,16 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if text and not engine.outcome:
             await worker.queue_frames([TTSSpeakFrame(text, append_to_context=True)])
 
+    last_said = {"text": ""}                 # the customer's latest words, for the Questions view
+
     async def handle_tool(params: FunctionCallParams) -> None:
         filler.cancel()  # the LLM has answered; the real line follows in a moment
         args = dict(params.arguments or {})
         action = engine.dispatch(params.function_name, args)
         logger.info(f"tool {params.function_name}({args}) -> {action.result}")
+        if action.offguard and last_said["text"]:        # shown on the dashboard's Questions view for an admin
+            emitter.emit({"type": "offguard", "kind": action.offguard, "text": last_said["text"],
+                          "state": action.result.get("state"), "intent": args.get("intent")})
         if action.ask_next:
             pending_ask["text"] = action.ask_next
             if not pending_ask["task"]:
@@ -419,6 +426,8 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
 
     @aggregators.user().event_handler("on_user_turn_stopped")
     async def _user_said(_agg, _strategy, message):
+        if getattr(message, "content", None):
+            last_said["text"] = message.content
         yielded["answered"] = bool(getattr(message, "content", None))
         turn_over.set()
         if getattr(message, "content", None):

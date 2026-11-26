@@ -56,11 +56,11 @@ class ChecklistEngine:
 
 class FlowEngine:
     def __init__(self, call_id: str, booking: dict, on_event=_noop, today: date | None = None,
-                 flow: str | None = None):
+                 flow: str | None = None, knowledge: dict | None = None):
         spec = FlowSpec.load(flow)
         self.name = spec.dir.name
         self.call = FlowCall(call_id=call_id, booking=booking, spec=spec, on_event=on_event,
-                             today=today or N.today_ist())
+                             today=today or N.today_ist(), knowledge=knowledge or {})
         self._start = self.call.start()     # runs PRE_CALL (context fetch, eligibility)
         self.tools = flow_tools(spec)
 
@@ -85,7 +85,8 @@ class FlowEngine:
                                   "allowed_intents": step.allowed}, run_llm=True)
         return Action(result={"ok": True, "state": step.state, "bot_said": step.speak,
                               "allowed_intents": step.allowed, "ended": step.end},
-                      speak=step.speak, end=step.end, run_llm=False, idle_timeout=step.idle_timeout)
+                      speak=step.speak, end=step.end, run_llm=False, idle_timeout=step.idle_timeout,
+                      offguard=step.offguard)
 
     def dispatch(self, name: str, args: dict) -> Action:
         if self.call.outcome:
@@ -114,11 +115,11 @@ class FlowEngine:
 
 
 def make_engine(call_id: str, booking: dict, on_event=_noop, today: date | None = None,
-                mode: str | None = None):
+                mode: str | None = None, knowledge: dict | None = None):
     mode = mode or os.getenv("CALL_FLOW", "service-scheduling")
     if mode == "checklist":
         return ChecklistEngine(call_id, booking, on_event, today)
-    return FlowEngine(call_id, booking, on_event, today, flow=mode)
+    return FlowEngine(call_id, booking, on_event, today, flow=mode, knowledge=knowledge)
 
 
 __all__ = ["ChecklistEngine", "FlowEngine", "make_engine", "goodbye"]

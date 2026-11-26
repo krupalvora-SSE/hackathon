@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
 // shortcut: in-memory like bookings; calls vanish on restart.
-export function createCalls(bookings) {
+export function createCalls(bookings, { onOffguard } = {}) {
   const calls = new Map();
   const subs = new Map(); // callId -> Set<fn>
 
@@ -30,6 +30,8 @@ export function createCalls(bookings) {
       if (e.outcome) c.outcome = e.outcome;
     } else if (e.type === 'slot') {
       c.slots[e.key] = e.ok ? { ok: true, value: e.value, display: e.display } : { ok: false, raw: e.raw, error: e.error };
+    } else if (e.type === 'offguard') {
+      onOffguard?.({ text: e.text, kind: e.kind, state: e.state, intent: e.intent, callId: id, bookingId: c.bookingId });
     } else if (e.type === 'result' && e.record) {
       Object.assign(c, { record: e.record, status: 'ended', outcome: e.record.outcome });
       bookings.applyCallResult(c.bookingId, { call_id: c.id, ...e.record });

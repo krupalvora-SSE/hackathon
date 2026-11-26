@@ -2,6 +2,13 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.17.0 (2026-11-26, SSE-15559)
+Off-guard questions can be reviewed and taught:
+- Every turn the bot could not handle (`deflected`, `not_understood`, `unclear`, `other_language`) is sent to the dashboard app with the customer's words and the step it happened at, and listed on the new Questions view.
+- An admin can write the answer the bot should say, or teach an existing intent (for example `wants_human`, `do_not_call`) with that phrase, or ignore it.
+- At the start of every call the bot reads the approved answers and taught phrases (`GET /api/knowledge`). New global intent `known_question` (with a `faq_id` entity) speaks an approved answer and re-asks the question; taught phrases are added to that intent's examples in the classifier prompt. An answer saved now is used from the next call.
+- `GET /api/flow` on the bot also lists the intents, for the admin's "teach an intent" choice.
+
 ## 0.16.0 (2026-11-26, SSE-15557)
 From a call where the customer asked the price three times and got "our team will tell you separately" each time:
 - New global intent `asks_price` ("आप पैसे लोगे क्या?", "is it free"): the bot says "फ़िलहाल यह visit free है।" and asks the question again. Controlled by `policies.price_answer: free`; clear it to go back to the deflection. No amount is ever stated (`never_promise` now lists `price_amounts`, savings, generation, subsidy). NOTE: this relaxes the organisers' hard rule "never promises prices" for this one sentence and needs the owner's confirmation.

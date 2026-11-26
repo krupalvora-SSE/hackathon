@@ -192,6 +192,14 @@ global:
       hi: ["आप पैसे लोगे क्या इसके लिए?", "कितना charge लगेगा", "free है या paid", "इसके कितने पैसे लगेंगे"]
       en: ["how much will it cost", "is it free", "do you charge for this"]
 
+  known_question:
+    label: Asks something an admin has approved an answer for
+    goto: $stay
+    say: deflection                # replaced by the approved answer (faq_id); unknown id falls back to the deflection
+    examples:
+      hi: ["(a question that matches one of the approved answers listed in the prompt)"]
+      en: ["(a question that matches one of the approved answers listed in the prompt)"]
+
   price_or_offtopic:
     label: Asks something we can't answer (generation, inverter, savings...)
     goto: $stay

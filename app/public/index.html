@@ -101,6 +101,7 @@
     .header-link { display:inline-flex; align-items:center; gap:6px; color:var(--fg-2); font-size:var(--text-xs); font-weight:700; text-decoration:none; padding:8px 12px; border:1px solid var(--border-1); border-radius:999px; background:var(--bg-surface); }
     .header-link:hover { color:var(--fg-1); border-color:var(--border-2); }
     .header-link svg { width:14px; height:14px; }
+    .q-badge { min-width:18px; padding:1px 6px; border-radius:999px; background:var(--blue-500); color:#fff; font-size:11px; line-height:16px; text-align:center; }
     .live-pill { display:flex; align-items:center; gap:8px; border:1px solid var(--border-1); border-radius:999px; background:rgba(255,255,255,.82); padding:8px 12px; color:var(--fg-2); font-size:var(--text-xs); font-weight:700; }
     .live-dot { width:8px; height:8px; border-radius:50%; background:var(--leaf-500); box-shadow:0 0 0 4px rgba(43,168,74,.10); }
     main { max-width:1180px!important; padding:44px 24px 64px!important; }
@@ -178,6 +179,7 @@
     <div class="header-actions">
       <a class="header-link" id="voice-link" href="http://localhost:7860/voice" target="_blank" rel="noopener"><i data-lucide="audio-lines"></i>Voice studio</a>
       <a class="header-link" href="/flow" target="_blank" rel="noopener"><i data-lucide="git-branch"></i>Call flow</a>
+      <a class="header-link" href="/questions.html"><i data-lucide="message-circle-question"></i>Questions<span class="q-badge" id="q-badge" hidden></span></a>
       <span class="live-pill"><i class="live-dot"></i><span id="service-status">Service online</span></span>
     </div>
   </header>
@@ -532,6 +534,14 @@
       if (active) clearTimeout(active.waitTimer);
       $('record-wait').hidden = true;
     }
+
+    // How many things customers said that the agent could not handle and nobody has looked at yet.
+    const loadQuestionCount = () => fetch('/api/offguard').then((r) => r.json()).then((q) => {
+      const n = q.filter((x) => x.status === 'new').length;
+      $('q-badge').hidden = !n; $('q-badge').textContent = n;
+    }).catch(() => {});
+    loadQuestionCount();
+    setInterval(loadQuestionCount, 10000);
 
     load();
     setInterval(load, 3000); // bookings table only; live call data arrives over SSE

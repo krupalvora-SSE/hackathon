@@ -55,6 +55,7 @@ class Action:
     run_llm: bool = True             # let the LLM respond to the result
     ask_next: str | None = None      # spoken after this turn's tool calls (skips a 2nd LLM round trip)
     idle_timeout: float | None = None  # lengthen the silence timer (customer asked us to hold)
+    offguard: str | None = None        # the customer said something we could not handle (for the Questions view)
 
 
 ACKS = ["Theek hai.", "Ji, bilkul.", "Achha ji."]
@@ -145,6 +146,8 @@ def flow_tools(spec) -> list[dict]:
             "reason": {"type": "string", "description": "Why not serviceable / why they want a person."},
             "asks_time": {"type": "boolean", "description": "True if the customer also asks about the time / "
                                                             "window of the visit in this turn."},
+            "faq_id": {"type": "string", "description": "With intent known_question: the faq_id of the approved "
+                                                        "answer that matches what the customer asked."},
             "hedged": {"type": "boolean", "description": "True if the customer said yes (haan / ji) but hedged "
                                                          "(shayad, lagta hai, ho sakta hai)."},
             "readiness": {

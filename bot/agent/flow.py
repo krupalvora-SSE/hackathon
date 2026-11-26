@@ -195,6 +195,7 @@ class Step:
     state: str | None = None
     allowed: list[str] = field(default_factory=list)
     idle_timeout: float | None = None   # new silence timeout in seconds (customer asked us to hold)
+    offguard: str | None = None         # the customer said something we could not handle: why (see FlowCall._offguard)
 
 
 @dataclass
@@ -203,6 +204,7 @@ class FlowCall:
     booking: dict
     spec: FlowSpec = field(default_factory=FlowSpec.load)
     beatplan: BeatPlan | None = None
+    knowledge: dict = field(default_factory=dict)       # what an admin taught us: {"faqs": [...], "intents": {...}}
     today: date = field(default_factory=N.today_ist)
     on_event: Callable[[dict], None] = lambda e: None
     auto: bool = True        # run system-state actions; False = paper mode (events come from the caller)
@@ -217,6 +219,7 @@ class FlowCall:
     unclear_streak: int = 0
     lang_streak: int = 0                    # consecutive turns in a language we don't speak
     deflect_streak: int = 0                 # consecutive "our team will tell you separately" replies
+    _offguard: str | None = None            # deflected | not_understood | unclear | other_language, for this turn
     _prev_streak: int = 0                   # unclear_streak before this turn (a failed answer adds to it)
     readiness_idx: int = 0
     backup_queue: list | None = None
@@ -254,7 +257,9 @@ class FlowCall:
 
     def handle(self, on: str, entities: dict | None = None, flags: dict | None = None) -> Step:
         """Feed one intent (from the LLM) or event (paper mode) into the flow."""
+        self._offguard = None
         step = self._handle(on, entities, flags)
+        step.offguard = self._offguard
         # "yes, Friday - but what time?": answer the time in front of the next line, whatever step we moved to
         if ((entities or {}).get("asks_time") is True and on != "ask_time" and not step.error and not step.end
                 and step.speak and step.state != "TIME_BAND"):
@@ -422,12 +427,18 @@ class FlowCall:
 
     def _global(self, name: str, gi: dict) -> Step:
         if name == "unclear":
+            self._offguard = "unclear"
             self.unclear_streak += 1
             if gi.get("escalate_to") and self.unclear_streak > int(gi.get("escalate_after", 2)):
                 self.ctx["rm_callback_reason"] = "repeated_misunderstanding"
                 return self._step(self._enter(gi["escalate_to"]))
         if name == "repeat_request":
             return self._step([self._repeat_line()])
+        if name == "known_question":              # an admin taught us the answer to this
+            faq = next((f for f in self.knowledge.get("faqs", []) if f.get("id") == self.ctx.pop("_faq_id", None)), None)
+            if not faq:
+                return self._deflection()
+            return self._step([f"{faq['answer']} {self._reask()}".strip()])
         if name == "asks_meaning":                 # "ye A type ladder kya hota hai?"
             state, key = self.last_ref
             item = key.split("_", 1)[1] if key.startswith(("ask_", "arrange_")) else None
@@ -456,6 +467,7 @@ class FlowCall:
             self.ctx["rm_callback_reason"] = "complaint"
             return self._step([self._global_line("complaint_ack"), *self._enter("ESCALATE_RM")])
         if name == "other_language":
+            self._offguard = "other_language"
             self.lang_streak += 1
             if gi.get("escalate_to") and self.lang_streak > int(gi.get("escalate_after", 2)):
                 self.ctx["rm_callback_reason"] = "language_not_supported"
@@ -477,6 +489,7 @@ class FlowCall:
 
     def _deflection(self) -> Step:
         """"Our team will tell you separately" - twice at most, then say we don't know and a senior will call back."""
+        self._offguard = "deflected"
         self.deflect_streak += 1
         if self.deflect_streak > int(self.policies.get("deflect_limit", 2)):
             self.ctx["rm_callback_reason"] = "unanswered_question"
@@ -486,6 +499,7 @@ class FlowCall:
     def _not_understood(self, key: str = "didnt_catch") -> Step:
         """Heard, but the answer can't be used (no date, no time of day...): ask again, and hand over to a senior
         after repeated misses instead of looping."""
+        self._offguard = "not_understood"
         self.unclear_streak = self._prev_streak + 1
         gi = self.spec.global_intents.get("unclear") or {}
         if gi.get("escalate_to") and self.unclear_streak > int(gi.get("escalate_after", 2)):
@@ -514,6 +528,8 @@ class FlowCall:
         intent = {**self.spec.global_intents, **self.spec.local_intents}.get(on) or {}
         if intent.get("shares_time") or e.get("asks_time") is True:
             self.ctx["time_shared"] = True
+        if e.get("faq_id"):
+            self.ctx["_faq_id"] = str(e["faq_id"])
         if e.get("exact_time"):
             self.ctx["preferred_exact_time"] = e["exact_time"]
         self.ctx.pop("_band_outside_hours", None)
