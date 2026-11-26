@@ -12,7 +12,7 @@ const store = createStore();
 const calls = createCalls(store);
 const PUBLIC = join(import.meta.dirname, 'public');
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.ttf': 'font/ttf' };
-const STATUS = { not_found: 404, already_decided: 409, invalid_mode: 400, invalid_event: 400, exotel_not_configured: 503, exotel_failed: 502 };
+const STATUS = { not_found: 404, already_decided: 409, invalid_mode: 400, invalid_event: 400, exotel_not_configured: 503, exotel_failed: 502, number_not_allowed: 403 };
 
 const json = (res, code, body) => {
   res.writeHead(code, { 'content-type': 'application/json' });

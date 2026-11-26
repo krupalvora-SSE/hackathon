@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { connectCall, missingConfig } from './exotel.js';
+import { connectCall, isAllowedNumber, missingConfig } from './exotel.js';
 
-const env = { EXOTEL_API_KEY: 'k', EXOTEL_API_TOKEN: 't', EXOTEL_ACCOUNT_SID: 'acme', EXOTEL_CALLER_ID: '0800', EXOTEL_FLOW_ID: '42', EXOTEL_SUBDOMAIN: 'api.exotel.com' }; // Singapore cluster
+const env = { EXOTEL_API_KEY: 'k', EXOTEL_API_TOKEN: 't', EXOTEL_ACCOUNT_SID: 'acme', EXOTEL_CALLER_ID: '0800', EXOTEL_FLOW_ID: '42', EXOTEL_SUBDOMAIN: 'api.exotel.com', EXOTEL_TEST_NUMBERS: '+910000000001, +91 99999 00000' }; // Singapore cluster
 
 test('missing config is reported without calling Exotel', async () => {
-  assert.deepEqual(missingConfig({ EXOTEL_API_KEY: 'k' }), ['EXOTEL_API_TOKEN', 'EXOTEL_ACCOUNT_SID', 'EXOTEL_CALLER_ID', 'EXOTEL_FLOW_ID']);
+  assert.deepEqual(missingConfig({ EXOTEL_API_KEY: 'k' }), ['EXOTEL_API_TOKEN', 'EXOTEL_ACCOUNT_SID', 'EXOTEL_CALLER_ID', 'EXOTEL_FLOW_ID', 'EXOTEL_TEST_NUMBERS']);
   const r = await connectCall({ to: '+91', customField: 'C' }, { env: {}, fetch: () => assert.fail('should not fetch') });
   assert.equal(r.error, 'exotel_not_configured');
 });
@@ -27,14 +27,23 @@ test('connect request shape', async () => {
 test('Mumbai cluster uses the .in. flow host', async () => {
   let req;
   const fetch = async (url, init) => { req = { url, init }; return { ok: true, json: async () => ({ Call: { Sid: 'S' } }) }; };
-  await connectCall({ to: '+91', customField: 'C' }, { env: { ...env, EXOTEL_SUBDOMAIN: 'api.in.exotel.com' }, fetch });
+  await connectCall({ to: '+910000000001', customField: 'C' }, { env: { ...env, EXOTEL_SUBDOMAIN: 'api.in.exotel.com' }, fetch });
   assert.equal(req.url, 'https://api.in.exotel.com/v1/Accounts/acme/Calls/connect.json');
   assert.equal(req.init.body.get('Url'), 'http://my.in.exotel.com/acme/exoml/start_voice/42');
 });
 
 test('exotel error surfaces message', async () => {
   const fetch = async () => ({ ok: false, status: 403, json: async () => ({ RestException: { Message: 'Not allowed' } }) });
-  const r = await connectCall({ to: '+91', customField: 'C' }, { env, fetch });
+  const r = await connectCall({ to: '+910000000001', customField: 'C' }, { env, fetch });
   assert.equal(r.error, 'exotel_failed');
   assert.equal(r.message, 'Not allowed');
+});
+
+test('only allowlisted test numbers are dialled', async () => {
+  const r = await connectCall({ to: '+919876543210', customField: 'C' }, { env, fetch: () => assert.fail('should not fetch') });
+  assert.equal(r.error, 'number_not_allowed');
+  assert.equal(isAllowedNumber('919999900000', env), true); // formatting differences don't matter
+  assert.equal(isAllowedNumber('09999900000', env), true);
+  assert.equal(isAllowedNumber('9999900000', env), true);
+  assert.equal(isAllowedNumber('', { EXOTEL_TEST_NUMBERS: ',' }), false);
 });
