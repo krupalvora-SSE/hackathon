@@ -41,6 +41,11 @@ def context_from_booking(b: dict) -> dict:
         "availability": bp.get("availability") or {},
         "plan_window_end": bp.get("plan_window_end"),
         "fail_actions": bp.get("fail_actions") or [],
+        "last_visit_missed": bool(bp.get("last_visit_missed", False)),
+        # First preventive maintenance: due 7 days after commissioning, always included in the AMC plan.
+        "first_pm": bool(bp.get("first_pm", False) or bp.get("pm_number") == 1),
+        "last_call_at": bp.get("last_call_at"),
+        "calls_this_week": int(bp.get("calls_this_week", 0)),
     }
 
 
@@ -49,15 +54,17 @@ class MockBeatPlan:
         handler = getattr(self, name, None)
         if handler is None:
             raise KeyError(f"no handler for action '{name}'")
-        if name in (call.context.get("fail_actions") or []):
+        fail = call.context.get("fail_actions") or (call.booking.get("beatPlan") or {}).get("fail_actions") or []
+        if name in fail:              # context isn't loaded yet when fetch_beatplan_context itself fails
             return "action_failed"
         return handler(call, state)
 
     # ------------------------------------------------------------ pre-call
     def fetch_beatplan_context(self, call: "FlowCall", state: str):
         call.context = context_from_booking(call.booking)
-        if not call.context["primary_slot"]:
-            return "not_eligible"
+        if not call.context["primary_slot"] or not call.context["customer"]["name"]:
+            call.ctx["blocked_reason"] = "beatplan_context_missing"   # never dial with blank name or date
+            return "context_failed"
         return None
 
     def check_call_eligibility(self, call: "FlowCall", state: str):
@@ -69,6 +76,16 @@ class MockBeatPlan:
         if allow and c["phone"] and c["phone"] not in allow:
             call.ctx["blocked_reason"] = "not_test_number"
             return "not_eligible"
+        limits = call.policies.get("call_limits") or {}
+        if call.context.get("calls_this_week", 0) >= int(limits.get("max_calls_per_week", 99)):
+            call.ctx["blocked_reason"] = "too_many_calls_this_week"
+            return "not_eligible"
+        last = call.context.get("last_call_at")
+        if last:
+            hours = (datetime.now(N.IST) - datetime.fromisoformat(last)).total_seconds() / 3600
+            if hours < float(limits.get("min_hours_between_calls", 0)):
+                call.ctx["blocked_reason"] = "called_recently"
+                return "not_eligible"
         if os.getenv("ENFORCE_CALLING_HOURS") == "1":
             h = call.policies["calling_hours"]
             now = datetime.now(N.IST).strftime("%H:%M")
@@ -141,6 +158,13 @@ class MockBeatPlan:
     def request_date(self, call: "FlowCall", state: str):
         call._report("request_date", {"site_id": call.context["site_id"], "requested_date": call.ctx.get("requested_date"),
                                       "requested_band": call.ctx.get("requested_band")})
+        return None
+
+    def create_support_ticket(self, call: "FlowCall", state: str):
+        t = call.ctx.get("support_ticket") or {"category": "complaint", "customer_words": "", "priority": "normal"}
+        call._report("create_support_ticket", {"site_id": call.context["site_id"],
+                                               "customer_id": call.context["customer"]["customer_id"],
+                                               **t, "summary": call.summary()})
         return None
 
     def mark_dnc(self, call: "FlowCall", state: str):

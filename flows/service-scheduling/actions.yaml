@@ -67,6 +67,12 @@ request_date:
   does: Save the customer's own preferred date and time of day as a request for Beat Plan to re-plan; the team confirms later
   input: [site_id, requested_date, requested_band]
 
+create_support_ticket:
+  system: support
+  status: contract_pending
+  does: Raise a customer-support ticket for an upset customer (category, their words, priority); support calls them back
+  input: [site_id, customer_id, category, customer_words, priority, summary]
+
 mark_dnc:
   system: zeus
   status: contract_pending

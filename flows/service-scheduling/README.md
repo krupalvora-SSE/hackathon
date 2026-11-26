@@ -39,7 +39,7 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 
 1. **PRE_CALL**: load the Beat Plan context. Don't dial if the customer is DNC, it's outside calling hours, or the number is not on the test allowlist.
 2. **GREET**: name, "calling from SolarSquare", recording disclosure, identity check. Family member → can continue; doesn't know the customer → wrong number.
-3. **OFFER_PRIMARY**: "Your maintenance is due, we have a slot on {date}. Will you be available?"
+3. **OFFER_PRIMARY**: "Your maintenance is due, we have a slot on {date}. Will you be available?" On the **first PM** (Beat Plan `first_pm`, or `pm_number: 1`) the bot says instead that the system was commissioned recently, its first check-up is due, and it's included in the AMC plan.
    - **Yes** → readiness check.
    - **Asks the time** → **TIME_BAND**: share the 4-hour band. If they want an exact time, say we can't guarantee it but will try (and log their preferred time). If they insist again → **RM callback**. If they want a different band that day → check Beat Plan: free → readiness; full → alternate days.
    - **Not that day** → **ALTERNATE_DAYS**: Beat Plan backup slots, closest first, 2 at a time. None fit → "no other slots now, team will reconnect".
@@ -47,9 +47,32 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 5. **At any point**:
    - out of town / not serviceable → **SITE_ON_HOLD**: ask the date, then **explicit consent** ("you won't get calls from SolarSquare until then"). Yes → hold API. No → thank and close.
    - "call me later" → **RECALL**: ask a time range. The recall API doesn't exist yet (`stub`), so we post it as a Beat Plan comment and create a scheduler task.
-   - asks for a person → **RM callback**. "Don't call me" → DNC. Price/technical questions → one-line deflection, stay in the step.
+   - asks for a person → **RM callback**. "Don't call me" → DNC.
+   - questions answered in place, then the bot repeats its question: price → "this visit is included in your AMC plan"; "what is this service?" → the AMC preventive maintenance visit, included in the plan; "what will you do / how long?" → panel cleaning, wiring and connectors, inverter, earthing and mounting structure, about 45 minutes; "why so early?" → on the first PM, "the first check-up is due a week after commissioning, to catch loose connections early", otherwise "regular visits in your plan".
+   - "not needed yet" → one try to explain (first-PM and later-visit versions), then close as `not_needed_now`.
    - silence → no-answer close.
 6. **POST_CALL** (every call, every outcome): LLM summary + structured record → Beat Plan comment.
+
+## Emotions and voice
+
+How good support agents adjust to the caller, and how the bot copies it. The LLM reads the customer's **mood** on every turn; `policies.yaml` (`moods`, `tones`) decides what changes. A state can force its own tone (`tone:` in `flow.yaml`).
+
+| Mood | What you hear | What the bot does | Voice (pace / pitch / loudness) |
+|---|---|---|---|
+| Calm | Normal answers | Normal script, friendly | warm: 1.0 / 0 / 1.0 |
+| Busy | "Jaldi bolo", one-word answers | Short form of each question, no intros; offers a call back if asked | brisk: 1.12 / 0 / 1.0 |
+| Confused | "Samjha nahi", hesitates, elderly | Short, simple questions, one at a time; repeats key details | slow_clear: 0.85 / 0 / 1.1 |
+| Annoyed | Sighs, "phir se call?" | Says "I understand" once before moving on; no pushing | empathetic: 0.88 / -0.1 / 0.95 |
+| Angry | Raised voice, complaints | Same, and complaints stop the script: missed visit → apology + offer the date; anything else → support ticket + helpline | empathetic |
+| Abusive | Insults | One calm line, supervisor call, end | calm_firm: 0.9 / -0.15 / 1.0 |
+
+Rules the bot follows with upset customers, from de-escalation practice:
+1. Acknowledge before anything else; never go straight back to the script question.
+2. Own the specific problem ("nobody came last time") instead of a generic sorry.
+3. Slow down and lower the voice; never speed up or get louder.
+4. Give one concrete next step: a fixed date, a ticket, or the helpline (read slowly, digit by digit, and checked).
+5. Apologise once; don't argue, don't promise timelines the bot can't keep.
+6. If it's outside this call or turns abusive, hand over to a supervisor.
 
 ## Outcomes (exactly one per call)
 
@@ -61,19 +84,24 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 | `site_on_hold` | Customer consented to hold until a date |
 | `hold_declined` | Not serviceable, but declined the hold |
 | `no_slot_available` | No primary/backup slot worked |
-| `rm_callback` | Insisted on exact time, or asked for a person |
+| `rm_callback` | Supervisor call: insisted on exact time, asked for a person, off-script request or abuse |
 | `recall_requested` | Asked to be called later (window captured) |
 | `do_not_call` | Asked not to be called |
 | `wrong_number` | Not the customer and doesn't know them |
 | `no_answer` | Silence / voicemail |
 | `needs_manual_confirmation` | Customer agreed but the Beat Plan/Zeus API failed |
 | `not_dialled` | Blocked before dialling (DNC, hours, allowlist) |
+| `not_needed_now` | Said the visit isn't needed yet, still no after one explanation |
+| `date_requested` | Wanted their own date that Beat Plan doesn't have; request saved, team confirms |
+| `support_ticket` | Upset customer: ticket raised, helpline given, didn't want to book now |
+| `line_issue` | Customer couldn't hear the bot; call back |
 
 ## Product notes
 
 - **Missing readiness ≠ always hold.** If the ladder will be ready by Thursday and a backup slot exists after Thursday, rebooking beats holding. Switch with `on_missing_prereq` in `policies.yaml`; default is `site_on_hold` per the current spec.
 - **Exact-time requests are signal.** `preferred_exact_time` is logged even when we don't escalate, so Beat Plan can learn and route heroes.
 - **Holds must expire back into Beat Plan** on `hold_until`, or they become silent churn.
+- **First PM is a different conversation.** It comes 7 days after commissioning (not installation), so customers often ask "what is this?" or "why so soon?". These are questions, not refusals: answer and re-offer the date.
 - **North-star metric:** % of Beat Plan sites confirmed on the first call. Also track hold rate, RM escalation rate, no-slot rate, average handle time, voice latency.
 
 ## Open questions (owner: Beat Plan / Zeus team)
@@ -127,7 +155,8 @@ flowchart LR
 | Asks the time | Find another date or time: Tell the time window |
 | No | Find another date or time: Offer other days |
 | Suggests their own date (Beat Plan has that day) | Step 3: Ask: ladder, water, light ready? |
-| Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
+| Suggests their own date (time of day given too) | Call ends: Date request noted |
+| Suggests their own date | Find another date or time: Ask the time for their date |
 
 #### Step 3. Ask: ladder, water, light ready?
 
@@ -137,6 +166,7 @@ flowchart LR
 |---|---|
 | Yes | Step 4: Repeat the details, get a yes |
 | No | Pause the site: Ask when it will be ready |
+| Not needed here | Step 4: Repeat the details, get a yes |
 
 #### Step 4. Repeat the details, get a yes
 
@@ -147,12 +177,24 @@ flowchart LR
 | Yes | System: Book the visit |
 | Change day | Find another date or time: Offer other days |
 | Change time | Find another date or time: Tell the time window |
+| No | Find another date or time: Offer other days |
+| Says an item isn't ready after all | Pause the site: Ask when it will be ready |
 
 ### Detours
 
 #### Find another date or time
 
 When the planned date or time doesn't suit, or the customer pushes back, find one that does.
+
+**Apologise for the missed visit, offer the date**
+
+> I'm really sorry nobody came last time; that shouldn't have happened. This time I'll make sure your visit happens. Would Saturday, 28 November work for you?
+
+| Customer says | What happens |
+|---|---|
+| Yes | Step 3: Ask: ladder, water, light ready? |
+| Asks the time | Tell the time window |
+| No | Offer other days |
 
 **Tell the time window**
 
@@ -162,7 +204,7 @@ When the planned date or time doesn't suit, or the customer pushes back, find on
 |---|---|
 | Yes | Step 3: Ask: ladder, water, light ready? |
 | Wants exact time (first time) | Bot answers and asks again |
-| Wants exact time (asks again) | Call back or hand over: Ask a senior to call |
+| Wants exact time (asks again) | Call back or hand over: Arrange a supervisor call |
 | Wants another time | Check another time that day |
 | No | Offer other days |
 
@@ -180,13 +222,14 @@ The bot doesn't speak here. **Free** → Step 3: Ask: ladder, water, light ready
 | Yes | Step 3: Ask: ladder, water, light ready? |
 | Wants another time | Check another time that day |
 | Suggests their own date (Beat Plan has that day) | Step 3: Ask: ladder, water, light ready? |
-| Suggests their own date (not in Beat Plan) | Ask the time for their date |
+| Suggests their own date (time of day given too) | Call ends: Date request noted |
+| Suggests their own date | Ask the time for their date |
 | No (more days to offer) | Bot answers and asks again |
 | No (no more days) | Call ends: No free slot |
 
 **Explain why the visit helps now**
 
-> You're right, the plan is new. That's why the first visit works as a check-up, so any problem is caught early. Shall I book Saturday, 28 November for you?
+> I understand. The regular AMC visit cleans the panels and checks the system, so any problem is caught early. Shall I book Saturday, 28 November for you?
 
 | Customer says | What happens |
 |---|---|
@@ -212,6 +255,7 @@ If the site isn't ready, get a date and the customer's OK to stop calls until th
 
 | Customer says | What happens |
 |---|---|
+| Gives a date (more than max_hold_days away) | Call back or hand over: Arrange a supervisor call |
 | Gives a date (if rebooking is on) | Find a free day after that |
 | Gives a date (default) | Ask OK to pause calls |
 
@@ -225,6 +269,7 @@ The bot doesn't speak here. **Found one** → Step 4: Repeat the details, get a 
 
 | Customer says | What happens |
 |---|---|
+| Gives a date (more than max_hold_days away) | Call back or hand over: Arrange a supervisor call |
 | Gives a date | Ask OK to pause calls |
 
 **Ask OK to pause calls**
@@ -256,9 +301,29 @@ The customer is busy or wants a person. Note when to call back, or ask a senior 
 
 The bot doesn't speak here. **Done** → Call ends: We'll call back; **System error** → Call ends: We'll call back.
 
-**Ask a senior to call**
+**Arrange a supervisor call**
 
-The bot doesn't speak here. **Done** → Call ends: Senior will call; **System error** → Call ends: Senior will call.
+The bot doesn't speak here. **Done** → Call ends: Supervisor will call; **System error** → Call ends: Supervisor will call.
+
+**Apologise, raise a ticket, give the helpline**
+
+> I understand, you've had trouble, and I'm sorry. I've raised a support ticket for you, and our support team will contact you soon. You can also call our helpline, so please take a pen. The number is: nine eight three zero zero, zero three zero zero zero. Have you noted it down?
+
+| Customer says | What happens |
+|---|---|
+| System error | Offer to fix the visit meanwhile |
+| Yes | Offer to fix the visit meanwhile |
+| No | Offer to fix the visit meanwhile |
+
+**Offer to fix the visit meanwhile**
+
+> Thank you. Meanwhile, shall I fix your maintenance visit?
+
+| Customer says | What happens |
+|---|---|
+| Yes | Step 2: Offer the planned date |
+| No (ticket wasn't created) | Arrange a supervisor call |
+| No | Call ends: Support ticket raised |
 
 ### Any time in the call
 
@@ -266,19 +331,35 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 |---|---|
 | Not available / site not ready | Ask when we can come |
 | Busy, call later | Ask when to call back |
-| Wants a person | Ask a senior to call |
+| Wants a person | Arrange a supervisor call |
 | Don't call me | Won't call again |
 | Someone else answered | Someone else answered |
+| Nobody came last time | Apologise for the missed visit, offer the date |
+| Upset or other complaint | Apologise, raise a ticket, give the helpline |
+| Something outside this call | Arrange a supervisor call |
+| Abusive | Arrange a supervisor call |
+| Objects to the recording | Customer objects to recording |
+| Death or serious illness in the family | Bereavement or illness |
+| Talking to someone else | Bot answers briefly, then repeats its question |
+| Can't hear the bot | Bot asks again; after 1 times in a row: Can't hear, call back |
+| Wants another language | Bot answers briefly, then repeats its question |
+| Mentions a problem at the site | Bot answers briefly, then repeats its question |
+| Asks what the visit involves | Bot answers briefly, then repeats its question |
+| Asks what this service is | Bot answers briefly, then repeats its question |
+| Asks why the visit is so soon | Bot answers briefly, then repeats its question |
+| Asks if someone must be home | Bot answers briefly, then repeats its question |
 | Not needed yet | Explain why the visit helps now |
 | Wants a time outside 9 am to 6 pm | Bot answers briefly, then repeats its question |
-| Not clear | Bot asks again; after 2 times in a row: Ask a senior to call |
+| Not clear | Bot asks again; after 2 times in a row: Arrange a supervisor call |
 | Asks to repeat | Bot answers briefly, then repeats its question |
 | Asks us to hold on | Bot answers briefly, then repeats its question |
 | Asks who is calling | Bot answers briefly, then repeats its question |
 | Asks where we got the number | Bot answers briefly, then repeats its question |
 | Asks if it is a machine | Bot answers briefly, then repeats its question |
-| Asks price or something else | Bot answers briefly, then repeats its question |
+| Asks about price | Bot answers briefly, then repeats its question |
 | No reply | No answer |
+| Customer hung up | Customer hung up |
+| Voicemail answered | Voicemail answered |
 
 **Someone else answered**
 
@@ -286,8 +367,9 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 
 | Customer says | What happens |
 |---|---|
-| Family member, can decide | Step 2: Offer the planned date |
+| Adult family member, can decide | Step 2: Offer the planned date |
 | Customer not home | Call back or hand over: Ask when to call back |
+| Child, staff or someone who can't decide | Call back or hand over: Ask when to call back |
 | No | Call ends: Wrong number |
 
 
@@ -299,7 +381,7 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Site paused | `site_on_hold` |
 | Customer said no to pausing | `hold_declined` |
 | No free slot | `no_slot_available` |
-| Senior will call | `rm_callback` |
+| Supervisor will call | `rm_callback` |
 | We'll call back | `recall_requested` |
 | Won't call again | `do_not_call` |
 | Wrong number | `wrong_number` |
@@ -307,7 +389,13 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Team will confirm | `needs_manual_confirmation` |
 | Not needed yet, call later | `not_needed_now` |
 | Date request noted | `date_requested` |
+| Support ticket raised | `support_ticket` |
+| Can't hear, call back | `line_issue` |
 | Not called | `not_dialled` |
+| Customer objects to recording | `recording_declined` |
+| Bereavement or illness | `sensitive_situation` |
+| Customer hung up | `hung_up` |
+| Voicemail answered | `no_answer` |
 
 After every call, whatever the ending, the system runs: summarise_call, post_beatplan_comment.
 <!-- flow-diagram:end -->

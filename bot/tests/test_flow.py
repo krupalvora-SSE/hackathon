@@ -326,11 +326,11 @@ def test_junk_readiness_entities_are_ignored():
     assert call.ctx["readiness"] == {} and "ladder" in r.speak[-1].lower()  # the ladder is still asked
 
 
-def test_price_question_deflects_and_repeats_question():
+def test_price_question_says_included_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")
     r = call.handle("price_or_offtopic")
-    assert call.state == "OFFER_PRIMARY" and "टीम" in r.speak[0] and "available" in r.speak[0]
+    assert call.state == "OFFER_PRIMARY" and "AMC plan में शामिल" in r.speak[0] and "available" in r.speak[0]
 
 
 def test_unclear_three_times_escalates():
@@ -524,3 +524,432 @@ def test_backup_days_offered_without_time_of_day_unless_asked():
     call.handle("affirm")
     r = call.handle("deny")
     assert "सोमवार" in r.speak[0] and "सुबह" not in r.speak[0] and "शाम" not in r.speak[0]
+
+
+# ---------- from call samples 5-7 and the script review (v0.4.0)
+
+def test_upset_customer_gets_apology_ticket_and_helpline_digit_by_digit():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("frustrated", {"issue": "bill galat aaya hai", "reason": "billing"})
+    assert call.state == "FRUSTRATED"
+    line = r.speak[0]
+    assert "माफ़ी" in line and "support ticket" in line and "pen" in line
+    assert "नौ आठ तीन शून्य शून्य, शून्य तीन शून्य शून्य शून्य" in line and "note कर लिया" in line
+    assert r.tone["name"] == "empathetic" and r.tone["pace"] < 1
+    t = beatplan(events, "create_support_ticket")[0]
+    assert t["category"] == "billing" and t["customer_words"] == "bill galat aaya hai"
+    assert "frustrated" not in r.allowed                      # one apology, no loop
+    r = call.handle("deny")                                   # didn't note it
+    assert r.speak[0].count("नौ आठ तीन") == 2 and r.tone["name"] == "slow_clear"
+    r = call.handle("deny")                                   # doesn't want the visit now
+    assert call.outcome == "support_ticket" and "नौ आठ तीन" in r.speak[0]
+    assert call.record()["support_ticket"]["category"] == "billing"
+
+
+def test_upset_customer_notes_number_then_books():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("frustrated", {"issue": "service bekaar"})
+    r = call.handle("affirm")                                 # noted the number
+    assert call.state == "AFTER_TICKET" and "visit fix" in r.speak[0]
+    r = call.handle("affirm")
+    assert call.state == "OFFER_PRIMARY" and "शनिवार" in r.speak[0]
+
+
+def test_helpline_number_is_spoken_in_groups_of_five():
+    from agent.flow import speak_phone
+    assert speak_phone("9830003000", "en") == "nine eight three zero zero, zero three zero zero zero"
+    assert speak_phone("98300 03000", "hi") == "नौ आठ तीन शून्य शून्य, शून्य तीन शून्य शून्य शून्य"
+
+
+def test_nobody_came_last_time_gets_apology_and_the_date():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("missed_visit_complaint", {"issue": "pichle mahine koi nahi aaya"})
+    assert call.state == "MISSED_VISIT" and "माफ़ी" in r.speak[0] and "शनिवार" in r.speak[0]
+    assert r.tone["name"] == "empathetic"
+    call.handle("affirm")
+    assert call.state == "READINESS_CHECK"
+    for _ in range(4):
+        call.handle("affirm")
+    rec = call.record()
+    assert call.outcome == "slot_confirmed" and rec["missed_visit_complaint"] == "pichle mahine koi nahi aaya"
+
+
+def test_off_script_goes_to_supervisor():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("off_script", {"issue": "naya panel lagwana hai"})
+    assert call.outcome == "rm_callback" and "supervisor" in r.speak[-1]
+    assert beatplan(events, "create_rm_callback")[0]["reason"] == "off_script"
+
+
+def test_abusive_gets_calm_firm_supervisor_close():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("abusive", {"mood": "abusive"})
+    assert call.outcome == "rm_callback" and r.tone["name"] == "calm_firm"
+    assert beatplan(events, "create_rm_callback")[0]["reason"] == "abusive"
+
+
+def test_busy_customer_gets_short_questions_and_brisk_voice():
+    call, _, _ = live()
+    r = call.handle("affirm", {"mood": "busy"})
+    assert r.speak == ["शनिवार, 28 नवंबर को आप available हैं?"]
+    assert r.tone["name"] == "brisk" and r.tone["pace"] > 1
+    r = call.handle("affirm", {"mood": "busy"})
+    assert len(r.speak) == 1                                   # no intro line before the ladder question
+
+
+def test_confused_customer_gets_slow_clear_voice():
+    call, _, _ = live()
+    r = call.handle("affirm", {"mood": "confused"})
+    assert r.tone["name"] == "slow_clear" and r.tone["pace"] < 1
+
+
+def test_annoyed_customer_hears_i_understand_once_per_step():
+    call, _, _ = live()
+    r = call.handle("affirm", {"mood": "annoyed"})
+    assert r.speak[0].startswith("मैं समझ सकता हूँ।") and r.tone["name"] == "empathetic"
+    r = call.handle("price_or_offtopic", {"mood": "annoyed"})
+    assert not r.speak[0].startswith("मैं समझ सकता हूँ।")
+
+
+def test_calm_customer_gets_warm_default_voice():
+    call, _, _ = live()
+    r = call.handle("affirm")
+    assert r.tone == {"name": "warm", "pace": 1.0, "pitch": 0.0, "loudness": 1.0}
+
+
+def test_flow_action_carries_tone_for_the_voice():
+    from agent.engine import FlowEngine
+    eng = FlowEngine("T1", BOOKING, today=TODAY)
+    a = eng.dispatch("customer_said", {"intent": "affirm", "mood": "angry"})
+    assert a.tone["name"] == "empathetic"
+
+
+def test_missed_last_visit_gets_an_apology_once():
+    b = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "last_visit_missed": True}}
+    call, _, _ = live(b)
+    r = call.handle("affirm")
+    assert "माफ़ी" in r.speak[0] and "शनिवार" in r.speak[1]
+    call.handle("price_or_offtopic")
+    call.handle("deny")
+    assert sum("पिछली visit" in ln for ln in r.speak) == 1
+
+
+@pytest.mark.parametrize("extra,reason", [({"calls_this_week": 3}, "too_many_calls_this_week"),
+                                          ({"last_call_at": "2099-01-01T00:00:00+05:30"}, "called_recently")])
+def test_call_limits_block_dialling(extra, reason):
+    b = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], **extra}}
+    call, first, _ = live(b)
+    assert first.end and call.outcome == "not_dialled" and call.ctx["blocked_reason"] == reason
+
+
+def test_cant_hear_once_checks_twice_calls_back():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("cant_hear")
+    assert call.state == "OFFER_PRIMARY" and r.speak == ["हैलो, क्या आपको मेरी आवाज़ आ रही है?"]
+    r = call.handle("cant_hear")
+    assert call.outcome == "line_issue" and beatplan(events, "schedule_recall")
+
+
+def test_language_switch_repeats_question_in_new_language():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("change_language", {"language": "en"})
+    assert call.lang == "en" and "Saturday" in r.speak[0]
+    r = call.handle("change_language", {"language": "other"})
+    assert "Hindi or English" in r.speak[0] and call.lang == "en"
+
+
+def test_site_issue_is_noted_and_goes_to_beat_plan():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("site_issue", {"issue": "ek panel toot gaya hai"})
+    assert "note" in r.speak[0] and "शनिवार" in r.speak[0]
+    for _ in range(5):
+        call.handle("affirm")
+    rec = call.record()
+    assert rec["site_issues"] == ["ek panel toot gaya hai"] and "ek panel toot gaya hai" in rec["summary"]
+    assert "ek panel toot gaya hai" in beatplan(events, "post_beatplan_comment")[0]["record"]["summary"]
+
+
+def test_ladder_not_needed_counts_as_ready():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    r = call.handle("not_required", {"reason": "stairs to the roof"})
+    assert r.speak[0] == "ठीक है, note कर लिया।" and "पानी" in r.speak[1]
+    call.handle("affirm")
+    call.handle("affirm")
+    assert call.state == "RECAP"
+    assert call.record()["readiness_notes"] == {"ladder": "stairs to the roof"}
+
+
+def test_today_gets_minimum_notice_line():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("proposes_date", {"date": "aaj"})
+    assert "आज की visit" in r.speak[0] and call.state == "OFFER_PRIMARY"
+
+
+def test_own_date_with_time_of_day_skips_the_time_question():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("proposes_date", {"date": "10 december", "band": "afternoon"})
+    assert call.outcome == "date_requested"
+    assert beatplan(events, "request_date")[0]["requested_band"] == "afternoon"
+
+
+def test_repeat_arrange_question_is_short():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    call.handle("deny")
+    r = call.handle("repeat_request")
+    assert r.speak == ["क्या आप ladder arrange कर पाएँगे?"]
+
+
+FIRST_PM = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "first_pm": True}}
+
+
+def test_first_pm_offer_says_first_checkup_included_in_plan():
+    call, _, _ = live(FIRST_PM, lang="en")
+    assert call.context["first_pm"] is True
+    r = call.handle("affirm")
+    assert "first maintenance check-up" in r.speak[0] and "included in your AMC plan" in r.speak[0]
+    assert "Saturday" in r.speak[0]
+
+
+def test_later_visit_offer_uses_normal_line():
+    call, _, _ = live(lang="en")
+    r = call.handle("affirm")
+    assert "first" not in r.speak[0] and "maintenance is due" in r.speak[0]
+
+
+def test_pm_number_one_counts_as_first_pm():
+    b = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "pm_number": 1}}
+    call, _, _ = live(b)
+    assert call.context["first_pm"] is True
+
+
+def test_what_is_service_explains_and_stays():
+    call, _, _ = live(FIRST_PM, lang="en")
+    call.handle("affirm")
+    r = call.handle("what_is_service")
+    assert call.state == "OFFER_PRIMARY"
+    assert "preventive maintenance" in r.speak[0] and "included" in r.speak[0] and "available" in r.speak[0].lower()
+
+
+@pytest.mark.parametrize("booking,expect", [(FIRST_PM, "a week after commissioning"), (BOOKING, "regular maintenance")])
+def test_why_so_early_answer_depends_on_first_pm(booking, expect):
+    call, _, _ = live(booking, lang="en")
+    call.handle("affirm")
+    r = call.handle("why_so_early")
+    assert call.state == "OFFER_PRIMARY" and expect in r.speak[0]
+    call.handle("affirm")
+    assert call.state == "READINESS_CHECK"
+
+
+def test_not_needed_line_depends_on_first_pm():
+    call, _, _ = live(FIRST_PM, lang="en")
+    call.handle("affirm")
+    r = call.handle("not_needed_now")
+    assert call.state == "NOT_NEEDED" and "commissioning" in r.speak[-1]
+    call2, _, _ = live(lang="en")
+    call2.handle("affirm")
+    r2 = call2.handle("not_needed_now")
+    assert "commissioning" not in r2.speak[-1] and "regular AMC visit" in r2.speak[-1]
+
+
+@pytest.mark.parametrize("lang,words", [("en", ["inverter", "earthing", "45 minutes"]),
+                                        ("hi", ["inverter", "earthing", "45 मिनट"])])
+def test_visit_question_lists_scope_and_duration(lang, words):
+    call, _, _ = live(lang=lang)
+    call.handle("affirm")
+    r = call.handle("visit_question")
+    assert all(w in r.speak[0] for w in words), r.speak[0]
+
+
+# ---------------------------------------------------------------------------------------------
+# SSE-15556 (flow v0.10.0): P0 gaps found by the QA plan.
+
+def _to_recap(call):
+    call.handle("affirm")                 # GREET
+    call.handle("affirm")                 # planned date
+    for _ in range(3):
+        r = call.handle("affirm")         # ladder, water, light
+    assert call.state == "RECAP"
+    return r
+
+
+def test_recap_plain_no_offers_other_days_without_asking_readiness_again():
+    call, _, _ = live()
+    _to_recap(call)
+    r = call.handle("deny")
+    assert call.state == "ALTERNATE_DAYS" and "30 नवंबर" in r.speak[0]
+    r = call.handle("affirm", {"option": 1})
+    assert call.state == "RECAP", "readiness was already answered; it must not be asked twice"
+    r = call.handle("affirm")
+    assert call.outcome == "slot_confirmed_alt_day" and call.record()["confirmed_slot"]["date"] == "2026-11-30"
+
+
+def test_recap_late_readiness_change_goes_to_ready_date_and_hold():
+    call, _, events = live()
+    _to_recap(call)
+    r = call.handle("readiness_changed", {"item": "ladder to nahi hai actually"})
+    assert call.state == "ASK_READY_DATE" and "A-type ladder" in r.speak[0]
+    call.handle("date_given", {"date": "2026-12-05"})
+    call.handle("affirm")
+    assert call.outcome == "site_on_hold"
+    rec = call.record()
+    assert rec["readiness"]["ladder"] is False and rec["hold"]["missing_items"] == ["ladder"]
+    assert beatplan(events, "site_on_hold")[0]["missing_items"] == ["ladder"]
+
+
+def test_side_talk_yes_at_recap_is_not_a_booking():
+    call, _, events = live()
+    _to_recap(call)
+    r = call.handle("affirm", {"side_talk": True})
+    assert call.state == "RECAP" and not call.outcome and r.speak[0].startswith("बस पक्का कर लूँ")
+    assert not beatplan(events, "confirm_slot")
+    call.handle("affirm")
+    assert call.outcome == "slot_confirmed"
+
+
+def test_side_talk_is_silent_and_waits():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("side_talk")
+    assert r.speak == [] and r.idle_timeout == SPEC.policies["silence"]["hold_s"] and call.state == "OFFER_PRIMARY"
+
+
+def test_child_answering_is_never_booked_through():
+    call, _, events = live()
+    call.handle("wrong_person")
+    r = call.handle("not_decision_maker")
+    assert call.state == "RECALL" and "Rahul जी कब घर पर होंगे" in r.speak[0]
+    call.handle("time_range_given", {"time_range": "shaam 7 baje"})
+    rec = call.record()
+    assert call.outcome == "recall_requested" and rec["spoke_to"] == "other" and not beatplan(events, "confirm_slot")
+
+
+def test_bereavement_ends_with_condolence_and_senior_follow_up():
+    call, _, events = live()
+    call.handle("wrong_person")
+    r = call.handle("sensitive_situation", {"issue": "wo ab nahi rahe"})
+    assert r.end and call.outcome == "sensitive_situation" and "दुख" in r.speak[0]
+    assert "गलत" not in r.speak[0] and "slot" not in r.speak[0]
+    assert beatplan(events, "create_rm_callback")[0]["reason"] == "sensitive_situation"
+    assert call.record()["needs_review"] is True
+
+
+def test_stop_recording_ends_call_without_dnc():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("stop_recording")
+    assert r.end and call.outcome == "recording_declined" and "recording" in r.speak[0]
+    assert not beatplan(events, "mark_dnc")
+    assert beatplan(events, "create_rm_callback")[0]["reason"] == "recording_declined"
+
+
+@pytest.mark.parametrize("lang,word", [("hi", "रिकॉर्ड"), ("en", "recorded")])
+def test_recording_disclosed_in_first_line(lang, word):
+    call, first, _ = live(lang=lang)
+    assert word in first.speak[0]
+
+
+def test_hang_up_mid_call_writes_declared_outcome_for_review():
+    call, _, events = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    call.handle("affirm")                 # ladder yes, then the line drops
+    call.hang_up()
+    rec = call.record()
+    assert call.outcome == "hung_up" and rec["needs_review"] is True and rec["readiness"]["ladder"] is True
+    assert rec["confirmed_slot"] is None and not beatplan(events, "confirm_slot")
+    assert beatplan(events, "post_beatplan_comment")
+
+
+def test_voicemail_is_not_talked_to():
+    call, _, _ = live()
+    r = call.voicemail()
+    assert r.end and r.speak == [] and call.outcome == "no_answer"
+
+
+@pytest.mark.parametrize("booking,reason", [
+    ({**BOOKING, "customerName": ""}, "beatplan_context_missing"),
+    ({**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "primary_slot": None}, "date": None}, "beatplan_context_missing"),
+    ({**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "fail_actions": ["fetch_beatplan_context"]}}, "beatplan_unavailable"),
+])
+def test_missing_beatplan_context_is_never_dialled(booking, reason):
+    call, first, _ = live(booking)
+    assert first.end and first.speak == [] and call.outcome == "not_dialled" and call.ctx["blocked_reason"] == reason
+
+
+def test_support_ticket_failure_never_claims_a_ticket():
+    b = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "fail_actions": ["create_support_ticket"]}}
+    call, _, events = live(b)
+    call.handle("affirm")
+    r = call.handle("frustrated", {"issue": "bill galat aaya hai", "reason": "billing"})
+    assert call.state == "AFTER_TICKET"
+    assert not any("ticket बना दिया" in ln for ln in r.speak) and "नहीं बन पाया" in r.speak[0]
+    r = call.handle("deny")
+    assert call.outcome == "rm_callback"
+    assert beatplan(events, "create_rm_callback")[0]["reason"] == "support_ticket_failed"
+    rec = call.record()
+    assert rec["support_ticket"]["status"] == "failed" and rec["needs_review"] is True
+
+
+def test_hold_beyond_limit_goes_to_supervisor_not_hold():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("not_serviceable", {"reason": "abroad", "date": "2027-06-01"})
+    assert call.outcome == "rm_callback" and not beatplan(events, "site_on_hold")
+    assert beatplan(events, "create_rm_callback")[0]["reason"] == "hold_too_long"
+    assert call.record()["hold"] is None and "2027-06-01" in call.summary()
+
+
+def test_hold_within_limit_still_asks_consent():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("not_serviceable", {"reason": "out of town", "date": "2026-12-18"})
+    assert call.state == "HOLD_CONSENT" and "18 दिसंबर" in r.speak[0]
+
+
+# GAP-15 (v0.10.1): after a detour, "yes" keeps the day the customer already chose.
+@pytest.mark.parametrize("detour", [
+    [("missed_visit_complaint", {"issue": "pichhli baar koi nahi aaya"})],
+    [("not_needed_now", {})],
+    [("frustrated", {"issue": "bill galat hai", "reason": "billing"}), ("affirm", {})],
+    [("wrong_person", {}), ("household_member", {})],
+    [("change_time", {})],
+], ids=["missed_visit", "not_needed", "support_ticket", "family_handover", "change_time"])
+def test_chosen_day_survives_a_detour(detour):
+    call, _, events = live()
+    call.handle("affirm")
+    call.handle("deny")                          # not Saturday 28
+    call.handle("affirm", {"option": 1})         # Monday 30
+    _ = [call.handle("affirm") for _ in range(3)]
+    assert call.state == "RECAP"
+    spoken = []
+    for intent, ent in detour:
+        spoken += call.handle(intent, ent).speak
+    for _ in range(6):
+        if call.outcome:
+            break
+        spoken += call.handle("affirm").speak
+    assert call.outcome == "slot_confirmed_alt_day", " > ".join(call.path)
+    assert call.record()["confirmed_slot"]["date"] == "2026-11-30"
+    assert beatplan(events, "confirm_slot")[-1]["date"] == "2026-11-30"
+    assert not any("28 नवंबर" in ln for ln in spoken), "bot must never offer the old day after the customer moved it"
+
+
+def test_yes_to_planned_date_still_books_it():
+    call, _, _ = live()
+    for _ in range(6):
+        call.handle("affirm")
+    assert call.outcome == "slot_confirmed" and call.record()["confirmed_slot"]["date"] == "2026-11-28"

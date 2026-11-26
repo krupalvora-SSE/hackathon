@@ -47,6 +47,129 @@ global:
       hi: ["mai unka beta bol raha hoon", "wo ghar pe nahi hain", "galat number hai"]
       en: ["this is his son", "she's not here", "wrong number"]
 
+  missed_visit_complaint:
+    label: Nobody came last time
+    goto: MISSED_VISIT
+    entities: [issue]
+    examples:
+      hi: ["pichle mahine bhi koi nahi aaya", "ek hafta ho gaya koi nahi aaya", "kal bhi time diya tha, koi nahi aaya", "roz yahi kahani sunate ho"]
+      en: ["nobody came last month", "you gave me a time last week and nobody came"]
+
+  frustrated:
+    label: Upset or other complaint
+    goto: FRUSTRATED
+    entities: [issue, reason]
+    examples:
+      hi: ["bill galat aaya hai", "subsidy abhi tak nahi mili", "aapki service bekaar hai", "baar baar phone kyun karte ho", "main bahut pareshan hoon"]
+      en: ["I have a complaint", "your service is terrible", "you keep calling me"]
+
+  off_script:
+    label: Something outside this call
+    goto: ESCALATE_RM
+    set: {rm_callback_reason: off_script}
+    entities: [issue]
+    examples:
+      hi: ["naya panel lagwana hai", "loan ke baare mai poochna tha", "refund chahiye", "mere dost ke ghar bhi lagwana hai", "system shift karna hai"]
+      en: ["I want to add more panels", "I need a refund", "can you help with my loan"]
+
+  abusive:
+    label: Abusive
+    goto: ESCALATE_RM
+    set: {rm_callback_reason: abusive}
+    examples:
+      hi: ["(gaali)", "dimaag kharab mat karo, bewakoof"]
+      en: ["(abuse)", "shut up, you idiot"]
+
+  stop_recording:
+    label: Objects to the recording
+    # Organisers' rule: the agent stops when asked. We end the call (no DNC) and a person calls back unrecorded.
+    goto: RECORDING_STOP_CLOSE
+    set: {rm_callback_reason: recording_declined}
+    examples:
+      hi: ["recording band karo", "record mat karo", "meri baat record mat karna", "recording kyun ho rahi hai, band karo"]
+      en: ["stop recording this call", "don't record me", "I don't want this call recorded"]
+
+  sensitive_situation:
+    label: Death or serious illness in the family
+    # Never pitch a slot or say "wrong number". Condolence, end the call, a senior follows up.
+    goto: SENSITIVE_CLOSE
+    set: {rm_callback_reason: sensitive_situation, needs_review: true}
+    entities: [issue]
+    examples:
+      hi: ["wo ab nahi rahe", "pichhle mahine unka dehant ho gaya", "papa hospital mein admit hain", "ghar mein gami ho gayi hai"]
+      en: ["he passed away", "she is in hospital, this is not a good time"]
+
+  side_talk:
+    label: Talking to someone else
+    # Speech not addressed to the bot: another phone, someone in the room, the TV. Stay quiet and wait.
+    goto: $stay
+    examples:
+      hi: ["(doosre phone par) haan haan paanch minute mein pahunch raha hoon", "(ghar mein kisi se) Saturday ko ghar pe ho?", "(TV ki awaaz)"]
+      en: ["(to someone else) yes I'm coming", "(TV dialogue in the background)"]
+
+  cant_hear:
+    label: Can't hear the bot
+    goto: $stay
+    say: can_you_hear
+    then_repeat: false
+    escalate_after: 1              # second time in a row -> end and call back
+    escalate_to: LINE_ISSUE_CLOSE
+    examples:
+      hi: ["hello? hello?", "awaaz nahi aa rahi", "kuch sunai nahi de raha"]
+      en: ["hello? can you hear me?", "I can't hear you"]
+
+  change_language:
+    label: Wants another language
+    goto: $stay
+    say: language_switched         # the next lines come in the new language; other languages get only_hi_en
+    entities: [language]
+    examples:
+      hi: ["English mein boliye", "Hindi mein baat karo", "Marathi mein bolo"]
+      en: ["please speak in English", "can you speak Hindi"]
+
+  site_issue:
+    label: Mentions a problem at the site
+    goto: $stay
+    say: site_issue_noted
+    entities: [issue]
+    examples:
+      hi: ["ek panel toot gaya hai", "inverter mai error aa raha hai", "generation kam ho raha hai", "chhat se paani tapakta hai", "panel pe chidiya ka ghonsla hai"]
+      en: ["one panel is cracked", "the inverter shows an error"]
+
+  visit_question:
+    label: Asks what the visit involves
+    goto: $stay
+    say: visit_info
+    examples:
+      hi: ["visit mai kya karoge", "kitna time lagega"]
+      en: ["what will you do in the visit", "how long will it take"]
+
+  what_is_service:
+    label: Asks what this service is
+    goto: $stay
+    say: service_info
+    examples:
+      hi: ["ye kaun si service hai", "maine to koi service book nahi ki", "ye kis cheez ki visit hai", "AMC kya hota hai"]
+      en: ["what service is this", "I didn't book any service", "what is this visit for"]
+
+  why_so_early:
+    label: Asks why the visit is so soon
+    # A question, not a refusal: answer and repeat the offer. First PM gets the commissioning reason.
+    goto: $stay
+    say: why_early
+    say_if: {context: first_pm, key: why_early_first_pm}
+    examples:
+      hi: ["itni jaldi kyun", "abhi to lagaya hai, abhi se service kyun", "abhi kyun aana hai"]
+      en: ["why so early", "it was just installed, why a service already", "why now"]
+
+  someone_home:
+    label: Asks if someone must be home
+    goto: $stay
+    say: someone_home
+    examples:
+      hi: ["ghar pe kisi ka hona zaroori hai", "main office mai hounga"]
+      en: ["does someone need to be home"]
+
   not_needed_now:
     label: Not needed yet
     goto: NOT_NEEDED
@@ -114,12 +237,13 @@ global:
       en: ["are you a robot", "am I talking to a machine", "is this an AI"]
 
   price_or_offtopic:
-    label: Asks price or something else
+    label: Asks about price
+    # The visit is always included in the AMC plan. Never quote any other price.
     goto: $stay
-    say: deflection
+    say: price_included
     examples:
-      hi: ["kitna charge lagega", "generation kam ho raha hai", "inverter mai error aa raha hai"]
-      en: ["how much will it cost", "my generation is low"]
+      hi: ["kitna charge lagega", "paise lagenge kya", "free hai na"]
+      en: ["how much will it cost", "is it free"]
 
 local:
 
@@ -159,10 +283,17 @@ local:
       en: ["not morning, can they come in the evening", "afternoon works better"]
 
   household_member:
-    label: Family member, can decide
+    label: Adult family member, can decide
     examples:
-      hi: ["mai unki wife hoon, mujhe bata do", "haan ghar ka hi hoon, bolo"]
-      en: ["I'm his wife, you can tell me", "I live here, go ahead"]
+      hi: ["mai unki wife hoon, mujhe bata do", "haan ghar ka hi hoon, bolo", "main unka beta hoon, mujhse baat karo"]
+      en: ["I'm his wife, you can tell me", "I'm her son, go ahead"]
+
+  not_decision_maker:
+    label: Child, staff or someone who can't decide
+    # A child, domestic help, driver, guard or tenant must not book or pause the site: ask when the customer is home.
+    examples:
+      hi: ["(bachche ki awaaz) papa ghar pe nahi hain", "main kaam wali hoon, saab office gaye", "main driver bol raha hoon", "main kiraayedaar hoon, owner se poochna padega"]
+      en: ["(child) daddy isn't home", "I'm the maid", "I'm the tenant, ask the owner"]
 
   customer_unavailable:
     label: Customer not home
@@ -172,7 +303,7 @@ local:
 
   proposes_date:
     label: Suggests their own date
-    entities: [date]
+    entities: [date, band]
     examples:
       hi: ["25 tareekh ko aa jao", "agle Sunday rakh do", "is date pe nahi, 10 ko aana"]
       en: ["can you come on the 25th instead", "make it next Sunday"]
@@ -183,6 +314,13 @@ local:
     examples:
       hi: ["subah", "dopahar mai", "shaam ko"]
       en: ["morning", "afternoon", "evening"]
+
+  not_required:
+    label: Not needed here
+    entities: [reason]
+    examples:
+      hi: ["seedhi nahi hai par chhat pe seedhiyan hain", "ladder ki zaroorat nahi, panel neeche shed pe hain"]
+      en: ["no ladder, but there are stairs to the roof", "not needed, the panels are on a low shed"]
 
   date_given:
     label: Gives a date
@@ -203,6 +341,13 @@ local:
     examples:
       hi: ["date badalni hai", "us din nahi, koi aur din"]
       en: ["can we change the date", "a different day"]
+
+  readiness_changed:
+    label: Says an item isn't ready after all
+    entities: [item]
+    examples:
+      hi: ["ek minute, ladder to nahi hai actually", "paani upar nahi pahunchega", "light ka connection kat gaya hai"]
+      en: ["actually we don't have a ladder", "wait, there's no water up there"]
 
   change_time:
     label: Change time

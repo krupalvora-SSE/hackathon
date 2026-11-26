@@ -4,6 +4,18 @@ _global:
   deflection: "Our team will share those details with you separately."
   reprompt: "Hello, can you hear me?"
   sms_reminder: "You'll also get a reminder SMS before the visit."
+  language_switched: "Sure."
+  only_hi_en: "Sorry, right now I can speak only Hindi or English. Which would you prefer?"
+  site_issue_noted: "Understood, I've noted that. Our hero will check it during the visit."
+  visit_info: "The hero cleans the panels and checks the wiring and connectors, the inverter, and the earthing and mounting structure{visit_duration_spoken}."
+  service_info: "This is the preventive maintenance visit in your SolarSquare AMC plan, and it's included in the plan. The hero cleans the panels and checks the wiring, inverter, earthing and structure."
+  why_early: "Your AMC plan has regular maintenance visits, and this one is due now. Regular cleaning and check-ups keep the system healthy."
+  why_early_first_pm: "The first check-up is due a week after commissioning. A new system can have a loose connection or dust from installation, so we check it early."
+  price_included: "This visit is included in your AMC plan."
+  someone_home: "Yes, someone needs to be home at the time of the visit so the hero can get to the roof."
+  can_you_hear: "Hello, can you hear me?"
+  same_day: "A visit today isn't possible; it needs to be booked at least a day ahead."
+  empathy_ack: "I understand."
   service_hours: "Our visits happen only between 9 am and 6 pm."
   didnt_catch: "Sorry, I didn't catch that."
   repeat_lead: "Sure, let me say that again."
@@ -11,6 +23,7 @@ _global:
   identity_who: "This is {bot_name} from SolarSquare, calling about your solar system maintenance."
   identity_source: "Your number is in SolarSquare's records for your solar system service."
   identity_robot: "Yes, I'm SolarSquare's AI voice assistant."
+  confirm_clearly: "Just to be sure,"
 
 GREET:
   main: "Hello, am I speaking with {name}? This is {bot_name} from SolarSquare. This call is being recorded."
@@ -21,8 +34,11 @@ WRONG_PERSON:
   repeat_main: "Is this {name}'s home?"
 
 OFFER_PRIMARY:
+  missed_visit: "First, I'm sorry we missed your last visit."
   main: "{name}, your solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will you be available that day?"
   repeat_main: "Are you free on {weekday}, {date_spoken}?"
+  first_pm: "{name}, your solar system was commissioned recently, so its first maintenance check-up is due, and it's included in your AMC plan. We have a slot on {weekday}, {date_spoken}. Will you be available?"
+  repeat_first_pm: "Are you free on {weekday}, {date_spoken}?"
 
 TIME_BAND:
   main: "Our service hero will come between {band_spoken} that day. Does that work for you?"
@@ -39,7 +55,8 @@ ALTERNATE_DAYS:
   repeat_next_options: "Which day works: {options_spoken}?"
 
 NOT_NEEDED:
-  main: "You're right, the plan is new. That's why the first visit works as a check-up, so any problem is caught early. Shall I book {weekday}, {date_spoken} for you?"
+  main: "I understand. The regular AMC visit cleans the panels and checks the system, so any problem is caught early. Shall I book {weekday}, {date_spoken} for you?"
+  first_pm: "You're right, the system is new. The first check-up is due a week after commissioning, so a loose connection or any problem is caught early. It's included in your AMC plan. Shall I book {weekday}, {date_spoken} for you?"
 
 ASK_BAND_FOR_DATE:
   main: "Sure. On {requested_date_spoken}, would morning, afternoon or evening suit you?"
@@ -47,6 +64,7 @@ ASK_BAND_FOR_DATE:
 READINESS_CHECK:
   main: "Great. A few things need to be ready for the service, let me quickly confirm."
   ask_ladder: "Do you have an A-type ladder so the hero can reach the roof?"
+  not_required_ack: "Okay, noted."
   arrange_ladder: "No problem. Could you arrange an A-type ladder before the visit?"
   repeat_arrange_ladder: "Can you arrange a ladder before the visit?"
   ask_water: "Is there a water source near the panels?"
@@ -76,6 +94,8 @@ HOLD_CONSENT:
 RECALL:
   main: "Of course. What time would be good to call you back?"
   repeat_main: "What time should I call you back?"
+  when_customer_home: "That's fine. When will {name} be home, what time should I call?"
+  repeat_when_customer_home: "What time should I call {name}?"
 
 CONFIRMED_CLOSE:
   main: "Your visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
@@ -91,7 +111,7 @@ NO_SLOT_CLOSE:
   main: "Sorry, we don't have any other slots right now. Our team will reach out as soon as a new slot opens. Thank you!"
 
 RM_CLOSE:
-  main: "I'll arrange a callback from our senior, they'll speak with you soon. Thank you!"
+  main: "For this, I'll arrange a call from our supervisor; they'll speak with you soon. Thank you!"
 
 RECALL_CLOSE:
   main: "Sure, we'll call you {recall_window_spoken}. Thank you!"
@@ -113,3 +133,31 @@ NOT_NEEDED_CLOSE:
 
 REQUEST_CLOSE:
   main: "I've noted your request for {requested_date_spoken}, {requested_band_spoken}. The date isn't fixed yet and may change with technician availability. Our team will confirm with you. Thank you!"
+
+FRUSTRATED:
+  main: "I understand, you've had trouble, and I'm sorry. I've raised a support ticket for you, and our support team will contact you soon. You can also call our helpline, so please take a pen. The number is: {support_number_spoken}. Have you noted it down?"
+  repeat_main: "The helpline number is: {support_number_spoken}. Have you noted it?"
+
+AFTER_TICKET:
+  main: "Thank you. Meanwhile, shall I fix your maintenance visit?"
+  number_again: "No problem, I'll say it slowly: {support_number_spoken}. Once more: {support_number_spoken}. Meanwhile, shall I fix your maintenance visit?"
+  repeat_main: "Shall I fix the visit?"
+  repeat_number_again: "Shall I fix the visit?"
+  ticket_failed: "I'm sorry, the ticket system didn't take it right now, but I've noted what you said and our supervisor will call you. The helpline is {support_number_spoken}. Meanwhile, shall I fix your maintenance visit?"
+  repeat_ticket_failed: "Shall I fix the visit?"
+
+MISSED_VISIT:
+  main: "I'm really sorry nobody came last time; that shouldn't have happened. This time I'll make sure your visit happens. Would {weekday}, {date_spoken} work for you?"
+  repeat_main: "Would {weekday}, {date_spoken} work?"
+
+TICKET_CLOSE:
+  main: "Okay. Your ticket is raised and our support team will contact you. The helpline again: {support_number_spoken}. Thank you."
+
+LINE_ISSUE_CLOSE:
+  main: "It seems you can't hear me; we'll call you back shortly. Thank you."
+
+RECORDING_STOP_CLOSE:
+  main: "Of course. I'll end this call here. Our team will contact you to talk without recording. Thank you."
+
+SENSITIVE_CLOSE:
+  main: "I'm very sorry to hear that, and sorry to disturb you at this time. We won't call about the service now; our team will speak with you at a better time. Thank you."

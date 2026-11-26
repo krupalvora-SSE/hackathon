@@ -257,6 +257,35 @@ class Flow:
                 for k in keys:
                     if k not in ((p or {}).get("READINESS_CHECK") or {}):
                         self.err(f"prompts/{lang}.yaml: READINESS_CHECK.{k} missing for readiness item")
+        # tones: every state tone and mood tone must be defined in policies.tones
+        tones = self.policies.get("tones") or {}
+        for n, st in self.states.items():
+            if st.get("tone") and st["tone"] not in tones:
+                self.err(f"{n}: tone '{st['tone']}' is not in policies.tones")
+        for m, cfg in (self.policies.get("moods") or {}).items():
+            if (cfg or {}).get("tone") not in tones:
+                self.err(f"policies.moods.{m}: tone '{(cfg or {}).get('tone')}' is not in policies.tones")
+        # prefix_if: its prompt key must exist in every language
+        for n, st in self.states.items():
+            pre = st.get("prefix_if")
+            if pre:
+                for lang, p in self.prompts.items():
+                    if pre.get("key") not in ((p or {}).get(n) or {}):
+                        self.err(f"prompts/{lang}.yaml: {n}.{pre.get('key')} missing (prefix_if)")
+        # main_if: the alternative main line must exist in every language
+        for n, st in self.states.items():
+            rule = st.get("main_if")
+            if rule:
+                for lang, p in self.prompts.items():
+                    if rule.get("key") not in ((p or {}).get(n) or {}):
+                        self.err(f"prompts/{lang}.yaml: {n}.{rule.get('key')} missing (main_if)")
+        # say_if on global intents: the alternative _global line must exist in every language
+        for name, gi in self.global_intents.items():
+            rule = (gi or {}).get("say_if")
+            if rule:
+                for lang, p in self.prompts.items():
+                    if rule.get("key") not in ((p or {}).get("_global") or {}):
+                        self.err(f"intent {name}: say_if '{rule.get('key')}' missing in prompts/{lang}.yaml under _global")
         # time_line: the alternative prompt key must exist in every language
         for n, st in self.states.items():
             key = st.get("time_line")
@@ -278,6 +307,8 @@ class Flow:
                 for gname, gi in self.global_intents.items():
                     if gname not in disabled and gi.get("goto") not in (None, "$stay"):
                         yield n, gi["goto"]
+                    if gname not in disabled and gi.get("escalate_to"):
+                        yield n, gi["escalate_to"]
                 for ge in self.flow.get("global_events", []) or []:
                     yield n, ge["to"]
 
@@ -343,12 +374,18 @@ class Flow:
         return outcome, path
 
     def _next(self, name, s, on, flags, ctx):
+        streaks = ctx.setdefault("_streaks", {})
+        for k in [k for k in streaks if k != on]:
+            del streaks[k]
         if s.get("type") == "conversation":
             for ge in self.flow.get("global_events", []) or []:
                 if ge["on"] == on:
                     return ge["to"]
             if on in self.global_intents and on not in (s.get("disable_global") or []):
                 gi = self.global_intents[on]
+                streaks[on] = streaks.get(on, 0) + 1
+                if gi.get("escalate_to") and streaks[on] > int(gi.get("escalate_after", 2)):
+                    return gi["escalate_to"]
                 ctx.update(gi.get("set") or {})
                 return name if gi["goto"] == "$stay" else gi["goto"]
         for tr in s.get("transitions", []) or []:
@@ -362,6 +399,8 @@ class Flow:
                 if bool(flags[flag]) == str(when).startswith("!"):
                     continue
             ctx.update(tr.get("set") or {})
+            for k, v in (tr.get("set_default") or {}).items():
+                ctx.setdefault(k, v)
             return tr["to"]
         return None
 
