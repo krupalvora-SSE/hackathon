@@ -19,6 +19,11 @@ _global:
   identity_who: "मैं {bot_name} बोल रहा हूँ, SolarSquare से, आपके solar system के maintenance के बारे में।"
   identity_source: "आपका number SolarSquare के पास आपके solar system की service के records में है।"
   identity_robot: "जी, मैं SolarSquare का AI voice assistant हूँ।"
+  empathy_personal: "ओह, कोई बात नहीं, आप अपना ध्यान रखिए।"
+  complaint_ack: "माफ़ कीजिए, यह सुनकर बुरा लगा।"
+  language_not_supported: "I'm sorry, I don't understand this language. माफ़ कीजिए, मुझे यह भाषा समझ नहीं आती। क्या आप हिंदी या English में बात कर सकते हैं?"
+  small_talk: "जी, मैं ठीक हूँ, शुक्रिया।"
+  not_a_visit_day: "हमारी visits सोमवार से शनिवार तक ही होती हैं।"
 
 GREET:
   main: "नमस्ते, क्या मेरी बात {name} जी से हो रही है? मैं {bot_name}, SolarSquare से बोल रहा हूँ। यह कॉल रिकॉर्ड की जा रही है।"
@@ -48,9 +53,11 @@ ALTERNATE_DAYS:
 
 NOT_NEEDED:
   main: "जी, आपकी बात सही है कि plan अभी नया है। इसीलिए पहली visit एक check-up की तरह होती है, ताकि कोई भी problem शुरू में ही पकड़ में आ जाए। तो क्या मैं {weekday}, {date_spoken} का slot book कर दूँ?"
+  repeat_main: "क्या आप उस दिन available रहेंगे?"
 
 ASK_BAND_FOR_DATE:
   main: "ठीक है। {requested_date_spoken} को सुबह, दोपहर या शाम, कौन सा time आपके लिए ठीक रहेगा?"
+  repeat_main: "सुबह, दोपहर या शाम, कौन सा time ठीक रहेगा?"
 
 READINESS_CHECK:
   main: "बढ़िया। Service के लिए कुछ चीज़ें ready रखनी होंगी, बस confirm कर लेता हूँ।"

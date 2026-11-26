@@ -22,9 +22,9 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.11.0
+version: 0.12.0
 title: Service scheduling call flow
-ticket: SSE-15551
+ticket: SSE-15557
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
 start: PRE_CALL
 
@@ -154,6 +154,9 @@ states:
         set: {spoke_to: customer}
       - on: deny
         to: WRONG_PERSON
+      - on: household_member            # "I'm his brother, go ahead": no need to ask again
+        to: OFFER_PRIMARY
+        set: {spoke_to: family_member}
 
   WRONG_PERSON:
     title: Someone else answered

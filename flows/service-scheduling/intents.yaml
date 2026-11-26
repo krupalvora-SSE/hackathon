@@ -44,8 +44,8 @@ global:
     label: Someone else answered / not the person asked for
     goto: WRONG_PERSON
     examples:
-      hi: ["मैं Sneha नहीं हूँ", "mai wo nahi hoon", "mai unka beta bol raha hoon", "मैं उनका बेटा बोल रहा हूँ", "ये Sneha नहीं हैं", "wo ghar pe nahi hain"]
-      en: ["I'm not Sneha", "this is his son", "she's not here"]
+      hi: ["मैं Sneha नहीं हूँ", "mai wo nahi hoon", "ये Sneha नहीं हैं", "wo ghar pe nahi hain", "Sneha जी अभी यहाँ नहीं हैं"]
+      en: ["I'm not Sneha", "this isn't Sneha", "she's not here"]
 
   wrong_number:
     label: Says it is the wrong number
@@ -129,6 +129,39 @@ global:
       hi: ["kitne baje aayenge", "time kya hoga", "kya time rahega", "subah aayenge ya shaam ko"]
       en: ["what time will they come", "what time will it be", "morning or evening?"]
 
+  personal_reason:
+    label: Can't take the visit for a personal reason (ill, family matter)
+    goto: RECALL
+    allow_reenter: true            # said again inside RECALL: sympathy, then the question
+    examples:
+      hi: ["नहीं, अभी मुझे बुखार है", "मेरी तबीयत ठीक नहीं है", "घर में कोई बीमार है", "आज घर में function है", "अभी emergency है", "मैं hospital में हूँ"]
+      en: ["I'm not well", "I have a fever", "there's a family emergency"]
+
+  complaint:
+    label: Complains about earlier service
+    goto: ESCALATE_RM
+    examples:
+      hi: ["पहले भी गड़बड़ हुई", "पिछली बार कोई नहीं आया", "service बहुत खराब थी", "मेरी complaint है", "पहले भी बोला था, कुछ नहीं हुआ", "panel ठीक से साफ़ नहीं हुए थे"]
+      en: ["it went wrong last time", "nobody came last time", "I have a complaint"]
+
+  other_language:
+    label: Speaks a language other than Hindi or English
+    goto: $stay
+    say: language_not_supported
+    escalate_after: 2              # more than this many turns in a row in that language...
+    escalate_to: ESCALATE_RM       # ...and a senior is asked to call (reason: language_not_supported)
+    examples:
+      hi: ["(the customer speaks Tamil, Telugu, Kannada, Malayalam, Gujarati, Punjabi, Bengali, Marathi, Odia...)"]
+      en: ["(any language that is not Hindi, Hinglish or English)"]
+
+  small_talk:
+    label: Chit-chat that is not an answer
+    goto: $stay
+    say: small_talk
+    examples:
+      hi: ["Apple खाया?", "आप कैसे हैं", "खाना खाया?", "मौसम बहुत गर्म है", "Nice, nice"]
+      en: ["how are you", "have you eaten", "nice weather"]
+
   price_or_offtopic:
     label: Asks price or something else
     goto: $stay
@@ -170,8 +203,8 @@ local:
   household_member:
     label: Family member, can decide
     examples:
-      hi: ["mai unki wife hoon, mujhe bata do", "haan ghar ka hi hoon, bolo"]
-      en: ["I'm his wife, you can tell me", "I live here, go ahead"]
+      hi: ["मैं उनका भाई बोल रहा हूँ, बताइए", "mai unki wife hoon, mujhe bata do", "haan ghar ka hi hoon, bolo", "मैं उनकी बेटी हूँ, आप बताइए"]
+      en: ["I'm his brother, go ahead", "I'm his wife, you can tell me", "I live here, go ahead"]
 
   customer_unavailable:
     label: Customer not home

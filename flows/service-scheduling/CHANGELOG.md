@@ -2,6 +2,14 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.12.0 (2026-11-26, SSE-15557)
+From three sample calls and two requests:
+- Fix: the Devanagari "सुबह / शाम / दोपहर" were never understood (the word splitter dropped vowel signs), so the band question looped. A clock time outside the service hours at the band question ("सुबह 7:00 बजे") now gets "visits are 9 to 6" and the question again.
+- Re-asks (not understood, off-topic, identity, small talk, silence) use the short form of the question, so the greeting's recording disclosure and the long offer are no longer repeated. Short forms added for ASK_BAND_FOR_DATE and NOT_NEEDED.
+- New global intents: `personal_reason` (ill / family matter: sympathy, then "when should we call?" in RECALL), `complaint` (apology, then a senior callback with reason `complaint`), `small_talk` (brief friendly reply, then the question), `other_language` (any language other than Hindi / English: "I don't understand this language, could you speak Hindi or English?"; after two more turns in that language a senior is asked to call, reason `language_not_supported`).
+- GREET accepts `household_member` ("I'm his brother, go ahead") and goes straight to the offer.
+- Weekday words become dates: every day mentioned is read ("agle somwar ya ravivar"), Sunday is skipped, the first visit day is proposed. A request for a non-visit day gets "visits are Monday to Saturday only" (policy `visit_days`).
+
 ## 0.11.0 (2026-11-26, SSE-15551)
 - Fixes a loop seen on a call: after "main Sneha nahi hoon" the bot asked "are you from Sneha's home?", and "nahi" / "wrong number hai" were read as `wrong_person`, which re-entered WRONG_PERSON and repeated the question forever. New global intent `wrong_number` closes the call as a wrong number from any step; in WRONG_PERSON `wrong_person` is handled locally and also closes as a wrong number, and a plain "nahi" (deny) closes as before.
 - Engine safety net: a global intent that would only re-enter the current step is treated as `unclear`, so it escalates to a senior after two misses instead of repeating.

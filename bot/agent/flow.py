@@ -145,31 +145,44 @@ def speak_slot(slot: dict, policies: dict, lang: str, with_time: bool = True) ->
     return f"{day}, {(HI_PART if lang == 'hi' else EN_PART)[slot['band']]}" if with_time else day
 
 
+# Devanagari vowel signs are not \w, so split on everything except letters, digits and Devanagari (not the danda).
+_WORD = re.compile(r"[\w\u0900-\u0963\u0966-\u097F]+")
+
+
+def _part_and_hour(text: str) -> tuple[str | None, int | None]:
+    t = (text or "").strip().lower()
+    tokens = set(_WORD.findall(t))
+    part = ("morning" if tokens & N.MORNING else "afternoon" if tokens & N.AFTERNOON
+            else "evening" if tokens & N.EVENING else None)
+    m = re.search(r"\b(\d{1,2})\b", t.translate(N.DEVANAGARI_DIGITS))
+    if not m:
+        return part, None
+    h = int(m[1])
+    if part in ("afternoon", "evening") and h < 12:
+        h += 12
+    elif part is None and 1 <= h <= 7:
+        h += 12  # bare "4 baje" on a service call means afternoon
+    return part, h
+
+
 def parse_band(text: str, policies: dict) -> str | None:
     """Customer's words -> morning/afternoon/evening, using the policy's band hours."""
     t = (text or "").strip().lower()
     if t in policies["time_bands"]:
         return t
-    tokens = set(re.sub(r"[^\w\s]", " ", t).split())
-    if tokens & N.MORNING:
-        part = "morning"
-    elif tokens & N.AFTERNOON:
-        part = "afternoon"
-    elif tokens & N.EVENING:
-        part = "evening"
-    else:
-        part = None
-    m = re.search(r"\b(\d{1,2})\b", t.translate(N.DEVANAGARI_DIGITS))
-    if m:
-        h = int(m[1])
-        if part in ("afternoon", "evening") and h < 12:
-            h += 12
-        elif part is None and 1 <= h <= 7:
-            h += 12  # bare "4 baje" on a service call means afternoon
+    part, h = _part_and_hour(t)
+    if h is not None:
         for band, b in policies["time_bands"].items():
             if _hour(b["start"]) <= h < _hour(b["end"]):
                 return band
     return part
+
+
+def band_outside_hours(text: str, policies: dict) -> bool:
+    """True if the customer named a clock time outside the service hours ("सुबह 7:00 बजे")."""
+    _, h = _part_and_hour(text)
+    sh = policies.get("service_hours")
+    return bool(sh) and h is not None and not (_hour(sh["start"]) <= h < _hour(sh["end"]))
 
 
 # ------------------------------------------------------------------ the call
@@ -202,6 +215,7 @@ class FlowCall:
     silences: int = 0
     exact_time_asks: int = 0
     unclear_streak: int = 0
+    lang_streak: int = 0                    # consecutive turns in a language we don't speak
     readiness_idx: int = 0
     backup_queue: list | None = None
     offered: list = field(default_factory=list)
@@ -264,10 +278,13 @@ class FlowCall:
             if not is_event and on not in allowed:
                 return Step(error=f"intent '{on}' does not apply in {self.state}", state=self.state, allowed=allowed)
             gi0 = self.spec.global_intents.get(on)
-            if gi0 and on not in (st.get("disable_global") or []) and gi0.get("goto") == self.state:
+            if (gi0 and on not in (st.get("disable_global") or []) and gi0.get("goto") == self.state
+                    and not gi0.get("allow_reenter")):
                 on = "unclear"          # would only re-enter this step and repeat the question: treat as not understood
             if on != "unclear":
                 self.unclear_streak = 0
+            if on != "other_language":
+                self.lang_streak = 0
             self.silences = 0
 
         self.on_event({"type": "flow", "state": self.state, "intent": on, "entities": entities})
@@ -301,7 +318,7 @@ class FlowCall:
         self.silences += 1
         if self.silences > self.policies["silence"]["max_reprompts"]:
             return self.handle("silence_timeout")
-        return self._step([f"{self._global_line('reprompt')} {self.last_line}".strip()], track=False)
+        return self._step([f"{self._global_line('reprompt')} {self._reask()}".strip()], track=False)
 
     def hang_up(self, outcome: str = "hung_up") -> None:
         """Line dropped before a terminal state: still log the call to Beat Plan."""
@@ -404,8 +421,22 @@ class FlowCall:
                 return self._step(self._enter(gi["escalate_to"]))
         if name == "repeat_request":
             return self._step([self._repeat_line()])
+        if name == "personal_reason":              # ill / family matter: sympathy, then when to call back
+            self.ctx["hold_reason"] = "personal_reason"
+            if self.state == "RECALL":
+                return self._step([f"{self._global_line('empathy_personal')} {self._reask()}".strip()])
+            return self._step([self._global_line("empathy_personal"), *self._enter("RECALL")])
+        if name == "complaint":                    # apologise, then a senior calls
+            self.ctx["rm_callback_reason"] = "complaint"
+            return self._step([self._global_line("complaint_ack"), *self._enter("ESCALATE_RM")])
+        if name == "other_language":
+            self.lang_streak += 1
+            if gi.get("escalate_to") and self.lang_streak > int(gi.get("escalate_after", 2)):
+                self.ctx["rm_callback_reason"] = "language_not_supported"
+                return self._step(self._enter(gi["escalate_to"]))
+            return self._step([self._global_line("language_not_supported")])    # on its own: no second question
         if name == "ask_time":
-            return self._step([f"{self._time_answer()} {self.last_line}".strip()])
+            return self._step([f"{self._time_answer()} {self._reask()}".strip()])
         if name == "wait_a_moment":
             step = self._step([self._global_line("hold_ack")])
             step.idle_timeout = float(self.policies["silence"]["hold_s"])
@@ -415,14 +446,19 @@ class FlowCall:
             self._enter(gi["goto"])          # date already given: skip "from which date?"
             return self.handle("date_given")
         if gi.get("goto") == "$stay":
-            return self._step([f"{self._global_line(gi.get('say'))} {self.last_line}".strip()])
+            return self._step([f"{self._global_line(gi.get('say'))} {self._reask()}".strip()])
         return self._step(self._enter(gi["goto"]))
+
+    def _reask(self) -> str:
+        """The last question for a re-ask: its short form if it has one, else the full line."""
+        state, key = self.last_ref
+        return (self._line(state, f"repeat_{key}") if state else "") or self.last_line
 
     def _repeat_line(self) -> str:
         """The last question again, shorter and simpler; a generic lead-in plus the full line if it has no short form."""
         state, key = self.last_ref
         short = self._line(state, f"repeat_{key}") if state else ""
-        return short or f"{self._global_line('repeat_lead')} {self.last_line}".strip()
+        return short or f"{self._global_line('repeat_lead')} {self._reask()}".strip()
 
     # ------------------------------------------------------------ per-state rules
     def _absorb(self, on: str, e: dict) -> None:
@@ -436,8 +472,10 @@ class FlowCall:
             self.ctx["time_shared"] = True
         if e.get("exact_time"):
             self.ctx["preferred_exact_time"] = e["exact_time"]
+        self.ctx.pop("_band_outside_hours", None)
         if e.get("band"):
             self.ctx["preferred_band"] = parse_band(e["band"], self.policies)
+            self.ctx["_band_outside_hours"] = band_outside_hours(e["band"], self.policies)
         if e.get("reason"):
             self.ctx["hold_reason"] = self.ctx.get("hold_reason") or e["reason"]
             if on == "wants_human":
@@ -445,7 +483,10 @@ class FlowCall:
         if e.get("time_range"):
             self.ctx["recall_window"] = e["time_range"]
         if e.get("date"):
-            d = N.parse_date(e["date"], self.today)
+            visit_days = self.policies.get("visit_days", [0, 1, 2, 3, 4, 5])
+            days = N.weekday_dates(e["date"], self.today)           # "somwar ya ravivar": every day mentioned
+            d = next((x for x in days if x.weekday() in visit_days), None) if len(days) > 1 else None
+            d = d or N.parse_date(e["date"], self.today)
             if d:
                 self.ctx["_date"] = d
         if on == "not_serviceable":
@@ -491,14 +532,16 @@ class FlowCall:
         if self.state == "ALTERNATE_DAYS" and on == "affirm":
             chosen = self._resolve_option(e)
             if chosen is None:
-                return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
+                return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
             self.ctx["selected_slot"] = chosen
             self._emit_slot()
 
         if on == "proposes_date":
             d = self.ctx.pop("_date", None)
             if d is None or d <= self.today:
-                return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
+                return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
+            if d.weekday() not in self.policies.get("visit_days", [0, 1, 2, 3, 4, 5]):
+                return self._step([f"{self._global_line('not_a_visit_day')} {self._reask()}".strip()])
             self.ctx["requested_date"] = d.isoformat()
             slots = [self.context.get("primary_slot")] + list(self.context.get("backup_slots") or [])
             match = next((x for x in slots if x and x["date"] == d.isoformat()), None)
@@ -507,23 +550,27 @@ class FlowCall:
                 self.ctx["selected_slot"] = match
                 self._emit_slot()
 
+        if on in ("gives_band", "wants_other_band") and self.ctx.pop("_band_outside_hours", False):
+            self.ctx.pop("preferred_band", None)
+            return self._step([f"{self._global_line('service_hours')} {self._reask()}".strip()])
+
         if on == "gives_band":
             band = self.ctx.get("preferred_band")
             if not band:
-                return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
+                return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
             self.ctx["requested_band"] = band
 
         if on == "date_given":
             d = self.ctx.pop("_date", None)
             if d is None or d <= self.today:
-                return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
+                return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
             self.ctx["hold_until"] = d.isoformat()
 
         if on == "time_range_given" and not self.ctx.get("recall_window"):
-            return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
+            return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
 
         if on == "wants_other_band" and not self.ctx.get("preferred_band"):
-            return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
+            return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
         return None
 
     def _resolve_option(self, e: dict) -> dict | None:

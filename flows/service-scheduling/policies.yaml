@@ -12,6 +12,7 @@ time_bands:
   morning:   {start: "09:00", end: "12:00"}
   afternoon: {start: "12:00", end: "15:00"}
   evening:   {start: "15:00", end: "18:00"}
+visit_days: [0, 1, 2, 3, 4, 5]    # Monday=0 ... Saturday=5; no Sunday visits
 service_hours: {start: "09:00", end: "18:00"}   # asked for a time outside this -> say the hours, ask again
 
 max_options_per_turn: 2       # never read more than 2 alternate slots in one turn

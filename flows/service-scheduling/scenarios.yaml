@@ -319,3 +319,23 @@
   steps: [context_ready, wrong_number]
   expect: wrong_number
 
+- name: ill customer -> sympathy, asks when to call back
+  steps: [context_ready, affirm, personal_reason, time_range_given, action_ok]
+  expect: recall_requested
+
+- name: complaint about earlier service -> senior callback
+  steps: [context_ready, affirm, complaint, action_ok]
+  expect: rm_callback
+
+- name: speaks another language, then Hindi, and confirms
+  steps: [context_ready, other_language, affirm, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: small talk, then confirms
+  steps: [context_ready, affirm, small_talk, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: family member says go ahead at the greeting, then confirms
+  steps: [context_ready, household_member, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+

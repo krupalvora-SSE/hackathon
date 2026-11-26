@@ -166,6 +166,19 @@ def parse_date(text: str, today: date | None = None) -> date | None:
     return None
 
 
+def weekday_dates(text: str, today: date | None = None) -> list[date]:
+    """Every weekday word in the text as a date, in the order said ("somwar ya ravivar" -> Monday, Sunday)."""
+    today = today or today_ist()
+    out: list[date] = []
+    for tok in _clean(text).split():
+        if tok in WEEKDAY_WORD:
+            ahead = (WEEKDAY_WORD[tok] - today.weekday()) % 7 or 7
+            d = today + timedelta(days=ahead)
+            if d not in out:
+                out.append(d)
+    return out
+
+
 def speak_date(d: date) -> str:
     return f"{WEEKDAY_HINGLISH[d.weekday()]}, {d.day} {MONTH_NAME[d.month]}"
 

@@ -248,7 +248,9 @@ def test_identity_questions_get_an_honest_answer_then_the_question_again(intent,
     call.handle("affirm")
     question = call.last_line
     r = call.handle(intent)
-    assert call.state == "OFFER_PRIMARY" and said in r.speak[0] and r.speak[0].endswith(question)
+    short = call._reask()
+    assert short != question and len(short) < len(question)                       # the short form, not the whole offer again
+    assert call.state == "OFFER_PRIMARY" and said in r.speak[0] and r.speak[0].endswith(short)
     assert "₹" not in r.speak[0] and "rupee" not in r.speak[0].lower()
 
 
@@ -450,7 +452,7 @@ def test_asks_the_time_at_the_ladder_question_is_answered_not_read_as_no():
     ladder = call.last_line
     r = call.handle("ask_time")
     assert call.state == "READINESS_CHECK" and r.speak[0].startswith(call._global_line("time_window"))
-    assert r.speak[0].endswith(ladder) and call.arranging is None                 # same question, no "can you arrange?"
+    assert r.speak[0].endswith(call._reask()) and call.arranging is None          # same question, no "can you arrange?"
 
     r = call.handle("deny", {"asks_time": True})                                  # "no, and what time?"
     assert r.speak[0].startswith(call._global_line("time_window")) and "arrange" in r.speak[0]
@@ -465,7 +467,7 @@ def test_asking_the_time_before_a_day_is_chosen_gives_the_service_hours():
     r = call.handle("ask_time")
     assert call.state == "ALTERNATE_DAYS"
     assert r.speak[0].startswith(call._global_line("service_hours")) and "सुबह 9 से शाम 6" in r.speak[0]
-    assert r.speak[0].endswith(options) or "में से कोई दिन" in r.speak[0]
+    assert r.speak[0].endswith(call._reask())
 
 
 def test_ask_time_at_the_offer_still_moves_to_the_time_window_step():
@@ -519,7 +521,7 @@ def test_a_global_intent_that_would_reenter_the_step_counts_as_unclear(monkeypat
     call.handle("wrong_person")
     question = call.last_line
     r = call.handle("wrong_person")                                             # used to repeat the question forever
-    assert call.state == "WRONG_PERSON" and r.speak[0].endswith(question) and call.unclear_streak == 1
+    assert call.state == "WRONG_PERSON" and r.speak[0].endswith(call._reask()) and call.unclear_streak == 1
     call.handle("wrong_person")
     r = call.handle("wrong_person")
     assert r.end and call.outcome == "rm_callback"                               # escalates instead of looping
@@ -532,6 +534,123 @@ def test_the_classifier_prompt_carries_the_examples_for_this_case():
     prompt = flow_system_prompt(call)
     assert "wrong_number" in prompt and "wrong number है" in prompt and "मैं Sneha नहीं हूँ" in prompt
     assert "bare \"nahi\"" in prompt
+
+
+# ---- fixes from three sample calls (SSE-15557)
+@pytest.mark.parametrize("text,band", [
+    ("सुबह", "morning"), ("सुबह।", "morning"), ("शाम", "evening"), ("दोपहर", "afternoon"),
+    ("सवेरे", "morning"), ("सुबह 9:00 बजे", "morning"), ("शाम 5 बजे", "evening"), ("subah", "morning"),
+])
+def test_devanagari_times_of_day_are_understood(text, band):
+    assert parse_band(text, SPEC.policies) == band
+
+
+def _to_band_question(call):
+    call.handle("affirm")
+    call.handle("proposes_date", {"date": "7 december"})          # a day Beat Plan does not have
+    assert call.state == "ASK_BAND_FOR_DATE"
+
+
+def test_morning_in_devanagari_answers_the_band_question():
+    call, _, _ = live()
+    _to_band_question(call)
+    r = call.handle("gives_band", {"band": "सुबह"})
+    assert r.end and call.outcome == "date_requested" and call.record()["requested_slot"]["band"] == "morning"
+
+
+def test_a_clock_time_outside_service_hours_gets_the_hours_then_the_question():
+    call, _, _ = live()
+    _to_band_question(call)
+    for said in ("सुबह 7:00 बजे", "सुबह 8:00 बजे"):               # the reported call
+        r = call.handle("gives_band", {"band": said})
+        assert call.state == "ASK_BAND_FOR_DATE" and not r.end
+        assert "9 से शाम 6" in r.speak[0] and r.speak[0].endswith("सुबह, दोपहर या शाम, कौन सा time ठीक रहेगा?")
+    r = call.handle("gives_band", {"band": "सुबह"})
+    assert r.end and call.outcome == "date_requested"
+
+
+def test_re_asks_use_the_short_form_and_never_repeat_the_recording_disclosure():
+    call, first, _ = live()
+    assert "रिकॉर्ड" in first.speak[0]                            # said once, at the start
+    r = call.handle("unclear")                                    # the reported "सुबह।" at the greeting
+    assert "रिकॉर्ड" not in r.speak[0] and r.speak[0].endswith("क्या मैं Rahul जी से बात कर रहा हूँ?")
+    call.handle("affirm")
+    r = call.handle("price_or_offtopic")
+    assert len(r.speak[0]) < 140 and "maintenance due" not in r.speak[0]
+
+
+def test_an_ill_customer_gets_sympathy_and_is_asked_when_to_call_back():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("personal_reason", {"reason": "fever"})
+    assert call.state == "RECALL" and "ध्यान रखिए" in r.speak[0] and "किस time" in r.speak[-1]
+    assert "site" not in " ".join(r.speak)                         # not "when will your site be ready?"
+    r = call.handle("personal_reason")                             # says it again inside RECALL: no loop, no unclear
+    assert call.state == "RECALL" and call.unclear_streak == 0 and "किस time" in r.speak[0]
+    call.handle("time_range_given", {"time_range": "kal shaam"})
+    assert call.outcome == "recall_requested"
+
+
+def test_a_complaint_gets_an_apology_and_a_senior_callback():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("complaint")
+    assert r.end and call.outcome == "rm_callback" and call.record()["rm_callback_reason"] == "complaint"
+    assert r.speak[0] == "माफ़ कीजिए, यह सुनकर बुरा लगा।" and "senior" in r.speak[-1]
+
+
+def test_a_family_member_who_says_go_ahead_at_the_greeting_goes_straight_to_the_offer():
+    call, _, _ = live()
+    r = call.handle("household_member")
+    assert call.state == "OFFER_PRIMARY" and call.ctx["spoke_to"] == "family_member" and "slot" in r.speak[0]
+
+
+def test_another_language_gets_an_i_dont_understand_then_a_senior_after_two_more_turns():
+    call, _, _ = live()
+    r = call.handle("other_language")
+    assert "I don't understand this language" in r.speak[0] and "हिंदी या English" in r.speak[0]
+    assert r.speak == [call._global_line("language_not_supported")] and call.state == "GREET"   # one request, no 2nd question
+    call.handle("other_language")
+    r = call.handle("other_language")                              # third turn in a row
+    assert r.end and call.outcome == "rm_callback" and call.record()["rm_callback_reason"] == "language_not_supported"
+
+
+def test_speaking_hindi_again_resets_the_other_language_count():
+    call, _, _ = live()
+    call.handle("other_language")
+    call.handle("other_language")
+    call.handle("affirm")                                          # back in Hindi
+    for _ in range(2):
+        assert not call.handle("other_language").end               # counting starts again from zero
+
+
+def test_small_talk_gets_a_friendly_line_and_the_question_again():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("small_talk")
+    assert call.state == "OFFER_PRIMARY" and r.speak[0].startswith("जी, मैं ठीक हूँ, शुक्रिया।")
+    assert r.speak[0].endswith(call._reask()) and call.unclear_streak == 0
+
+
+def test_every_weekday_mentioned_is_read_and_sunday_is_skipped():
+    from datetime import date as D
+    from agent import normalize as N
+
+    assert N.weekday_dates("agle somwar ya ravivar", D(2026, 11, 26)) == [D(2026, 11, 30), D(2026, 11, 29)]
+    assert N.weekday_dates("रविवार या सोमवार", D(2026, 11, 26)) == [D(2026, 11, 29), D(2026, 11, 30)]
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("proposes_date", {"date": "nahi, mujhe ravivar ya somwar"})   # Sunday first, Monday second
+    assert call.ctx["selected_slot"]["date"] == "2026-11-30"                   # Monday: a visit day and a free day
+
+
+def test_a_sunday_only_request_gets_the_visit_days_and_the_question_again():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("proposes_date", {"date": "ravivar"})
+    assert call.state == "OFFER_PRIMARY" and "सोमवार से शनिवार" in r.speak[0] and r.speak[0].endswith(call._reask())
+    r = call.handle("proposes_date", {"date": "agle somwar ya ravivar"})      # the reported request
+    assert call.state == "READINESS_CHECK" and call.ctx["selected_slot"]["date"] == "2026-11-30"
 
 
 def test_price_question_deflects_and_repeats_question():
@@ -682,7 +801,7 @@ def test_time_outside_service_hours_is_explained():
     call.handle("affirm")
     call.handle("ask_time")
     r = call.handle("outside_service_hours")
-    assert call.state == "TIME_BAND" and "9 से शाम 6" in r.speak[0] and "के बीच आएँगे" in r.speak[0]
+    assert call.state == "TIME_BAND" and "9 से शाम 6" in r.speak[0] and "के बीच hero आएँगे" in r.speak[0]
 
 
 def test_bands_are_9_to_12_12_to_3_3_to_6():

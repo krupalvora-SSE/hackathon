@@ -129,7 +129,14 @@ Entities (fill only when the customer said them, using their own words):
   ("haan kal aa jao, ladder aur paani dono hain"), give {{"ladder": true, "water": true}} (true = they have it,
   false = they don't). Include only items they actually mentioned; the intent is still the answer to the current question.
 
-Customers speak Hinglish, Hindi in Devanagari, Marathi or English; transcripts are noisy phone ASR.
+Customers speak Hinglish, Hindi in Devanagari or English; transcripts are noisy phone ASR.
+If the customer is clearly speaking another language (Marathi, Tamil, Telugu, Gujarati, Punjabi, Bengali, ...), use
+other_language; do not guess an answer from garbled text.
+Illness or a family matter ("mujhe bukhar hai", "ghar mein koi bimar hai") is personal_reason, not not_serviceable
+(that one is for the site: out of town, roof work). A complaint about earlier service is complaint, not price_or_offtopic.
+If they say who they are (brother, son, wife) and tell you to go ahead ("bataiye", "bolo"), that is household_member,
+not wrong_person. Chit-chat ("how are you", "Apple khaya?") is small_talk.
+Weekdays ("agle somwar ya ravivar"): put the customer's own words in the date entity, every day they mention.
 Questions about who is on the line ("are you from X's home?"): a bare "nahi" / "नहीं" is deny; "wrong number" /
 "galat number" is wrong_number; "main X nahi hoon" is wrong_person only before that question is asked.
 "haan / ji / theek hai / chalega" to a yes/no question is affirm; "nahi / nahi hai / nahi chalega" is deny.

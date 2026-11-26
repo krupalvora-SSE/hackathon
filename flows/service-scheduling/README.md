@@ -117,6 +117,7 @@ flowchart LR
 |---|---|
 | Yes | Step 2: Offer the planned date |
 | No | Someone else answered |
+| Family member, can decide | Step 2: Offer the planned date |
 
 #### Step 2. Offer the planned date
 
@@ -306,6 +307,10 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Asks where we got the number | Bot answers briefly, then repeats its question |
 | Asks if it is a machine | Bot answers briefly, then repeats its question |
 | Asks the time | Bot answers briefly, then repeats its question |
+| Can't take the visit for a personal reason (ill, family matter) | Ask when to call back |
+| Complains about earlier service | Ask a senior to call |
+| Speaks a language other than Hindi or English | Bot asks again; after 2 times in a row: Ask a senior to call |
+| Chit-chat that is not an answer | Bot answers briefly, then repeats its question |
 | Asks price or something else | Bot answers briefly, then repeats its question |
 | No reply | No answer |
 
