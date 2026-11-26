@@ -188,7 +188,8 @@ def _piper_tts(cfg: dict, call_id: str, sample_rate: int | None = None):
             raise RuntimeError(f"Piper voice {voice} is not on this machine: copy {voice}.onnx and "
                                f"{voice}.onnx.json into {PIPER_CACHE_DIR}")
     pace = cfg["tts_pace"]
-    settings = PiperTTSService.Settings(voice=cfg["piper_voice"], length_scale=round(1 / pace, 3) if pace else None)
+    settings = PiperTTSService.Settings(voice=cfg["piper_voice"], length_scale=round(1 / pace, 3) if pace else None,
+                                        noise_scale=cfg["piper_noise_scale"], noise_w_scale=cfg["piper_noise_w"])
     try:
         tts = BilingualPiperTTSService(en_voice=cfg.get("piper_voice_en") or None,
                                        clone=cfg["tts_provider"] == "piper_clone", tau=cfg.get("clone_tau", 0.3),

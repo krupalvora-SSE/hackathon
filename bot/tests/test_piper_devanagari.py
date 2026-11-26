@@ -47,7 +47,8 @@ def test_piper_failure_is_a_clear_error(monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("voice download failed")
     monkeypatch.setattr(voice_local, "BilingualPiperTTSService", boom)
-    cfg = {"tts_provider": "piper", "piper_voice": "hi_IN-pratham-medium", "tts_pace": None}
+    cfg = {"tts_provider": "piper", "piper_voice": "hi_IN-pratham-medium", "tts_pace": None,
+           "piper_noise_scale": 0.33, "piper_noise_w": 0.5}
     with pytest.raises(RuntimeError, match="hi_IN-pratham-medium unavailable: voice download failed"):
         bot._piper_tts(cfg, "T1", 8000)
 

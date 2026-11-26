@@ -68,6 +68,14 @@ FIELDS: list[dict[str, Any]] = [
      "min": 0.1, "max": 1, "step": 0.05, "env": "CLONE_TAU", "label": "My-voice conversion strength (tau)",
      "help": "Piper + my voice only. OpenVoice's tau: lower sticks closer to your sample's voice, higher keeps "
              "more of Piper's clarity. 0.3 is OpenVoice's default; try 0.2-0.5."},
+    {"key": "piper_noise_scale", "group": "Bot voice", "type": "float", "default": 0.33,
+     "min": 0, "max": 1, "step": 0.01, "env": "PIPER_NOISE_SCALE", "label": "Voice variation (noise scale)",
+     "help": "How much Piper varies the sound. Lower is steadier and clearer; Piper's default is 0.667. "
+             "Our Jasir voice (trained on 8 min of audio) slurs words at 0.667: measured Whisper character "
+             "error 34% at 0.667/0.8 vs 21% at 0.33/0.5, with the worst line 75% -> 32%."},
+    {"key": "piper_noise_w", "group": "Bot voice", "type": "float", "default": 0.5,
+     "min": 0, "max": 1, "step": 0.01, "env": "PIPER_NOISE_W", "label": "Rhythm variation (noise w)",
+     "help": "How much Piper varies the length of sounds. Lower is steadier; Piper's default is 0.8."},
     {"key": "tts_pace", "group": "Bot voice", "type": "float", "default": None, "nullable": True,
      "min": 0.5, "max": 2, "step": 0.05, "env": "TTS_PACE", "label": "Pace",
      "help": "0.5-2.0. Blank is the voice's natural speed; about 1.1-1.2 keeps calls snappy."},
