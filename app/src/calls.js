@@ -74,7 +74,6 @@ export function createCalls(bookings, { onOffguard, file } = {}) {
           id: c.id, bookingId: c.bookingId, customerName: bookings.get(c.bookingId)?.customerName ?? null, mode: c.mode,
           status: c.status, outcome: c.outcome, createdAt: c.createdAt, durationS: r.duration_s ?? null,
           costInr: r.cost_inr ?? null, latency: r.latency ?? null, flowVersion: r.flow_version ?? null,
-          offguardCount: c.events.filter((e) => e.type === 'offguard').length,
         };
       });
   }

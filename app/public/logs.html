@@ -191,18 +191,11 @@
       const ok = done.filter((c) => groupOf(c) === 'confirmed').length;
       const talk = done.map((c) => c.durationS).filter((x) => x != null);
       const costs = done.map((c) => c.costInr).filter((x) => x != null);
-      const lat = done.map((c) => c.latency).filter((l) => l?.p50 != null && l.turns);
-      const turns = sum(lat.map((l) => l.turns));
       return {
         total: list.length, done: done.length, running, ok, failed: done.filter((c) => c.status === 'failed').length,
         rate: done.length ? ok / done.length : null,
         avgDur: talk.length ? sum(talk) / talk.length : null, totalDur: sum(talk),
         totalCost: sum(costs), avgCost: costs.length ? sum(costs) / costs.length : null,
-        p50: turns ? sum(lat.map((l) => l.p50 * l.turns)) / turns : null,        // average of the calls' p50, weighted by turns
-        p95: lat.length ? Math.max(...lat.map((l) => l.p95 ?? 0)) : null,
-        fast: lat.length ? lat.filter((l) => l.p50 < 1000).length / lat.length : null,
-        turns, avgTurns: lat.length ? turns / lat.length : null,
-        offguard: sum(done.map((c) => c.offguardCount ?? 0)), offguardCalls: done.filter((c) => c.offguardCount > 0).length,
         phone: list.filter((c) => c.mode === 'phone').length, browser: list.filter((c) => c.mode === 'browser').length,
         groups: Object.fromEntries(GROUPS.map(([k]) => [k, done.filter((c) => groupOf(c) === k).length])),
       };
@@ -219,10 +212,6 @@
         tile('Confirmed', pct(st.rate), `${st.ok} of ${st.done} finished calls`, st.rate >= 0.5 ? 'good' : ''),
         tile('Avg call length', fmtDur(st.avgDur), `${fmtDur(st.totalDur)} talk time in total`),
         tile('Cost per call', st.avgCost == null ? '–' : money(st.avgCost), `${money(st.totalCost)} in total`),
-        tile('Reply speed', st.p50 == null ? '–' : `${Math.round(st.p50)} ms`, st.p50 == null ? 'no timings yet' : `turn p50, avg over calls · ${pct(st.fast)} of calls under 1 s`, st.p50 == null ? '' : st.p50 < 1000 ? 'good' : 'warn'),
-        tile('Slowest turns', st.p95 == null ? '–' : `${Math.round(st.p95)} ms`, 'worst call p95'),
-        tile('Turns per call', st.avgTurns == null ? '–' : st.avgTurns.toFixed(1), `${st.turns} customer turns`),
-        tile('Off-guard questions', st.offguard, `in ${st.offguardCalls} call${st.offguardCalls === 1 ? '' : 's'}`, st.offguard ? 'warn' : ''),
       ].join('');
       const total = st.total;
       const segs = [...GROUPS.map(([k, label]) => [k, label, st.groups[k]]), ['running', 'Running', st.running]].filter(([, , n]) => n);

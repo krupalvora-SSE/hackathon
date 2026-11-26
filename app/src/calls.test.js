@@ -93,7 +93,7 @@ test('the call list is one summary per call, newest first, and can be filtered b
   const all = calls.list();
   assert.deepEqual(all.map((c) => c.id), [b.id, a.id]);
   assert.deepEqual(all[1], { id: a.id, bookingId: 'BK-1', customerName: 'Rahul Joshi', mode: 'browser', status: 'ended',
-    outcome: 'slot_confirmed', createdAt: a.createdAt, durationS: 66.2, costInr: 1.88, latency: { p50: 900, p95: 1500, turns: 8 }, flowVersion: '0.17.0', offguardCount: 0 });
+    outcome: 'slot_confirmed', createdAt: a.createdAt, durationS: 66.2, costInr: 1.88, latency: { p50: 900, p95: 1500, turns: 8 }, flowVersion: '0.17.0' });
   assert.equal(all[0].status, 'created');                                  // still running: no duration yet
   assert.deepEqual(calls.list({ bookingId: 'BK-1' }).map((c) => c.id), [a.id]);
   assert.ok(!('events' in all[0]));                                       // the events stay on the single-call endpoint
