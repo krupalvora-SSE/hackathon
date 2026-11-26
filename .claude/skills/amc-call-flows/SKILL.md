@@ -25,7 +25,7 @@ OPEN ─> IDENTIFY ─> PURPOSE ─> FIND_SLOT ─> CONFIRM_ADDRESS ─> PREP_RE
 
 1. **OPEN**: greet by name, say who we are, recording disclosure (one sentence). Example in `hindi-voice-scripting`.
 2. **IDENTIFY**: "Kya meri baat {name} ji se ho rahi hai?" Branches: wrong person / family member / wrong number → see `call-robustness-handoff`.
-3. **PURPOSE**: "Aapke AMC plan mein solar panel cleaning due hai ({used}/{total} ho chuki hain)." Ask if now is a good time (2 sec, not a speech).
+3. **PURPOSE**: "Aapke AMC plan mai solar panel cleaning due hai ({used}/{total} ho chuki hain)." Ask if now is a good time (2 sec, not a speech).
 4. **FIND_SLOT**: ask preferred day, then offer **max 2 concrete options** from `check_availability`. Never read out a list of 6 slots on the phone.
    - Prefer morning (7–10) or evening (4–6) slots; panels are cool and the technician can work safely. Explain only if the customer asks for afternoon.
    - Customer gives a vague answer ("agle hafte kabhi bhi") → pick the earliest two and offer them.

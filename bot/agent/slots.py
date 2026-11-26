@@ -57,7 +57,7 @@ def _parse_bool(raw: str, today: date):
 SLOTS: list[Slot] = [
     Slot(
         key="visit_date",
-        question="Visit kis din rakhein? Somvar se Shanivar, agle 30 din mein koi bhi din.",
+        question="Visit kis din rakhein? Somvar se Shanivar, agle 30 din mai koi bhi din.",
         describe="Visit date. Pass the customer's words (e.g. 'kal', 'agle somvar', '5 tarikh') or YYYY-MM-DD.",
         parse=_parse_date,
         validate=_validate_date,
@@ -82,7 +82,7 @@ SLOTS: list[Slot] = [
     ),
     Slot(
         key="water_source_available",
-        question="Panels saaf karne ke liye chhat pe ya paas mein paani ka nal hai kya?",
+        question="Panels saaf karne ke liye chhat pe ya paas mai paani ka nal hai kya?",
         describe="Is a water tap/source near the panels? Pass the customer's words or true/false.",
         parse=_parse_bool,
         validate=lambda v, today: None,
@@ -97,7 +97,7 @@ ERROR_TEXT = {
     "unclear": "samajh nahi aaya",
     "past_date": "yeh date nikal chuki hai",
     "same_day": "aaj ka visit possible nahi hai, kal ya uske baad ka din boliye",
-    "sunday": "Ravivar ko visit nahi hota, Somvar se Shanivar mein koi din boliye",
+    "sunday": "Ravivar ko visit nahi hota, Somvar se Shanivar mai koi din boliye",
     "too_far": "hum sirf agle 30 din ke andar visit rakh sakte hain",
     "out_of_hours": "visit sirf subah 9 se shaam 6 baje ke beech ho sakta hai",
     "unknown_key": "unknown key",

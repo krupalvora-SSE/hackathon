@@ -12,7 +12,7 @@ GOODBYES = {
     "callback": "Theek hai, hum aapko {callback_time} call karenge. Dhanyavaad!",
     "do_not_call": "Theek hai, maaf kijiye. Hum aapko dobara call nahi karenge. Dhanyavaad.",
     "wrong_number": "Maaf kijiye, galat number lag gaya. Dhanyavaad.",
-    "no_answer": "Lagta hai aawaz nahi aa rahi. Hum aapko baad mein call karenge. Dhanyavaad.",
+    "no_answer": "Lagta hai aawaz nahi aa rahi. Hum aapko baad mai call karenge. Dhanyavaad.",
     "handed_to_human": "Ek minute, main aapko hamare team member se connect kar raha hoon.",
 }
 HANDOVER_BROWSER_NOTE = "(Browser demo: handover would connect the human agent here.)"
@@ -31,12 +31,12 @@ def greeting(booking: dict) -> str:
     return (
         f"Namaste {who}, main {me} bol raha hoon. "
         "Yeh call quality ke liye record ho rahi hai. "
-        "Aapke solar panel cleaning visit ke baare mein ek minute baat kar sakte hain?"
+        "Aapke solar panel cleaning visit ke baare mai ek minute baat kar sakte hain?"
     )
 
 
 def goodbye(outcome: str, callback_time: str | None = None) -> str:
-    return GOODBYES[outcome].format(callback_time=callback_time or "baad mein")
+    return GOODBYES[outcome].format(callback_time=callback_time or "baad mai")
 
 
 def system_prompt(booking: dict, today: date) -> str:

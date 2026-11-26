@@ -54,7 +54,7 @@ Runs per sentence on aggregated LLM text, **before** TTS so nothing unsafe is ev
 
 | Block | Detect | Replace with |
 |---|---|---|
-| Money / price | `₹`, `rs`, `rupaye`, `rupees`, `inr`, `paisa`, `charge`, `fees`, `free mein`, `discount`, `offer`, digit + `rupay` | "Iski jaankari hamari team aapko degi." |
+| Money / price | `₹`, `rs`, `rupaye`, `rupees`, `inr`, `paisa`, `charge`, `fees`, `free mai`, `discount`, `offer`, digit + `rupay` | "Iski jaankari hamari team aapko degi." |
 | Subsidy / savings / generation promises | `subsidy`, `savings`, `bachat`, `bill zero`, `units`, `generation badh`, `guarantee`, `pakka` + number | same safe line |
 | False confirmation | `confirm ho gaya`, `booked`, `book kar diya`, `pakka ho gaya` when `state.outcome != "confirmed"` | drop the sentence (system speaks confirmation) |
 | Claims to be human | `main insaan hoon`, `I am human`, `robot nahi` | "Main SolarSquare ki AI assistant hoon." |

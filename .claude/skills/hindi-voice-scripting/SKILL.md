@@ -52,7 +52,7 @@ Expressions to handle:
 | pandrah tareekh, 15 ko | 15th of this month, or next month if passed |
 | subah subah / jaldi | earliest morning slot |
 | shaam ko, office ke baad | evening slot |
-| dopahar mein | afternoon — offer morning/evening instead, explain briefly |
+| dopahar mai | afternoon — offer morning/evening instead, explain briefly |
 | koi bhi din, jab aap bolo | offer earliest 2 slots |
 | Diwali ke baad, shaadi ke baad | callback or ask for a specific date |
 
