@@ -33,8 +33,8 @@ sections:
     about: Check the customer can be called, say hello and make sure we're talking to the right person.
     states: [PRE_CALL, GREET, NOT_DIALLED]
   slot:
-    title: 2. Fix the date and time
-    about: Offer the planned date. If it doesn't suit, try another time that day or another day.
+    title: 2. Find another date or time
+    about: When the planned date or time doesn't suit, or the customer pushes back, find one that does.
     states: [OFFER_PRIMARY, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, NOT_NEEDED, ASK_BAND_FOR_DATE, NO_SLOT_CLOSE, NOT_NEEDED_CLOSE, REQUEST_CLOSE]
   confirm:
     title: 3. Check readiness and book
