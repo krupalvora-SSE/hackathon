@@ -250,11 +250,23 @@ class Flow:
             for b in langs:
                 for n, k in sorted(key_sets[a] - key_sets[b]):
                     self.err(f"prompt {n}.{k} exists in {a} but not in {b}")
-        # readiness items need an ask_<id> line
+        # readiness items need an ask_<id> line (and arrange_<id> when ask_if_can_arrange is on)
         for item in self.policies.get("readiness_items", []):
+            keys = [f"ask_{item['id']}"] + ([f"arrange_{item['id']}"] if item.get("ask_if_can_arrange") else [])
             for lang, p in self.prompts.items():
-                if f"ask_{item['id']}" not in ((p or {}).get("READINESS_CHECK") or {}):
-                    self.err(f"prompts/{lang}.yaml: READINESS_CHECK.ask_{item['id']} missing for readiness item")
+                for k in keys:
+                    if k not in ((p or {}).get("READINESS_CHECK") or {}):
+                        self.err(f"prompts/{lang}.yaml: READINESS_CHECK.{k} missing for readiness item")
+        # terminal alt_line: policy must exist, line must exist
+        for n, st in self.states.items():
+            alt = st.get("alt_line")
+            if not alt:
+                continue
+            if alt.get("when_policy") not in self.policies:
+                self.err(f"{n}: alt_line policy '{alt.get('when_policy')}' is not in policies.yaml")
+            for lang, p in self.prompts.items():
+                if alt.get("key") not in ((p or {}).get(n) or {}):
+                    self.err(f"prompts/{lang}.yaml: {n}.{alt.get('key')} missing (alt_line)")
 
     def _edges(self):
         for n, s in self.states.items():

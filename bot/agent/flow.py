@@ -207,12 +207,14 @@ class FlowCall:
     ended_at: datetime | None = None
     comment_posted: bool = False
     actions_log: list = field(default_factory=list)
+    arranging: str | None = None            # readiness item we asked "can you arrange it?" about
 
     def __post_init__(self):
         self.beatplan = self.beatplan or MockBeatPlan()
         self.lang = self.lang or self.spec.policies["default_language"]
         self.ctx.setdefault("readiness", {})
         self.ctx.setdefault("missing_items", [])
+        self.ctx.setdefault("will_arrange", [])
 
     @property
     def policies(self) -> dict:
@@ -294,6 +296,7 @@ class FlowCall:
             "exact_time_limit_reached": self.exact_time_asks > self.policies["exact_time_insist_limit"],
             "options_remaining": bool(self.backup_queue),
             "reschedule_after_ready_date": self.policies["on_missing_prereq"] == "reschedule_after_ready_date",
+            "date_is_free": bool(self.ctx.get("_date_is_free")),
         }
 
     def _pick(self, state: str, on: str, flags: dict | None) -> dict | None:
@@ -355,7 +358,9 @@ class FlowCall:
             if self.auto:
                 self._run_actions(st.get("actions") or [])
             if not st.get("silent"):
-                lines.append(self._line(target, "main"))
+                alt = st.get("alt_line") or {}
+                key = alt["key"] if alt and self.policies.get(alt.get("when_policy")) else "main"
+                lines.append(self._line(target, key))
             self.outcome = outcome
             self.ended_at = datetime.now(N.IST)
             self._post_call()
@@ -411,10 +416,22 @@ class FlowCall:
         if st.get("checklist") and on in ("affirm", "deny"):
             items = self.policies[st["checklist"]]
             item = items[self.readiness_idx]
-            self.ctx["readiness"][item["id"]] = on == "affirm"
-            if on == "deny":
+            if self.arranging == item["id"]:          # answer to "can you arrange it before the visit?"
+                self.arranging = None
+                if on == "affirm":
+                    self.ctx["will_arrange"].append(item["id"])
+                ok = on == "affirm"
+            elif on == "deny" and item.get("ask_if_can_arrange"):
+                self.arranging = item["id"]
+                q = self._line(self.state, f"arrange_{item['id']}")
+                self.last_line = q
+                return self._step([q])
+            else:
+                ok = on == "affirm"
+            self.ctx["readiness"][item["id"]] = ok
+            if not ok:
                 self.ctx["missing_items"].append(item["id"])
-            self._emit_readiness(item["id"], on == "affirm")
+            self._emit_readiness(item["id"], ok, arranging=item["id"] in self.ctx["will_arrange"])
             self.readiness_idx += 1
             if self.readiness_idx < len(items):
                 q = self._checklist_question()
@@ -433,6 +450,24 @@ class FlowCall:
                 return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
             self.ctx["selected_slot"] = chosen
             self._emit_slot()
+
+        if on == "proposes_date":
+            d = self.ctx.pop("_date", None)
+            if d is None or d <= self.today:
+                return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
+            self.ctx["requested_date"] = d.isoformat()
+            slots = [self.context.get("primary_slot")] + list(self.context.get("backup_slots") or [])
+            match = next((x for x in slots if x and x["date"] == d.isoformat()), None)
+            self.ctx["_date_is_free"] = match is not None
+            if match:
+                self.ctx["selected_slot"] = match
+                self._emit_slot()
+
+        if on == "gives_band":
+            band = self.ctx.get("preferred_band")
+            if not band:
+                return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
+            self.ctx["requested_band"] = band
 
         if on == "date_given":
             d = self.ctx.pop("_date", None)
@@ -511,6 +546,11 @@ class FlowCall:
             d = date.fromisoformat(self.ctx["hold_until"])
             v["hold_until_spoken"] = speak_day(d, self.lang)
         v["recall_window_spoken"] = self.ctx.get("recall_window") or ""
+        if self.ctx.get("requested_date"):
+            d = date.fromisoformat(self.ctx["requested_date"])
+            v["requested_date_spoken"] = f"{speak_weekday(d, self.lang)}, {speak_day(d, self.lang)}"
+        if self.ctx.get("requested_band"):
+            v["requested_band_spoken"] = (HI_PART if self.lang == "hi" else EN_PART)[self.ctx["requested_band"]]
         return v
 
     def _line(self, state: str, key: str) -> str:
@@ -532,10 +572,11 @@ class FlowCall:
         self.on_event({"type": "slot", "key": "visit_time_slot", "ok": True, "value": band,
                        "display": speak_band(band or s["band"], self.policies, "en")})
 
-    def _emit_readiness(self, item: str, ok: bool) -> None:
+    def _emit_readiness(self, item: str, ok: bool, arranging: bool = False) -> None:
         key = {"ladder": "ladder_available", "water": "water_source_available", "light": "light_available"}.get(
             item, f"{item}_available")
-        self.on_event({"type": "slot", "key": key, "ok": True, "value": ok, "display": "yes" if ok else "no"})
+        display = "will arrange before the visit" if arranging else ("yes" if ok else "no")
+        self.on_event({"type": "slot", "key": key, "ok": True, "value": ok, "display": display})
 
     def confirmed_slot(self) -> dict | None:
         if not (self.outcome or "").startswith("slot_confirmed"):
@@ -557,6 +598,10 @@ class FlowCall:
             parts.append(f"Asked for exact time: {c['preferred_exact_time']}.")
         if c.get("recall_window"):
             parts.append(f"Call back: {c['recall_window']}.")
+        if c.get("will_arrange"):
+            parts.append(f"Customer will arrange: {', '.join(c['will_arrange'])}.")
+        if o == "date_requested":
+            parts.append(f"Requested {c.get('requested_date')} {c.get('requested_band')}; team to confirm.")
         if c.get("rm_callback_reason"):
             parts.append(f"RM callback: {c['rm_callback_reason']}.")
         return " ".join(parts)
@@ -586,6 +631,9 @@ class FlowCall:
             "hold": hold,
             "recall_window": c.get("recall_window"),
             "rm_callback_reason": c.get("rm_callback_reason"),
+            "requested_slot": ({"date": c.get("requested_date"), "band": c.get("requested_band")}
+                               if self.outcome == "date_requested" else None),
+            "will_arrange": c.get("will_arrange", []),
             "summary": self.summary(),
             "path": self.path,
             "slots": {

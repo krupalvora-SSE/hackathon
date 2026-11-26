@@ -61,6 +61,12 @@ create_rm_callback:
   does: Create a callback task for the RM / scheduler with reason and customer's preference
   input: [site_id, rm_callback_reason, "preferred_exact_time?", summary]
 
+request_date:
+  system: beat_plan
+  status: contract_pending
+  does: Save the customer's own preferred date and time of day as a request for Beat Plan to re-plan; the team confirms later
+  input: [site_id, requested_date, requested_band]
+
 mark_dnc:
   system: zeus
   status: contract_pending

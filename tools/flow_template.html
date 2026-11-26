@@ -217,6 +217,7 @@ footer .wrap { padding-block: 0 32px; }
   const WHEN = {
     no_exact_guarantee: 'If they want an exact time', band_full: 'If that time is full', next_options: 'If they say no again',
     ask_ladder: 'Then asks', ask_water: 'Then asks', ask_light: 'Then asks',
+    arrange_ladder: 'If there is no ladder', with_sms: 'When reminder SMS is turned on',
   };
   const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
                   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* not available */ } } };

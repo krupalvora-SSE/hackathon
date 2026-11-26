@@ -3,6 +3,7 @@
 _global:
   deflection: "Our team will share those details with you separately."
   reprompt: "Hello, can you hear me?"
+  service_hours: "Our visits happen only between 9 am and 6 pm."
   didnt_catch: "Sorry, the line broke a little. Could you say that again?"
 
 GREET:
@@ -23,9 +24,16 @@ ALTERNATE_DAYS:
   band_full: "Sorry, that time slot isn't free on that day. Would {options_spoken} work instead?"
   next_options: "Okay, how about {options_spoken}?"
 
+NOT_NEEDED:
+  main: "You're right, the plan is new. That's why the first visit works as a check-up, so any problem is caught early. Shall I book {weekday}, {date_spoken} for you?"
+
+ASK_BAND_FOR_DATE:
+  main: "Sure. On {requested_date_spoken}, would morning, afternoon or evening suit you?"
+
 READINESS_CHECK:
   main: "Great. A few things need to be ready for the service, let me quickly confirm."
   ask_ladder: "Do you have an A-type ladder so the hero can reach the roof?"
+  arrange_ladder: "No problem. Could you arrange an A-type ladder before the visit?"
   ask_water: "Is there a water source near the panels?"
   ask_light: "And is there a light connection there?"
 
@@ -46,6 +54,8 @@ RECALL:
 
 CONFIRMED_CLOSE:
   main: "Your slot is confirmed for {weekday}, {date_spoken}, between {band_spoken}. Thank you, have a great day!"
+
+  with_sms: "Your slot is confirmed for {weekday}, {date_spoken}, between {band_spoken}. You'll also get a reminder SMS before the visit. Thank you, have a great day!"
 
 HOLD_CLOSE:
   main: "Your site is on hold until {hold_until_spoken}. We'll reach out after that. Thank you!"
@@ -73,3 +83,9 @@ NO_ANSWER_CLOSE:
 
 MANUAL_CONFIRM_CLOSE:
   main: "I've noted your details, our team will confirm shortly. Thank you!"
+
+NOT_NEEDED_CLOSE:
+  main: "No problem. We'll get in touch again after some time. Thank you!"
+
+REQUEST_CLOSE:
+  main: "I've noted your request for {requested_date_spoken}, {requested_band_spoken}. The date isn't fixed yet and may change with technician availability. Our team will confirm with you. Thank you!"

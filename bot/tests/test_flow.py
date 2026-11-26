@@ -72,7 +72,7 @@ def test_happy_path_checks_every_readiness_item_then_confirms():
     assert "पानी" in call.handle("affirm").speak[0]  # ladder yes -> water
     assert "light" in call.handle("affirm").speak[0]  # water yes -> light
     r = call.handle("affirm")
-    assert call.state == "RECAP" and "सुबह आठ से बारह बजे" in r.speak[0]
+    assert call.state == "RECAP" and "सुबह नौ से बारह बजे" in r.speak[0]
     r = call.handle("affirm")
     assert r.end and call.outcome == "slot_confirmed"
     sent = beatplan(events, "confirm_slot")[0]
@@ -138,7 +138,9 @@ def test_missing_ladder_puts_site_on_hold_with_consent():
     call, _, events = live()
     call.handle("affirm")
     call.handle("affirm")
-    call.handle("deny")                              # no ladder
+    r = call.handle("deny")                          # no ladder
+    assert "arrange" in r.speak[0] and call.state == "READINESS_CHECK"
+    call.handle("deny")                              # can't arrange one either
     call.handle("affirm")                            # water ok
     r = call.handle("affirm")                        # light ok
     assert call.state == "ASK_READY_DATE" and "A-type ladder" in r.speak[0]
@@ -243,3 +245,94 @@ def test_flow_engine_tool_dispatch():
     bad = eng.dispatch("customer_said", {"intent": "nonsense"})
     assert bad.result["ok"] is False and bad.run_llm is True and "allowed_intents" in bad.result
     assert eng.dispatch("save_slot", {}).result["ok"] is False
+
+
+# ---------- changes from the call samples (v0.3.0)
+
+def test_ladder_can_be_arranged_keeps_booking():
+    call, _, events = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    call.handle("deny")                              # no ladder now
+    r = call.handle("affirm")                        # but can arrange one
+    assert "पानी" in r.speak[0]                      # moves on to water
+    call.handle("affirm")
+    call.handle("affirm")
+    assert call.state == "RECAP"
+    call.handle("affirm")
+    rec = call.record()
+    assert call.outcome == "slot_confirmed" and rec["will_arrange"] == ["ladder"] and rec["readiness"]["ladder"] is True
+    assert any(e.get("display") == "will arrange before the visit" for e in events if e["type"] == "slot")
+
+
+def test_not_needed_yet_gets_one_explanation():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("not_needed_now")
+    assert call.state == "NOT_NEEDED" and "check-up" in r.speak[0]
+    assert "not_needed_now" not in r.allowed      # only one try
+    r = call.handle("deny")
+    assert call.outcome == "not_needed_now" and r.end
+
+
+def test_not_needed_yet_then_agrees():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("not_needed_now")
+    call.handle("affirm")
+    assert call.state == "READINESS_CHECK"
+
+
+def test_time_outside_service_hours_is_explained():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("ask_time")
+    r = call.handle("outside_service_hours")
+    assert call.state == "TIME_BAND" and "9 से शाम 6" in r.speak[0] and "के बीच आएँगे" in r.speak[0]
+
+
+def test_bands_are_9_to_12_12_to_3_3_to_6():
+    from agent.flow import speak_band
+    assert speak_band("morning", SPEC.policies, "en") == "9 am and 12 pm"
+    assert speak_band("afternoon", SPEC.policies, "en") == "12 pm and 3 pm"
+    assert speak_band("evening", SPEC.policies, "en") == "3 pm and 6 pm"
+
+
+def test_own_date_that_beat_plan_has_is_booked():
+    call, _, events = live()
+    call.handle("affirm")
+    call.handle("proposes_date", {"date": "3 december"})   # a backup day
+    assert call.state == "READINESS_CHECK"
+    for _ in range(4):
+        call.handle("affirm")
+    assert call.outcome == "slot_confirmed_alt_day"
+    assert beatplan(events, "confirm_slot")[0]["date"] == "2026-12-03"
+
+
+def test_own_date_not_in_beat_plan_is_a_request():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("proposes_date", {"date": "10 december"})
+    assert call.state == "ASK_BAND_FOR_DATE" and "10 दिसंबर" in r.speak[0]
+    r = call.handle("gives_band", {"band": "subah"})
+    assert call.outcome == "date_requested" and "confirm" in r.speak[0]
+    assert beatplan(events, "request_date")[0] == {"site_id": "SSE-PUN-1", "requested_date": "2026-12-10",
+                                                  "requested_band": "morning"}
+    assert call.record()["requested_slot"] == {"date": "2026-12-10", "band": "morning"}
+    assert not beatplan(events, "confirm_slot")
+
+
+def test_sms_line_only_when_policy_on():
+    call, _, _ = live()
+    for _ in range(5):
+        call.handle("affirm")
+    r = call.handle("affirm")
+    assert "SMS" not in r.speak[0]
+    spec = FlowSpec.load()
+    spec.policies["sms_reminder"] = True
+    call = FlowCall(call_id="S", booking=BOOKING, spec=spec, today=TODAY)
+    call.start()
+    for _ in range(5):
+        call.handle("affirm")
+    r = call.handle("affirm")
+    assert "SMS" in r.speak[0] and call.outcome == "slot_confirmed"

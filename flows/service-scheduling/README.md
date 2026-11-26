@@ -41,9 +41,12 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 2. **GREET**: name, "calling from SolarSquare", recording disclosure, identity check. Family member → can continue; doesn't know the customer → wrong number.
 3. **OFFER_PRIMARY**: "Your maintenance is due, we have a slot on {date}. Will you be available?"
    - **Yes** → readiness check.
-   - **Asks the time** → **TIME_BAND**: share the 4-hour band. If they want an exact time, say we can't guarantee it but will try (and log their preferred time). If they insist again → **RM callback**. If they want a different band that day → check Beat Plan: free → readiness; full → alternate days.
+   - **Asks the time** → **TIME_BAND**: share the 3-hour time window (9–12, 12–3, 3–6). If they want an exact time, say we can't guarantee it but will try (and log their preferred time). If they insist again → **RM callback**. If they want a different band that day → check Beat Plan: free → readiness; full → alternate days.
+   - **Not needed yet** ("plan is new", "panels are clean") → **NOT_NEEDED**: one short explanation (an early visit is a check-up), then ask again. Still no → `not_needed_now`.
+   - **Suggests their own date** → if Beat Plan has that day, book it; otherwise **ASK_BAND_FOR_DATE** (morning / afternoon / evening) → `date_requested`: "the date isn't fixed yet, the team will confirm".
+   - **Asks for a time outside 9 am to 6 pm** → say the service hours and repeat the question.
    - **Not that day** → **ALTERNATE_DAYS**: Beat Plan backup slots, closest first, 2 at a time. None fit → "no other slots now, team will reconnect".
-4. **READINESS_CHECK**: A-type ladder, water source, light connection, one at a time. All yes → **RECAP** → **BOOK** (`confirm_slot`). Anything missing → ask by when it'll be ready → site on hold (or, if `on_missing_prereq: reschedule_after_ready_date`, first try a backup slot after that date).
+4. **READINESS_CHECK**: A-type ladder, water source, light connection, one at a time. No ladder → first ask "can you arrange one before the visit?"; yes → carry on booking (noted as `will_arrange`). All yes → **RECAP** → **BOOK** (`confirm_slot`). Anything missing → ask by when it'll be ready → site on hold (or, if `on_missing_prereq: reschedule_after_ready_date`, first try a backup slot after that date).
 5. **At any point**:
    - out of town / not serviceable → **SITE_ON_HOLD**: ask the date, then **explicit consent** ("you won't get calls from SolarSquare until then"). Yes → hold API. No → thank and close.
    - "call me later" → **RECALL**: ask a time range. The recall API doesn't exist yet (`stub`), so we post it as a Beat Plan comment and create a scheduler task.
@@ -56,7 +59,7 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 | Outcome | Meaning |
 |---|---|
 | `slot_confirmed` | Primary Beat Plan slot confirmed |
-| `slot_confirmed_alt_band` | Same date, different 4-hour band |
+| `slot_confirmed_alt_band` | Same date, different time window |
 | `slot_confirmed_alt_day` | Backup date confirmed |
 | `site_on_hold` | Customer consented to hold until a date |
 | `hold_declined` | Not serviceable, but declined the hold |
@@ -68,6 +71,8 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 | `no_answer` | Silence / voicemail |
 | `needs_manual_confirmation` | Customer agreed but the Beat Plan/Zeus API failed |
 | `not_dialled` | Blocked before dialling (DNC, hours, allowlist) |
+| `not_needed_now` | Said the visit isn't needed yet, still no after one explanation |
+| `date_requested` | Wanted their own date that Beat Plan doesn't have; request saved, team confirms |
 
 ## Product notes
 
@@ -110,6 +115,7 @@ flowchart TD
   confirm -->|"Change day …"| slot
   anytime -.->|"Not available / site not ready"| hold
   anytime -.->|"Busy, call later"| later
+  anytime -.->|"Not needed yet"| slot
   classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
   classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
   classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
@@ -146,14 +152,21 @@ flowchart TD
   IN0(["From part 1 · From any step"]):::jump --> OFFER_PRIMARY
   IN1(["From part 3"]):::jump --> ALTERNATE_DAYS
   IN2(["From part 3"]):::jump --> TIME_BAND
+  IN3(["From any step"]):::jump --> NOT_NEEDED
   OFFER_PRIMARY("Offer the planned date"):::talk
   TIME_BAND("Tell the time window"):::talk
   CHECK_BAND[["Check another time that day"]]:::system
   ALTERNATE_DAYS("Offer other days"):::talk
+  NOT_NEEDED("Explain why the visit helps now"):::talk
+  ASK_BAND_FOR_DATE("Ask the time for their date"):::talk
   NO_SLOT_CLOSE(["No free slot"]):::terminal
+  NOT_NEEDED_CLOSE(["Not needed yet, call later"]):::terminal
+  REQUEST_CLOSE(["Date request noted"]):::terminal
   OFFER_PRIMARY -->|"Yes"| OUT_confirm
   OFFER_PRIMARY -->|"Asks the time"| TIME_BAND
   OFFER_PRIMARY -->|"No"| ALTERNATE_DAYS
+  OFFER_PRIMARY -->|"Suggests their own date (Beat Plan has that day)"| OUT_confirm
+  OFFER_PRIMARY -->|"Suggests their own date (not in Beat Plan)"| ASK_BAND_FOR_DATE
   TIME_BAND -->|"Yes"| OUT_confirm
   TIME_BAND -->|"Wants exact time (first time)"| TIME_BAND
   TIME_BAND -->|"Wants exact time (asks again)"| OUT_later
@@ -164,8 +177,14 @@ flowchart TD
   ALTERNATE_DAYS -->|"No other days"| NO_SLOT_CLOSE
   ALTERNATE_DAYS -->|"Yes"| OUT_confirm
   ALTERNATE_DAYS -->|"Wants another time"| CHECK_BAND
+  ALTERNATE_DAYS -->|"Suggests their own date (Beat Plan has that day)"| OUT_confirm
+  ALTERNATE_DAYS -->|"Suggests their own date (not in Beat Plan)"| ASK_BAND_FOR_DATE
   ALTERNATE_DAYS -->|"No (more days to offer)"| ALTERNATE_DAYS
   ALTERNATE_DAYS -->|"No (no more days)"| NO_SLOT_CLOSE
+  NOT_NEEDED -->|"Yes"| OUT_confirm
+  NOT_NEEDED -->|"Asks the time"| TIME_BAND
+  NOT_NEEDED -->|"No"| NOT_NEEDED_CLOSE
+  ASK_BAND_FOR_DATE -->|"Picks a time of day"| REQUEST_CLOSE
   OUT_confirm(["Go to part 3: Check readiness and book"]):::jump
   OUT_later(["Go to part 5: Call back or hand over"]):::jump
   classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
@@ -281,6 +300,7 @@ flowchart TD
   ANY -.->|"Wants a person"| OUT_later
   ANY -.->|"Don't call me"| DNC_CLOSE
   ANY -.->|"Someone else answered"| WRONG_PERSON
+  ANY -.->|"Not needed yet"| OUT_slot
   ANY -.->|"No reply"| NO_ANSWER_CLOSE
   OUT_slot(["Go to part 2: Fix the date and time"]):::jump
   OUT_later(["Go to part 5: Call back or hand over"]):::jump
@@ -294,6 +314,7 @@ flowchart TD
 
 Handled in place at any step (the bot answers, then repeats its question):
 
+- **Wants a time outside 9 am to 6 pm** (`outside_service_hours`)
 - **Not clear** (`unclear`); after 2 in a row → Ask a senior to call
 - **Asks price or something else** (`price_or_offtopic`)
 <!-- flow-diagram:end -->

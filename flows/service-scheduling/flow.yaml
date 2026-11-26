@@ -19,7 +19,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.2.0
+version: 0.3.0
 title: Service scheduling call flow
 ticket: SSE-15527
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -35,7 +35,7 @@ sections:
   slot:
     title: 2. Fix the date and time
     about: Offer the planned date. If it doesn't suit, try another time that day or another day.
-    states: [OFFER_PRIMARY, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, NO_SLOT_CLOSE]
+    states: [OFFER_PRIMARY, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, NOT_NEEDED, ASK_BAND_FOR_DATE, NO_SLOT_CLOSE, NOT_NEEDED_CLOSE, REQUEST_CLOSE]
   confirm:
     title: 3. Check readiness and book
     about: Make sure the ladder, water and light are ready, repeat the details and book the visit.
@@ -68,15 +68,18 @@ labels:
   exact_time_limit_reached: {when_true: asks again, when_false: first time}
   options_remaining: {when_true: more days to offer, when_false: no more days}
   reschedule_after_ready_date: {when_true: if rebooking is on, when_false: default}
+  date_is_free: {when_true: Beat Plan has that day, when_false: not in Beat Plan}
 
 # Example values for {placeholders}, so the shareable page shows a real-sounding line.
 sample_values:
   hi: {name: राहुल, bot_name: Krupal, weekday: शनिवार, date_spoken: 28 नवंबर, band_spoken: सुबह आठ से बारह बजे,
        options_spoken: "सोमवार, 30 नवंबर, सुबह या बुधवार, 2 दिसंबर, शाम", missing_item: A-type ladder,
-       hold_until_spoken: 5 दिसंबर, recall_window_spoken: कल शाम 5 से 7 बजे}
+       hold_until_spoken: 5 दिसंबर, recall_window_spoken: कल शाम 5 से 7 बजे,
+       requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह}
   en: {name: Rahul, bot_name: Krupal, weekday: Saturday, date_spoken: 28 November, band_spoken: 8 am and 12 pm,
        options_spoken: "Monday, 30 November, morning or Wednesday, 2 December, evening", missing_item: A-type ladder,
-       hold_until_spoken: 5 December, recall_window_spoken: tomorrow 5 to 7 pm}
+       hold_until_spoken: 5 December, recall_window_spoken: tomorrow 5 to 7 pm,
+       requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning}
 
 # Events raised by code (timers, action results), not by the customer.
 events:
@@ -96,6 +99,7 @@ flags:
   exact_time_limit_reached: "exact_time_asks (including this one) > policies.exact_time_insist_limit"
   options_remaining: "unoffered backup slots exist"
   reschedule_after_ready_date: "policies.on_missing_prereq == 'reschedule_after_ready_date'"
+  date_is_free: "the date the customer suggested is the planned date or a Beat Plan backup day"
 
 # Applies to every conversation state.
 global_events:
@@ -116,6 +120,8 @@ outcomes:
   - no_answer
   - needs_manual_confirmation
   - not_dialled
+  - not_needed_now
+  - date_requested
 
 # Runs after every terminal state, whatever the outcome.
 post_call:
@@ -165,6 +171,13 @@ states:
         to: TIME_BAND
       - on: deny
         to: ALTERNATE_DAYS
+      - on: proposes_date
+        when: date_is_free
+        to: READINESS_CHECK
+        set: {slot_source: alt_day}
+      - on: proposes_date
+        when: "!date_is_free"
+        to: ASK_BAND_FOR_DATE
 
   TIME_BAND:
     title: Tell the time window
@@ -211,6 +224,13 @@ states:
         set: {slot_source: alt_day}
       - on: wants_other_band
         to: CHECK_BAND
+      - on: proposes_date
+        when: date_is_free
+        to: READINESS_CHECK
+        set: {slot_source: alt_day}
+      - on: proposes_date
+        when: "!date_is_free"
+        to: ASK_BAND_FOR_DATE
       - on: deny
         when: options_remaining
         to: ALTERNATE_DAYS
@@ -218,6 +238,28 @@ states:
       - on: deny
         when: "!options_remaining"
         to: NO_SLOT_CLOSE
+
+  NOT_NEEDED:
+    title: Explain why the visit helps now
+    type: conversation
+    # Entered from the global not_needed_now intent ("plan is new", "panels are clean"). One try only.
+    disable_global: [not_needed_now]
+    transitions:
+      - on: affirm
+        to: READINESS_CHECK
+        set: {selected_slot: primary_slot, slot_source: primary}
+      - on: ask_time
+        to: TIME_BAND
+      - on: deny
+        to: NOT_NEEDED_CLOSE
+
+  ASK_BAND_FOR_DATE:
+    title: Ask the time for their date
+    type: conversation
+    collects: [requested_band]
+    transitions:
+      - on: gives_band
+        to: REQUEST_CLOSE
 
   READINESS_CHECK:
     title: "Ask: ladder, water, light ready?"
@@ -343,6 +385,7 @@ states:
   CONFIRMED_CLOSE:
     title: Visit booked
     type: terminal
+    alt_line: {when_policy: sms_reminder, key: with_sms}   # adds the reminder-SMS sentence when on
     outcome_from: slot_source
     outcome_map:
       primary: slot_confirmed
@@ -395,6 +438,17 @@ states:
     type: terminal
     actions: [create_rm_callback]
     outcome: needs_manual_confirmation
+
+  NOT_NEEDED_CLOSE:
+    title: Not needed yet, call later
+    type: terminal
+    outcome: not_needed_now
+
+  REQUEST_CLOSE:
+    title: Date request noted
+    type: terminal
+    actions: [request_date]
+    outcome: date_requested
 
   NOT_DIALLED:
     title: Not called

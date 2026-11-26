@@ -29,7 +29,7 @@ Hackathon tracks covered: **#4 Service slot scheduling** and **#5 Service slot c
 | `voice-agent-eval` | Testing, simulated callers, latency measurement, demo prep |
 
 ## Call flows as config (`flows/`)
-Each folder in `flows/` is one call flow defined as YAML: states, intents, Beat Plan/Zeus actions, policies and Hindi/English prompts. `flows/service-scheduling/` (SSE-15527) is the Beat-Plan-driven scheduling call: confirm slot, 4-hour band, alternate days, readiness check, site on hold, recall, RM callback.
+Each folder in `flows/` is one call flow defined as YAML: states, intents, Beat Plan/Zeus actions, policies and Hindi/English prompts. `flows/service-scheduling/` (SSE-15527) is the Beat-Plan-driven scheduling call: confirm slot, 3-hour time windows (9–12, 12–3, 3–6), alternate days, readiness check, site on hold, recall, RM callback.
 - Change behaviour by editing the YAML, not bot code. Add a scenario in `scenarios.yaml` for every new branch.
 - After any change run `.venv/bin/python tools/flowcheck.py --write` (first time: `python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt`). It must print `OK`; it also redraws the diagram in the flow's README.
 - Bump `version` in `flow.yaml` and add a `CHANGELOG.md` line.

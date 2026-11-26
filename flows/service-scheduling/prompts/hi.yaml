@@ -10,6 +10,7 @@
 _global:
   deflection: "इसकी जानकारी हमारी टीम आपको अलग से देगी।"
   reprompt: "हैलो, क्या आप मुझे सुन पा रहे हैं?"
+  service_hours: "हमारी visits सुबह 9 से शाम 6 बजे के बीच ही होती हैं।"
   didnt_catch: "माफ़ कीजिए, आवाज़ थोड़ी कट गई, फिर से बताएँगे?"
 
 GREET:
@@ -30,9 +31,16 @@ ALTERNATE_DAYS:
   band_full: "माफ़ कीजिए, उस दिन वह time slot खाली नहीं है। {options_spoken} में से कोई दिन चलेगा?"
   next_options: "अच्छा, तो {options_spoken} कैसा रहेगा?"
 
+NOT_NEEDED:
+  main: "जी, आपकी बात सही है कि plan अभी नया है। इसीलिए पहली visit एक check-up की तरह होती है, ताकि कोई भी problem शुरू में ही पकड़ में आ जाए। तो क्या मैं {weekday}, {date_spoken} का slot book कर दूँ?"
+
+ASK_BAND_FOR_DATE:
+  main: "ठीक है। {requested_date_spoken} को सुबह, दोपहर या शाम, कौन सा time आपके लिए ठीक रहेगा?"
+
 READINESS_CHECK:
   main: "बढ़िया। Service के लिए कुछ चीज़ें ready रखनी होंगी, बस confirm कर लेता हूँ।"
   ask_ladder: "क्या आपके पास A-type ladder है, जिससे hero छत तक पहुँच सकें?"
+  arrange_ladder: "कोई बात नहीं। क्या visit से पहले आप कहीं से A-type ladder arrange कर पाएँगे?"
   ask_water: "Panels के पास पानी का source है?"
   ask_light: "और वहाँ light का connection है?"
 
@@ -53,6 +61,8 @@ RECALL:
 
 CONFIRMED_CLOSE:
   main: "आपका slot {weekday}, {date_spoken}, {band_spoken} के लिए confirm हो गया है। धन्यवाद, आपका दिन शुभ हो!"
+
+  with_sms: "आपका slot {weekday}, {date_spoken}, {band_spoken} के लिए confirm हो गया है। Visit से पहले आपको reminder SMS भी आ जाएगा। धन्यवाद, आपका दिन शुभ हो!"
 
 HOLD_CLOSE:
   main: "आपकी site {hold_until_spoken} तक hold पर है। उसके बाद हम आपसे संपर्क करेंगे। धन्यवाद!"
@@ -80,3 +90,9 @@ NO_ANSWER_CLOSE:
 
 MANUAL_CONFIRM_CLOSE:
   main: "आपकी details note कर ली हैं, हमारी team जल्द ही confirm करके बताएगी। धन्यवाद!"
+
+NOT_NEEDED_CLOSE:
+  main: "ठीक है, कोई बात नहीं। हम कुछ समय बाद आपसे फिर संपर्क करेंगे। धन्यवाद!"
+
+REQUEST_CLOSE:
+  main: "मैंने आपकी {requested_date_spoken}, {requested_band_spoken} की request note कर ली है। यह date अभी fix नहीं है, technician की availability के हिसाब से बदल भी सकती है। हमारी team आपसे confirm कर लेगी। धन्यवाद!"

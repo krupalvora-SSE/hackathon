@@ -104,3 +104,33 @@
 - name: confirm API fails
   steps: [context_ready, affirm, affirm, affirm, affirm, action_failed]
   expect: needs_manual_confirmation
+
+- name: 'not needed yet, explained, then agrees'
+  steps: [context_ready, affirm, not_needed_now, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: 'not needed yet, still says no'
+  steps: [context_ready, affirm, not_needed_now, deny]
+  expect: not_needed_now
+
+- name: asks for a time outside 9 to 6, then accepts the band
+  steps: [context_ready, affirm, ask_time, outside_service_hours, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: suggests a day Beat Plan has
+  steps:
+    - context_ready
+    - affirm
+    - {on: proposes_date, flags: {date_is_free: true}}
+    - affirm
+    - affirm
+    - action_ok
+  expect: slot_confirmed_alt_day
+
+- name: suggests a day Beat Plan doesn't have -> request noted
+  steps:
+    - context_ready
+    - affirm
+    - {on: proposes_date, flags: {date_is_free: false}}
+    - gives_band
+  expect: date_requested
