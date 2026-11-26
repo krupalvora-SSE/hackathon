@@ -121,10 +121,18 @@ Entities (fill only when the customer said them, using their own words):
 - exact_time: the exact time they asked for
 - time_range: when to call them back
 - reason: why the site can't be serviced, or why they want a person
-- language: "en" if the customer is speaking English, "hi" if Hindi/Hinglish
+- language: "en" if the customer speaks or asks for English, "hi" for Hindi/Hinglish, "other" for any other language
 - readiness: when the customer also answers the ladder / water / light questions in the same turn
   ("haan kal aa jao, ladder aur paani dono hain"), give {{"ladder": true, "water": true}} (true = they have it,
   false = they don't). Include only items they actually mentioned; the intent is still the answer to the current question.
+- issue: a problem at the site, or what they are upset about, in their own words
+- mood: how they sound on this turn: calm, busy (rushed, "jaldi bolo"), confused (unsure, elderly, asks again),
+  annoyed (irritated, sighs, "phir se call?"), angry (raised voice, complaints), abusive (insults)
+
+If they say nobody came last time, use "missed_visit_complaint" (we still offer the visit, with an apology).
+If they are upset about anything else (billing, subsidy, poor service), use "frustrated", not "deny" or "unclear".
+If they only want the calls to stop, use "do_not_call". If they ask for something this call can't handle
+(new panels, loans, refunds, other services), use "off_script"; insults are "abusive".
 
 Customers speak Hinglish, Hindi in Devanagari, Marathi or English; transcripts are noisy phone ASR.
 "haan / ji / theek hai / chalega" to a yes/no question is affirm; "nahi / nahi hai / nahi chalega" is deny.

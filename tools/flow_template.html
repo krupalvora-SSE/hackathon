@@ -167,7 +167,8 @@ code { font-family: var(--font-mono); font-size: 12px; }
   const marks = (s) => esc(s).replace(/\[\[(.+?)\]\]/g, '<mark>$1</mark>').replace(/\{(\w+)\}/g, '<mark>$1</mark>');
   const WHEN = { no_exact_guarantee: 'If they want an exact time', band_full: 'If that time is full', next_options: 'If they say no again',
     ask_ladder: 'Then asks', ask_water: 'Then asks', ask_light: 'Then asks', arrange_ladder: 'If there is no ladder',
-    with_time: 'If they asked about the time' };
+    with_time: 'If they asked about the time', missed_visit: 'First, if the last visit was missed',
+    not_required_ack: 'If it is not needed (e.g. stairs to the roof)', number_again: 'If they did not note the number' };
   const TAG = { path: 'Usual call', detour: 'Detour', step: 'Detour', end: 'Ends', stay: 'Stays' };
   const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
   const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -181,7 +182,7 @@ code { font-family: var(--font-mono); font-size: 12px; }
   const anchor = (id) => `st-${id}`;
   const link = (to, text) => `<a class="jump" data-to="${esc(to)}" href="#${anchor(to)}">${esc(text)}</a>`;
   function sayBlock(id) {
-    const lines = Object.entries((D.states[id].say || {})[lang] || {});
+    const lines = Object.entries((D.states[id].say || {})[lang] || {}).filter(([k]) => !k.startsWith('repeat_'));
     return lines.map(([k, t]) => `<p class="say">${k === 'main' ? '' : `<span class="when">${esc(WHEN[k] || k.replace(/_/g, ' '))}</span>`}${marks(t)}</p>`).join('');
   }
   function table(rows) {

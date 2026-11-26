@@ -13,7 +13,7 @@
       "type": "string",
       "enum": ["slot_confirmed", "slot_confirmed_alt_band", "slot_confirmed_alt_day", "site_on_hold", "hold_declined",
                "no_slot_available", "rm_callback", "recall_requested", "do_not_call", "wrong_number", "no_answer",
-               "needs_manual_confirmation", "not_dialled", "not_needed_now", "date_requested"]
+               "needs_manual_confirmation", "not_dialled", "not_needed_now", "date_requested", "support_ticket", "line_issue"]
     },
     "spoke_to": {"type": "string", "enum": ["customer", "family_member", "other", "nobody"]},
     "confirmed_slot": {
@@ -34,6 +34,11 @@
     },
     "will_arrange": {"type": "array", "items": {"type": "string"}, "description": "Readiness items the customer promised to arrange before the visit"},
     "time_window_told": {"type": "boolean", "description": "True only if the customer asked about time and the bot told them a window"},
+    "site_issues": {"type": "array", "items": {"type": "string"}, "description": "Problems the customer mentioned at the site, in their words; added to the Beat Plan comment"},
+    "readiness_notes": {"type": "object", "description": "Why a readiness item isn't needed, e.g. {\"ladder\": \"stairs to the roof\"}"},
+    "support_ticket": {"type": ["object", "null"], "description": "Ticket raised for an upset customer: category, customer_words, priority"},
+    "missed_visit_complaint": {"type": ["string", "null"], "description": "Customer said a previous visit didn't happen (their words)"},
+    "mood": {"type": ["string", "null"], "enum": ["calm", "busy", "confused", "annoyed", "angry", "abusive", null], "description": "Last mood the bot read"},
     "slot_source": {"type": ["string", "null"], "enum": ["primary", "alt_band", "alt_day", null]},
     "preferred_exact_time": {"type": ["string", "null"], "description": "Logged whenever the customer asked for one, even if not escalated"},
     "readiness": {

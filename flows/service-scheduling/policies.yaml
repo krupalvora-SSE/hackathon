@@ -40,6 +40,33 @@ site_on_hold:
 # Say "you'll get a reminder SMS" when a visit is booked. Turn on only once Beat Plan really sends it.
 sms_reminder: false
 
+# Helpline the bot gives to upset customers. Spoken digit by digit, slowly, and the bot checks it was noted.
+support_number: "9830003000"
+# Visit length in minutes for "how long will it take?". 0 = not mentioned.
+visit_duration_minutes: 45
+# Don't call a site more often than this (customers complained about repeated calls).
+call_limits: {min_hours_between_calls: 24, max_calls_per_week: 3}
+# Earliest visit is this many days ahead ("aaj aa jao" gets the nearest day instead).
+min_notice_days: 1
+
+# ---------------------------------------------------------------------------------------------
+# Voice delivery. Sarvam bulbul:v4-flash takes pace (0.5-2.0), pitch (-0.75..0.75) and loudness per line.
+# tones = how the bot sounds; moods = what the customer's mood (as the LLM reads it) switches on.
+# A state's own `tone:` in flow.yaml wins over the mood (e.g. reading out the helpline is always slow).
+tones:
+  warm:       {pace: 1.0,  pitch: 0.0,   loudness: 1.0}    # default: friendly, normal speed
+  brisk:      {pace: 1.12, pitch: 0.0,   loudness: 1.0}    # busy customer: get to the point
+  slow_clear: {pace: 0.85, pitch: 0.0,   loudness: 1.1}    # confused / elderly / numbers and dates
+  empathetic: {pace: 0.88, pitch: -0.1,  loudness: 0.95}   # annoyed or angry: slower, lower, softer
+  calm_firm:  {pace: 0.9,  pitch: -0.15, loudness: 1.0}    # abusive: steady, never louder or faster
+moods:
+  calm:     {tone: warm}
+  busy:     {tone: brisk, short_lines: true}               # short form of each question (repeat_<key>)
+  confused: {tone: slow_clear, short_lines: true}
+  annoyed:  {tone: empathetic, acknowledge: true}          # "I understand." before the next line, once per step
+  angry:    {tone: empathetic, acknowledge: true}
+  abusive:  {tone: calm_firm}
+
 calling_hours: {start: "09:00", end: "20:00", timezone: Asia/Kolkata}
 
 silence:

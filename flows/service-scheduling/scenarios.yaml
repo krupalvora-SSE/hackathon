@@ -143,6 +143,57 @@
   steps:
     - context_ready
     - affirm
-    - {on: proposes_date, flags: {date_is_free: false}}
+    - {on: proposes_date, flags: {date_is_free: false, band_given: false}}
     - gives_band
   expect: date_requested
+
+- name: own date with a time of day in one answer -> request noted
+  steps:
+    - context_ready
+    - affirm
+    - {on: proposes_date, flags: {date_is_free: false, band_given: true}}
+  expect: date_requested
+
+- name: upset customer, ticket raised, still books the visit
+  steps: [context_ready, affirm, frustrated, affirm, affirm, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: upset customer, ticket raised, ends the call
+  steps: [context_ready, affirm, frustrated, deny, deny]
+  expect: support_ticket
+
+- name: customer can't hear the bot twice -> call back
+  steps: [context_ready, affirm, cant_hear, cant_hear]
+  expect: line_issue
+
+- name: quick questions don't move the call on
+  steps: [context_ready, affirm, who_are_you, number_source, is_robot, visit_question, someone_home, site_issue, wait_a_moment, change_language, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: ladder not needed counts as ready
+  steps: [context_ready, affirm, affirm, not_required, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: nobody came last time -> apology, still books the planned date
+  steps: [context_ready, affirm, missed_visit_complaint, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: asks for something outside this call -> supervisor call
+  steps: [context_ready, affirm, off_script, action_ok]
+  expect: rm_callback
+
+- name: abusive -> supervisor call
+  steps: [context_ready, affirm, abusive, action_ok]
+  expect: rm_callback
+
+- name: first PM, asks what this service is, then books
+  steps: [context_ready, affirm, what_is_service, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: first PM, asks why so early, then books
+  steps: [context_ready, affirm, why_so_early, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: asks why so early, then says no and no other day is free
+  steps: [context_ready, affirm, why_so_early, deny, no_backup_slots]
+  expect: no_slot_available

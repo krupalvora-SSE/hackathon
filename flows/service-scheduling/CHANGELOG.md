@@ -2,6 +2,29 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.9.0 (2026-11-26, SSE-15527)
+First-PM (first preventive maintenance) case:
+- Beat Plan context `first_pm` (or `pm_number: 1`). On the first PM, OFFER_PRIMARY says the system was commissioned recently, its first check-up is due and it's included in the AMC plan (`main_if` in flow.yaml picks the line).
+- New global intents that answer and repeat the question: `what_is_service` ("what is this service?", "I didn't book anything") and `why_so_early` (first PM: due a week after commissioning, to catch loose connections and installation dust early; later visits: regular visits in the plan, via `say_if`).
+- NOT_NEEDED has a first-PM line and a general line for later visits.
+- Price question now answers "this visit is included in your AMC plan" (always true, per ops) instead of "our team will share details".
+- `visit_info` lists the scope: panel cleaning, wiring and connectors, inverter, earthing and mounting structure. `policies.visit_duration_minutes: 45` replaces `visit_duration`.
+
+## 0.8.0 (2026-11-26, SSE-15527)
+Developed as 0.4.0 and 0.5.0 on the SSE-15527 branch after PR #4; merged on top of 0.7.0. Teammates' `wait_a_moment` (0.4.0) and `who_are_you` / `number_source` / `is_robot` (0.5.0) replace this branch's `hold_on`, `who_is_this` and `is_bot`.
+- Helpline 9830003000, read out digit by digit in groups of five ("nine eight three zero zero, zero three zero zero zero"), after "please take a pen". The bot asks whether it was noted; if not, it repeats it twice slowly, and says it once more when the call ends.
+- "Nobody came last time" (`missed_visit_complaint`) is no longer a dead end: the bot owns the miss, apologises and offers the planned date again (MISSED_VISIT). Other complaints still go to the support ticket.
+- Anything outside this call (`off_script`: new panels, loans, refunds…) and abuse (`abusive`) → "I'll arrange a call from our supervisor" (ESCALATE_RM / RM_CLOSE now say supervisor).
+- Emotion-aware delivery: the LLM reports the customer's `mood` each turn (calm, busy, confused, annoyed, angry, abusive). `policies.moods` picks a voice `tone` (pace, pitch, loudness for Sarvam bulbul:v4-flash), short questions for busy/confused customers, and one "I understand" per step for annoyed/angry ones. States can force a tone (`tone:` in flow.yaml), e.g. the helpline is always slow and clear. Set `TONE_CONTROL=0` to turn voice changes off.
+From 3 more sample calls (upset customers, repeated calls, a bad line) and a call-script review:
+- Upset or complaining customers (`frustrated`): the bot stops the script, apologises once, raises a support ticket (`create_support_ticket`), gives the helpline (`support_number` in policies.yaml, empty until confirmed) and asks once whether to fix the visit. No → `support_ticket`.
+- Call limits before dialling (`call_limits`: 24 h between calls, 3 a week) and an apology first when Beat Plan marks the last visit as missed (`prefix_if`).
+- Customer can't hear the bot (`cant_hear`): one "can you hear me?", then end and call back (`line_issue`).
+- Quick answers that keep the call where it was: change language (Hindi/English; others get "only Hindi or English"), hold on, problem at the site (saved as `site_issues` and in the Beat Plan comment), who is calling, are you a robot, what the visit involves, does someone need to be home.
+- Readiness: "not needed here" (e.g. stairs to the roof) counts as ready (`readiness_notes`).
+- "Aaj aa jao" gets the minimum-notice line; a date and time of day in one answer ("kal afternoon") no longer asks the time again.
+- Engine: per-intent escalation (`escalate_after`/`escalate_to` on any global intent), `then_repeat: false`, and the checker follows escalation paths.
+
 ## 0.7.0 (2026-11-26, SSE-15527 PR #4, merged in SSE-15542)
 Changes from listening to 4 real sample calls (developed as 0.3.0 on its own branch; renumbered when merged after 0.4.0-0.6.0):
 - Time windows now match service hours: morning 9–12, afternoon 12–3, evening 3–6; asking for a time outside 9 am–6 pm gets the hours and the question again (`outside_service_hours`).

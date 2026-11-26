@@ -47,6 +47,102 @@ global:
       hi: ["mai unka beta bol raha hoon", "wo ghar pe nahi hain", "galat number hai"]
       en: ["this is his son", "she's not here", "wrong number"]
 
+  missed_visit_complaint:
+    label: Nobody came last time
+    goto: MISSED_VISIT
+    entities: [issue]
+    examples:
+      hi: ["pichle mahine bhi koi nahi aaya", "ek hafta ho gaya koi nahi aaya", "kal bhi time diya tha, koi nahi aaya", "roz yahi kahani sunate ho"]
+      en: ["nobody came last month", "you gave me a time last week and nobody came"]
+
+  frustrated:
+    label: Upset or other complaint
+    goto: FRUSTRATED
+    entities: [issue, reason]
+    examples:
+      hi: ["bill galat aaya hai", "subsidy abhi tak nahi mili", "aapki service bekaar hai", "baar baar phone kyun karte ho", "main bahut pareshan hoon"]
+      en: ["I have a complaint", "your service is terrible", "you keep calling me"]
+
+  off_script:
+    label: Something outside this call
+    goto: ESCALATE_RM
+    set: {rm_callback_reason: off_script}
+    entities: [issue]
+    examples:
+      hi: ["naya panel lagwana hai", "loan ke baare mai poochna tha", "refund chahiye", "mere dost ke ghar bhi lagwana hai", "system shift karna hai"]
+      en: ["I want to add more panels", "I need a refund", "can you help with my loan"]
+
+  abusive:
+    label: Abusive
+    goto: ESCALATE_RM
+    set: {rm_callback_reason: abusive}
+    examples:
+      hi: ["(gaali)", "dimaag kharab mat karo, bewakoof"]
+      en: ["(abuse)", "shut up, you idiot"]
+
+  cant_hear:
+    label: Can't hear the bot
+    goto: $stay
+    say: can_you_hear
+    then_repeat: false
+    escalate_after: 1              # second time in a row -> end and call back
+    escalate_to: LINE_ISSUE_CLOSE
+    examples:
+      hi: ["hello? hello?", "awaaz nahi aa rahi", "kuch sunai nahi de raha"]
+      en: ["hello? can you hear me?", "I can't hear you"]
+
+  change_language:
+    label: Wants another language
+    goto: $stay
+    say: language_switched         # the next lines come in the new language; other languages get only_hi_en
+    entities: [language]
+    examples:
+      hi: ["English mein boliye", "Hindi mein baat karo", "Marathi mein bolo"]
+      en: ["please speak in English", "can you speak Hindi"]
+
+  site_issue:
+    label: Mentions a problem at the site
+    goto: $stay
+    say: site_issue_noted
+    entities: [issue]
+    examples:
+      hi: ["ek panel toot gaya hai", "inverter mai error aa raha hai", "generation kam ho raha hai", "chhat se paani tapakta hai", "panel pe chidiya ka ghonsla hai"]
+      en: ["one panel is cracked", "the inverter shows an error"]
+
+  visit_question:
+    label: Asks what the visit involves
+    goto: $stay
+    say: visit_info
+    examples:
+      hi: ["visit mai kya karoge", "kitna time lagega"]
+      en: ["what will you do in the visit", "how long will it take"]
+
+  what_is_service:
+    label: Asks what this service is
+    goto: $stay
+    say: service_info
+    examples:
+      hi: ["ye kaun si service hai", "maine to koi service book nahi ki", "ye kis cheez ki visit hai", "AMC kya hota hai"]
+      en: ["what service is this", "I didn't book any service", "what is this visit for"]
+
+  why_so_early:
+    label: Asks why the visit is so soon
+    # A question, not a refusal: answer and repeat the offer. First PM gets the commissioning reason.
+    goto: $stay
+    say: why_early
+    say_if: {context: first_pm, key: why_early_first_pm}
+    examples:
+      hi: ["itni jaldi kyun", "abhi to lagaya hai, abhi se service kyun", "abhi kyun aana hai"]
+      en: ["why so early", "it was just installed, why a service already", "why now"]
+
+  someone_home:
+    label: Asks if someone must be home
+    goto: $stay
+    say: someone_home
+    examples:
+      hi: ["ghar pe kisi ka hona zaroori hai", "main office mai hounga"]
+      en: ["does someone need to be home"]
+
   not_needed_now:
     label: Not needed yet
     goto: NOT_NEEDED
@@ -114,12 +210,13 @@ global:
       en: ["are you a robot", "am I talking to a machine", "is this an AI"]
 
   price_or_offtopic:
-    label: Asks price or something else
+    label: Asks about price
+    # The visit is always included in the AMC plan. Never quote any other price.
     goto: $stay
-    say: deflection
+    say: price_included
     examples:
-      hi: ["kitna charge lagega", "generation kam ho raha hai", "inverter mai error aa raha hai"]
-      en: ["how much will it cost", "my generation is low"]
+      hi: ["kitna charge lagega", "paise lagenge kya", "free hai na"]
+      en: ["how much will it cost", "is it free"]
 
 local:
 
@@ -172,7 +269,7 @@ local:
 
   proposes_date:
     label: Suggests their own date
-    entities: [date]
+    entities: [date, band]
     examples:
       hi: ["25 tareekh ko aa jao", "agle Sunday rakh do", "is date pe nahi, 10 ko aana"]
       en: ["can you come on the 25th instead", "make it next Sunday"]
@@ -183,6 +280,13 @@ local:
     examples:
       hi: ["subah", "dopahar mai", "shaam ko"]
       en: ["morning", "afternoon", "evening"]
+
+  not_required:
+    label: Not needed here
+    entities: [reason]
+    examples:
+      hi: ["seedhi nahi hai par chhat pe seedhiyan hain", "ladder ki zaroorat nahi, panel neeche shed pe hain"]
+      en: ["no ladder, but there are stairs to the roof", "not needed, the panels are on a low shed"]
 
   date_given:
     label: Gives a date

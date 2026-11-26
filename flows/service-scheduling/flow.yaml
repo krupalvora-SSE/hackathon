@@ -9,6 +9,12 @@
 #     whose `when` flag holds wins. `when: "!flag"` means the flag is false.
 #   - Flags are set by code (counters, policy values, action results), never by the LLM.
 #   - `say:` plays a specific prompt key of the target state instead of its `main` line.
+#   - `tone: <name>` on a state: how the bot sounds there (policies.tones), overriding the customer's mood.
+#   - `prefix_if: {context: <flag>, key: <prompt key>}`: speak that line first when the Beat Plan context
+#     flag is true (once per call).
+#   - `main_if: {context: <flag>, key: <prompt key>}`: speak that line instead of `main` when the Beat Plan
+#     context flag is true (e.g. first_pm: the first maintenance visit after commissioning).
+#   - Global intents can use `say_if` the same way to pick a different `_global` line.
 #   - `time_line: <key>` on a state: use that prompt key instead of `main` once the customer has asked
 #     about time (intents with `shares_time: true`). Otherwise the bot never mentions a time window,
 #     which keeps the team free to move the slot within the day.
@@ -22,7 +28,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.7.0
+version: 0.9.0
 title: Service scheduling call flow
 ticket: SSE-15539
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -38,7 +44,7 @@ sections:
   slot:
     title: 2. Find another date or time
     about: When the planned date or time doesn't suit, or the customer pushes back, find one that does.
-    states: [OFFER_PRIMARY, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, NOT_NEEDED, ASK_BAND_FOR_DATE, NO_SLOT_CLOSE, NOT_NEEDED_CLOSE, REQUEST_CLOSE]
+    states: [OFFER_PRIMARY, MISSED_VISIT, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, NOT_NEEDED, ASK_BAND_FOR_DATE, NO_SLOT_CLOSE, NOT_NEEDED_CLOSE, REQUEST_CLOSE]
   confirm:
     title: 3. Check readiness and book
     about: Make sure the ladder, water and light are ready, repeat the details and book the visit.
@@ -50,11 +56,11 @@ sections:
   later:
     title: 5. Call back or hand over
     about: The customer is busy or wants a person. Note when to call back, or ask a senior to call.
-    states: [RECALL, APPLY_RECALL, RECALL_CLOSE, ESCALATE_RM, RM_CLOSE]
+    states: [RECALL, APPLY_RECALL, RECALL_CLOSE, ESCALATE_RM, RM_CLOSE, FRUSTRATED, AFTER_TICKET, TICKET_CLOSE]
   anytime:
     title: 6. Can happen any time
     about: Someone else answers, the customer asks us not to call, or nobody replies.
-    states: [WRONG_PERSON, WRONG_NUMBER_CLOSE, DNC_CLOSE, NO_ANSWER_CLOSE]
+    states: [WRONG_PERSON, WRONG_NUMBER_CLOSE, DNC_CLOSE, NO_ANSWER_CLOSE, LINE_ISSUE_CLOSE]
 
 # Plain-English labels for diagram arrows (events and guard flags).
 labels:
@@ -72,17 +78,18 @@ labels:
   options_remaining: {when_true: more days to offer, when_false: no more days}
   reschedule_after_ready_date: {when_true: if rebooking is on, when_false: default}
   date_is_free: {when_true: Beat Plan has that day, when_false: not in Beat Plan}
+  band_given: {when_true: time of day given too, when_false: no time of day}
 
 # Example values for {placeholders}, so the shareable page shows a real-sounding line.
 sample_values:
   hi: {name: राहुल, bot_name: Krupal, weekday: शनिवार, date_spoken: 28 नवंबर, band_spoken: सुबह आठ से बारह बजे,
        options_spoken: "सोमवार, 30 नवंबर, सुबह या बुधवार, 2 दिसंबर, शाम", missing_item: A-type ladder,
        hold_until_spoken: 5 दिसंबर, recall_window_spoken: कल शाम 5 से 7 बजे,
-       requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह, sms_line: ""}
+       requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह, sms_line: "", support_line: " हमारी helpline नौ आठ तीन शून्य शून्य, शून्य तीन शून्य शून्य शून्य पर", support_number_spoken: "नौ आठ तीन शून्य शून्य, शून्य तीन शून्य शून्य शून्य", visit_duration_spoken: ", लगभग 45 मिनट लगते हैं"}
   en: {name: Rahul, bot_name: Krupal, weekday: Saturday, date_spoken: 28 November, band_spoken: 8 am and 12 pm,
        options_spoken: "Monday, 30 November, morning or Wednesday, 2 December, evening", missing_item: A-type ladder,
        hold_until_spoken: 5 December, recall_window_spoken: tomorrow 5 to 7 pm,
-       requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning, sms_line: ""}
+       requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning, sms_line: "", support_line: " our helpline on nine eight three zero zero, zero three zero zero zero", support_number_spoken: "nine eight three zero zero, zero three zero zero zero", visit_duration_spoken: ". It takes about 45 minutes"}
 
 # Events raised by code (timers, action results), not by the customer.
 events:
@@ -103,6 +110,7 @@ flags:
   options_remaining: "unoffered backup slots exist"
   reschedule_after_ready_date: "policies.on_missing_prereq == 'reschedule_after_ready_date'"
   date_is_free: "the date the customer suggested is the planned date or a Beat Plan backup day"
+  band_given: "the customer said a time of day together with their own date (e.g. 'kal afternoon')"
 
 # Applies to every conversation state.
 global_events:
@@ -125,6 +133,8 @@ outcomes:
   - not_dialled
   - not_needed_now
   - date_requested
+  - support_ticket
+  - line_issue
 
 # Runs after every terminal state, whatever the outcome.
 post_call:
@@ -166,6 +176,10 @@ states:
   OFFER_PRIMARY:
     title: Offer the planned date
     type: conversation
+    # If Beat Plan says the last visit was missed, apologise for it first (once).
+    prefix_if: {context: last_visit_missed, key: missed_visit}
+    # First PM (Beat Plan first_pm): say it's the first check-up after commissioning, included in the plan.
+    main_if: {context: first_pm, key: first_pm}
     transitions:
       - on: affirm
         to: READINESS_CHECK
@@ -179,7 +193,9 @@ states:
         to: READINESS_CHECK
         set: {slot_source: alt_day}
       - on: proposes_date
-        when: "!date_is_free"
+        when: band_given
+        to: REQUEST_CLOSE
+      - on: proposes_date
         to: ASK_BAND_FOR_DATE
 
   TIME_BAND:
@@ -232,7 +248,9 @@ states:
         to: READINESS_CHECK
         set: {slot_source: alt_day}
       - on: proposes_date
-        when: "!date_is_free"
+        when: band_given
+        to: REQUEST_CLOSE
+      - on: proposes_date
         to: ASK_BAND_FOR_DATE
       - on: deny
         when: options_remaining
@@ -247,6 +265,7 @@ states:
     type: conversation
     # Entered from the global not_needed_now intent ("plan is new", "panels are clean"). One try only.
     disable_global: [not_needed_now]
+    main_if: {context: first_pm, key: first_pm}
     transitions:
       - on: affirm
         to: READINESS_CHECK
@@ -277,6 +296,8 @@ states:
       - on: deny
         to: ASK_READY_DATE
         set: {hold_reason: prerequisites_missing}
+      - on: not_required            # e.g. "no ladder, but there are stairs to the roof": counts as ready
+        to: RECAP
 
   ASK_READY_DATE:
     title: Ask when it will be ready
@@ -375,7 +396,7 @@ states:
         to: RECALL_CLOSE
 
   ESCALATE_RM:
-    title: Ask a senior to call
+    title: Arrange a supervisor call
     type: system
     actions: [create_rm_callback]
     transitions:
@@ -383,6 +404,47 @@ states:
         to: RM_CLOSE
       - on: action_failed
         to: RM_CLOSE
+
+  MISSED_VISIT:
+    title: Apologise for the missed visit, offer the date
+    type: conversation
+    tone: empathetic
+    # "Nobody came last month / week": still worth booking. Own the miss, then pitch the planned date.
+    disable_global: [missed_visit_complaint]
+    transitions:
+      - on: affirm
+        to: READINESS_CHECK
+        set: {selected_slot: primary_slot, slot_source: primary}
+      - on: ask_time
+        to: TIME_BAND
+      - on: deny
+        to: ALTERNATE_DAYS
+
+  FRUSTRATED:
+    title: Apologise, raise a ticket, give the helpline
+    type: conversation
+    tone: empathetic
+    # Other complaints (billing, subsidy, service): stop the script, apologise once, raise a ticket,
+    # read out the helpline slowly and check it was noted.
+    actions: [create_support_ticket]
+    disable_global: [frustrated, missed_visit_complaint]
+    transitions:
+      - on: affirm
+        to: AFTER_TICKET
+      - on: deny
+        to: AFTER_TICKET
+        say: number_again
+
+  AFTER_TICKET:
+    title: Offer to fix the visit meanwhile
+    type: conversation
+    tone: slow_clear
+    disable_global: [frustrated, missed_visit_complaint]
+    transitions:
+      - on: affirm
+        to: OFFER_PRIMARY
+      - on: deny
+        to: TICKET_CLOSE
 
   # ---------- terminal states (each ends the call with one outcome) ----------
 
@@ -412,7 +474,7 @@ states:
     outcome: no_slot_available
 
   RM_CLOSE:
-    title: Senior will call
+    title: Supervisor will call
     type: terminal
     outcome: rm_callback
 
@@ -453,6 +515,18 @@ states:
     type: terminal
     actions: [request_date]
     outcome: date_requested
+
+  TICKET_CLOSE:
+    title: Support ticket raised
+    type: terminal
+    tone: slow_clear
+    outcome: support_ticket
+
+  LINE_ISSUE_CLOSE:
+    title: Can't hear, call back
+    type: terminal
+    actions: [schedule_recall]
+    outcome: line_issue
 
   NOT_DIALLED:
     title: Not called
