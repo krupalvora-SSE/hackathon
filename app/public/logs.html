@@ -70,6 +70,26 @@
     summary { cursor:pointer; color:var(--blue-600); font-size:var(--text-sm); font-weight:600; }
     pre { background:var(--bg-sunken); border-radius:12px; padding:14px; overflow:auto; font-size:12px; line-height:1.5; max-height:360px; }
     .empty { padding:60px 20px; text-align:center; color:var(--fg-3); }
+    .overview { padding:20px 22px; margin-bottom:20px; }
+    .ov-head { display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+    .ov-head h2 { margin:0; font-size:18px; color:var(--navy, var(--blue-900)); }
+    .ov-head .scope { color:var(--fg-3); font-size:var(--text-xs); }
+    .ov-head select { width:auto; min-width:130px; }
+    .tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    @media (max-width: 900px) { .tiles { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width: 480px) { .tiles { grid-template-columns:1fr; } }
+    .tile { border:1px solid var(--border-2); border-radius:14px; padding:12px 14px; background:#fff; }
+    .tile small { display:block; color:var(--fg-3); font-size:var(--text-xs); margin-bottom:4px; }
+    .tile b { font-size:24px; line-height:1.1; color:var(--navy, var(--blue-900)); font-family:var(--font-sans); }
+    .tile span { display:block; margin-top:4px; color:var(--fg-3); font-size:var(--text-xs); }
+    .tile.good b { color:var(--leaf-600); } .tile.bad b { color:var(--rust-600); } .tile.warn b { color:var(--sun-700); }
+    .bar { display:flex; height:14px; border-radius:999px; overflow:hidden; background:var(--ink-100); margin:16px 0 8px; }
+    .bar i { display:block; min-width:3px; }
+    .legend { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:var(--text-xs); color:var(--fg-2); }
+    .legend span::before { content:""; display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:-1px; }
+    .lg-confirmed::before { background:var(--leaf-600); } .lg-hold::before { background:var(--blue-500); } .lg-callback::before { background:var(--sun-500, #FFC11F); } .lg-info::before { background:var(--blue-300); } .lg-stopped::before { background:var(--rust-600); } .lg-silent::before { background:var(--ink-400, #9a978c); } .lg-failed::before { background:#7a1f0e; } .lg-running::before { background:var(--ink-200); }
+    .seg-confirmed { background:var(--leaf-600); } .seg-hold { background:var(--blue-500); } .seg-callback { background:var(--sun-500, #FFC11F); }
+    .seg-info { background:var(--blue-300); } .seg-stopped { background:var(--rust-600); } .seg-silent { background:var(--ink-400, #9a978c); } .seg-failed { background:#7a1f0e; } .seg-running { background:var(--ink-200); }
     @media (max-width: 900px) { .layout { grid-template-columns:1fr; } .list { position:static; max-height:none; } .brand-name { display:none; } .msg { max-width:92%; } }
   </style>
 </head>
@@ -90,6 +110,17 @@
     <div class="eyebrow">After the call</div>
     <h1>Call logs</h1>
     <p class="sub">Every call: what was confirmed, the path it took, the full transcript and what was sent to Beat Plan.</p>
+    <section class="card overview" id="overview" aria-label="Combined stats">
+      <div class="ov-head">
+        <div><h2>Overview</h2><div class="scope" id="scope"></div></div>
+        <select id="range" aria-label="Time range">
+          <option value="all">All time</option><option value="today">Today</option><option value="7d">Last 7 days</option>
+        </select>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <div class="bar" id="bar" role="img" aria-label="Outcomes of the calls"></div>
+      <div class="legend" id="legend"></div>
+    </section>
     <div class="layout">
       <aside class="card list">
         <div class="list-head"><select id="filter" aria-label="Filter by booking"></select></div>
@@ -122,14 +153,81 @@
     const KIND = { deflected: "Couldn't answer", not_understood: "Couldn't use the reply", unclear: "Didn't understand", other_language: 'Other language' };
 
     const params = new URLSearchParams(location.search);
-    let calls = [], current = null, flow = null, bookingFilter = params.get('booking') ?? '', selected = params.get('call');
+    let all = [], calls = [], current = null, flow = null, bookingFilter = params.get('booking') ?? '', selected = params.get('call'), range = 'all';
 
     async function loadList() {
       const q = bookingFilter ? `?bookingId=${encodeURIComponent(bookingFilter)}` : '';
-      calls = await (await fetch(`/api/calls${q}`)).json();
+      all = await (await fetch(`/api/calls${q}`)).json();
+      calls = inRange(all);
       if (!selected || !calls.some((c) => c.id === selected)) selected = calls[0]?.id ?? null;
+      renderOverview();
       renderList();
       await loadDetail();
+    }
+
+    // ---- the combined stats at the top, over the calls in view (booking filter + time range)
+    const DAY = 86400000;
+    function inRange(list) {
+      if (range === 'all') return list;
+      const since = range === 'today' ? new Date(new Date().toLocaleDateString('en-CA', IST) + 'T00:00:00+05:30').getTime() : Date.now() - 7 * DAY;
+      return list.filter((c) => new Date(c.createdAt).getTime() >= since);
+    }
+    const GROUPS = [   // outcome -> group; the order is the order on the bar
+      ['confirmed', 'Confirmed', ['confirmed', 'slot_confirmed', 'slot_confirmed_alt_band', 'slot_confirmed_alt_day']],
+      ['hold', 'Site on hold', ['site_on_hold']],
+      ['callback', 'Callback / call later', ['recall_requested', 'rm_callback', 'needs_manual_confirmation', 'handed_to_human']],
+      ['info', 'Not needed / date requested / no slot', ['not_needed_now', 'date_requested', 'hold_declined', 'no_slot_available']],
+      ['stopped', 'Wrong number / do not call', ['do_not_call', 'wrong_number']],
+      ['silent', 'No answer / hung up', ['no_answer', 'hung_up', 'not_dialled']],
+      ['failed', 'Failed', ['failed']],
+    ];
+    const FINISHED = (c) => c.status === 'ended' || c.status === 'failed';
+    const groupOf = (c) => (c.status === 'failed' ? 'failed' : GROUPS.find(([, , os]) => os.includes(c.outcome))?.[0] ?? 'silent');
+    const sum = (xs) => xs.reduce((a, b) => a + b, 0);
+    const money = (n) => `₹${n.toFixed(2)}`;
+
+    function stats(list) {
+      const done = list.filter(FINISHED), running = list.length - done.length;
+      const ok = done.filter((c) => groupOf(c) === 'confirmed').length;
+      const talk = done.map((c) => c.durationS).filter((x) => x != null);
+      const costs = done.map((c) => c.costInr).filter((x) => x != null);
+      const lat = done.map((c) => c.latency).filter((l) => l?.p50 != null && l.turns);
+      const turns = sum(lat.map((l) => l.turns));
+      return {
+        total: list.length, done: done.length, running, ok, failed: done.filter((c) => c.status === 'failed').length,
+        rate: done.length ? ok / done.length : null,
+        avgDur: talk.length ? sum(talk) / talk.length : null, totalDur: sum(talk),
+        totalCost: sum(costs), avgCost: costs.length ? sum(costs) / costs.length : null,
+        p50: turns ? sum(lat.map((l) => l.p50 * l.turns)) / turns : null,        // average of the calls' p50, weighted by turns
+        p95: lat.length ? Math.max(...lat.map((l) => l.p95 ?? 0)) : null,
+        fast: lat.length ? lat.filter((l) => l.p50 < 1000).length / lat.length : null,
+        turns, avgTurns: lat.length ? turns / lat.length : null,
+        offguard: sum(done.map((c) => c.offguardCount ?? 0)), offguardCalls: done.filter((c) => c.offguardCount > 0).length,
+        phone: list.filter((c) => c.mode === 'phone').length, browser: list.filter((c) => c.mode === 'browser').length,
+        groups: Object.fromEntries(GROUPS.map(([k]) => [k, done.filter((c) => groupOf(c) === k).length])),
+      };
+    }
+
+    function renderOverview() {
+      const st = stats(calls);
+      const pct = (x) => (x == null ? '–' : `${Math.round(x * 100)}%`);
+      const tile = (label, value, sub = '', tone = '', sub2 = '') => `<div class="tile ${tone}"><small>${esc(label)}</small><b>${esc(value)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}${sub2 ? `<span>${esc(sub2)}</span>` : ''}</div>`;
+      $('scope').textContent = `${bookingFilter ? (all[0]?.customerName ?? bookingFilter) : 'All bookings'} · ${$('range').selectedOptions[0].text.toLowerCase()} · ${st.total} call${st.total === 1 ? '' : 's'}`;
+      if (!st.total) { $('tiles').innerHTML = '<div class="empty" style="grid-column:1/-1;padding:24px">No calls in this view yet.</div>'; $('bar').innerHTML = ''; $('legend').innerHTML = ''; return; }
+      $('tiles').innerHTML = [
+        tile('Calls', st.total, `${st.done} finished${st.running ? ` · ${st.running} running` : ''}${st.failed ? ` · ${st.failed} failed` : ''}`, '', `${st.phone} phone · ${st.browser} browser`),
+        tile('Confirmed', pct(st.rate), `${st.ok} of ${st.done} finished calls`, st.rate >= 0.5 ? 'good' : ''),
+        tile('Avg call length', fmtDur(st.avgDur), `${fmtDur(st.totalDur)} talk time in total`),
+        tile('Cost per call', st.avgCost == null ? '–' : money(st.avgCost), `${money(st.totalCost)} in total`),
+        tile('Reply speed', st.p50 == null ? '–' : `${Math.round(st.p50)} ms`, st.p50 == null ? 'no timings yet' : `turn p50, avg over calls · ${pct(st.fast)} of calls under 1 s`, st.p50 == null ? '' : st.p50 < 1000 ? 'good' : 'warn'),
+        tile('Slowest turns', st.p95 == null ? '–' : `${Math.round(st.p95)} ms`, 'worst call p95'),
+        tile('Turns per call', st.avgTurns == null ? '–' : st.avgTurns.toFixed(1), `${st.turns} customer turns`),
+        tile('Off-guard questions', st.offguard, `in ${st.offguardCalls} call${st.offguardCalls === 1 ? '' : 's'}`, st.offguard ? 'warn' : ''),
+      ].join('');
+      const total = st.total;
+      const segs = [...GROUPS.map(([k, label]) => [k, label, st.groups[k]]), ['running', 'Running', st.running]].filter(([, , n]) => n);
+      $('bar').innerHTML = segs.map(([k, label, n]) => `<i class="seg-${k}" style="width:${(n / total) * 100}%" title="${esc(label)}: ${n}"></i>`).join('');
+      $('legend').innerHTML = segs.map(([k, label, n]) => `<span class="lg-${k}">${esc(label)} <b>${n}</b></span>`).join('');
     }
 
     function renderList() {
@@ -227,6 +325,7 @@
       const p = new URLSearchParams(location.search); p.set('call', selected); history.replaceState(null, '', `?${p}`);
       renderList(); loadDetail();
     });
+    $('range').addEventListener('change', (e) => { range = e.target.value; selected = null; loadList(); });
     $('filter').addEventListener('change', (e) => {
       bookingFilter = e.target.value; selected = null;
       const p = new URLSearchParams(); if (bookingFilter) p.set('booking', bookingFilter); history.replaceState(null, '', p.toString() ? `?${p}` : location.pathname);
