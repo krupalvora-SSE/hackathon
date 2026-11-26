@@ -34,7 +34,7 @@
     .rejected, .do_not_call, .wrong_number, .failed, .hung_up { background: #FBEAE4; color: var(--rust-600); }
     .handed_to_human { background: var(--blue-100); color: var(--blue-800); }
     .slot_confirmed, .slot_confirmed_alt_band, .slot_confirmed_alt_day { background: #E8F6EC; color: var(--leaf-600); }
-    .site_on_hold, .rm_callback, .recall_requested, .needs_manual_confirmation, .not_needed_now, .date_requested { background: var(--blue-100); color: var(--blue-800); }
+    .site_on_hold, .rm_callback, .recall_requested, .needs_manual_confirmation, .not_needed_now, .date_requested, .support_ticket, .line_issue { background: var(--blue-100); color: var(--blue-800); }
     button { display: inline-flex; align-items: center; gap: 6px; font: 500 var(--text-sm) var(--font-sans); padding: 6px 12px; border-radius: var(--radius-md); border: 0; background: var(--bg-brand); color: var(--fg-on-brand); cursor: pointer; }
     button.ghost { background: var(--bg-surface); color: var(--fg-1); border: 1px solid var(--border-2); }
     button.danger { background: var(--rust-600); color: #fff; }
@@ -223,7 +223,7 @@
       wrong_number: 'Wrong number', no_answer: 'No answer', hung_up: 'Hung up', handed_to_human: 'Handed to human',
       slot_confirmed: 'Confirmed', slot_confirmed_alt_band: 'Confirmed (other time)', slot_confirmed_alt_day: 'Confirmed (other day)',
       site_on_hold: 'Site on hold', hold_declined: 'Hold declined', no_slot_available: 'No slot', rm_callback: 'RM callback',
-      recall_requested: 'Call later', not_needed_now: 'Not needed yet', date_requested: 'Date requested', needs_manual_confirmation: 'Needs manual confirm', not_dialled: 'Not dialled',
+      recall_requested: 'Call later', not_needed_now: 'Not needed yet', date_requested: 'Date requested', support_ticket: 'Support ticket', line_issue: 'Bad line', needs_manual_confirmation: 'Needs manual confirm', not_dialled: 'Not dialled',
       created: 'Starting', dialing: 'Dialing', connecting: 'Connecting', in_progress: 'On call', ended: 'Ended', failed: 'Failed',
     };
     const SLOTS = [

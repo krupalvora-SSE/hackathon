@@ -132,7 +132,8 @@ flowchart LR
 | Asks the time | Find another date or time: Tell the time window |
 | No | Find another date or time: Offer other days |
 | Suggests their own date (Beat Plan has that day) | Step 3: Ask: ladder, water, light ready? |
-| Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
+| Suggests their own date (time of day given too) | Call ends: Date request noted |
+| Suggests their own date | Find another date or time: Ask the time for their date |
 
 #### Step 3. Ask: ladder, water, light ready?
 
@@ -142,6 +143,7 @@ flowchart LR
 |---|---|
 | Yes | Step 4: Repeat the details, get a yes |
 | No | Pause the site: Ask when it will be ready |
+| Not needed here | Step 4: Repeat the details, get a yes |
 
 #### Step 4. Repeat the details, get a yes
 
@@ -185,7 +187,8 @@ The bot doesn't speak here. **Free** → Step 3: Ask: ladder, water, light ready
 | Yes | Step 3: Ask: ladder, water, light ready? |
 | Wants another time | Check another time that day |
 | Suggests their own date (Beat Plan has that day) | Step 3: Ask: ladder, water, light ready? |
-| Suggests their own date (not in Beat Plan) | Ask the time for their date |
+| Suggests their own date (time of day given too) | Call ends: Date request noted |
+| Suggests their own date | Ask the time for their date |
 | No (more days to offer) | Bot answers and asks again |
 | No (no more days) | Call ends: No free slot |
 
@@ -265,6 +268,15 @@ The bot doesn't speak here. **Done** → Call ends: We'll call back; **System er
 
 The bot doesn't speak here. **Done** → Call ends: Senior will call; **System error** → Call ends: Senior will call.
 
+**Apologise, raise a support ticket**
+
+> I understand, you've had trouble more than once, and I'm sorry. I've raised a support ticket for you, and our support team will contact you soon. You can also reach our helpline. Meanwhile, shall I fix your maintenance visit?
+
+| Customer says | What happens |
+|---|---|
+| Yes | Step 2: Offer the planned date |
+| No | Call ends: Support ticket raised |
+
 ### Any time in the call
 
 | Customer says | What happens |
@@ -274,6 +286,15 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Wants a person | Ask a senior to call |
 | Don't call me | Won't call again |
 | Someone else answered | Someone else answered |
+| Upset or complaint | Apologise, raise a support ticket |
+| Can't hear the bot | Bot asks again; after 1 times in a row: Can't hear, call back |
+| Wants another language | Bot answers briefly, then repeats its question |
+| Asks to wait | Bot answers briefly, then repeats its question |
+| Mentions a problem at the site | Bot answers briefly, then repeats its question |
+| Asks who is calling | Bot answers briefly, then repeats its question |
+| Asks if it's a robot | Bot answers briefly, then repeats its question |
+| Asks what the visit involves | Bot answers briefly, then repeats its question |
+| Asks if someone must be home | Bot answers briefly, then repeats its question |
 | Not needed yet | Explain why the visit helps now |
 | Wants a time outside 9 am to 6 pm | Bot answers briefly, then repeats its question |
 | Not clear | Bot asks again; after 2 times in a row: Ask a senior to call |
@@ -308,6 +329,8 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Team will confirm | `needs_manual_confirmation` |
 | Not needed yet, call later | `not_needed_now` |
 | Date request noted | `date_requested` |
+| Support ticket raised | `support_ticket` |
+| Can't hear, call back | `line_issue` |
 | Not called | `not_dialled` |
 
 After every call, whatever the ending, the system runs: summarise_call, post_beatplan_comment.

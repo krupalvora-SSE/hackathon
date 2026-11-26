@@ -14,7 +14,7 @@ import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
@@ -199,6 +199,9 @@ class FlowCall:
     silences: int = 0
     exact_time_asks: int = 0
     unclear_streak: int = 0
+    streaks: dict = field(default_factory=dict)   # same global intent N times in a row (unclear, cant_hear)
+    prefixed: set = field(default_factory=set)    # states whose prefix_if line was already spoken
+    asked_lang: str | None = None
     readiness_idx: int = 0
     backup_queue: list | None = None
     offered: list = field(default_factory=list)
@@ -217,6 +220,8 @@ class FlowCall:
         self.ctx.setdefault("readiness", {})
         self.ctx.setdefault("missing_items", [])
         self.ctx.setdefault("will_arrange", [])
+        self.ctx.setdefault("site_issues", [])
+        self.ctx.setdefault("readiness_notes", {})
 
     @property
     def policies(self) -> dict:
@@ -240,6 +245,7 @@ class FlowCall:
         entities = {k: v for k, v in (entities or {}).items() if v not in (None, "")}
         st = self.spec.states[self.state]
         lang = entities.get("language")
+        self.asked_lang = lang
         if lang in self.spec.prompts:
             self.lang = lang
 
@@ -250,6 +256,7 @@ class FlowCall:
                 return Step(error=f"intent '{on}' does not apply in {self.state}", state=self.state, allowed=allowed)
             if on != "unclear":
                 self.unclear_streak = 0
+            self.streaks = {k: v for k, v in self.streaks.items() if k == on}
             self.silences = 0
 
         self.on_event({"type": "flow", "state": self.state, "intent": on, "entities": entities})
@@ -299,6 +306,7 @@ class FlowCall:
             "options_remaining": bool(self.backup_queue),
             "reschedule_after_ready_date": self.policies["on_missing_prereq"] == "reschedule_after_ready_date",
             "date_is_free": bool(self.ctx.get("_date_is_free")),
+            "band_given": bool(self.ctx.get("_band_given")),
         }
 
     def _pick(self, state: str, on: str, flags: dict | None) -> dict | None:
@@ -346,6 +354,10 @@ class FlowCall:
                         self._apply_set(tr)
                         target, say = tr["to"], tr.get("say")
                         continue
+                pre = st.get("prefix_if") or {}
+                if pre and self.context.get(pre.get("context")) and target not in self.prefixed:
+                    self.prefixed.add(target)
+                    lines.append(self._line(target, pre["key"]))
                 if st.get("checklist") and say is None:
                     self.readiness_idx = 0
                     lines.append(self._line(target, "main"))
@@ -375,18 +387,28 @@ class FlowCall:
     def _global(self, name: str, gi: dict) -> Step:
         if name == "unclear":
             self.unclear_streak += 1
-            if gi.get("escalate_to") and self.unclear_streak > int(gi.get("escalate_after", 2)):
+        streak = self.streaks[name] = self.streaks.get(name, 0) + 1
+        if gi.get("escalate_to") and streak > int(gi.get("escalate_after", 2)):
+            if name == "unclear":
                 self.ctx["rm_callback_reason"] = "repeated_misunderstanding"
-                return self._step(self._enter(gi["escalate_to"]))
+            return self._step(self._enter(gi["escalate_to"]))
         if name == "repeat_request":
             return self._step([self._repeat_line()])
+        if name == "change_language" and self.asked_lang not in self.spec.prompts:
+            return self._step([self._global_line("only_hi_en")])
         self._apply_set(gi)
         if name == "not_serviceable" and self.ctx.get("_date") and self.auto:
             self._enter(gi["goto"])          # date already given: skip "from which date?"
             return self.handle("date_given")
         if gi.get("goto") == "$stay":
-            return self._step([f"{self._global_line(gi.get('say'))} {self.last_line}".strip()])
+            again = self._current_line() if gi.get("then_repeat", True) else ""
+            return self._step([f"{self._global_line(gi.get('say'))} {again}".strip()])
         return self._step(self._enter(gi["goto"]))
+
+    def _current_line(self) -> str:
+        """The question the bot is waiting on, rendered again (so a language switch takes effect)."""
+        state, key = self.last_ref
+        return (self._line(state, key) if state else "") or self.last_line
 
     def _repeat_line(self) -> str:
         """The last question again, shorter and simpler; a generic lead-in plus the full line if it has no short form."""
@@ -414,6 +436,12 @@ class FlowCall:
             d = N.parse_date(e["date"], self.today)
             if d:
                 self.ctx["_date"] = d
+        if on == "site_issue" and e.get("issue"):
+            self.ctx["site_issues"].append(e["issue"])
+        if on == "frustrated":
+            self.ctx["support_ticket"] = {"category": e.get("reason") or "complaint",
+                                          "customer_words": e.get("issue") or "",
+                                          "priority": "high" if self.context.get("last_visit_missed") else "normal"}
         if on == "not_serviceable":
             self.ctx["hold_reason"] = e.get("reason") or "not_serviceable"
             if self.ctx.get("_date"):
@@ -426,10 +454,16 @@ class FlowCall:
             return None
         st = self.spec.states[self.state]
 
-        if st.get("checklist") and on in ("affirm", "deny"):
+        if st.get("checklist") and on in ("affirm", "deny", "not_required"):
             items = self.policies[st["checklist"]]
             item = items[self.readiness_idx]
-            if self.arranging == item["id"]:          # answer to "can you arrange it before the visit?"
+            lead = []
+            if on == "not_required":                  # "no ladder, but there are stairs": counts as ready
+                self.arranging = None
+                self.ctx["readiness_notes"][item["id"]] = e.get("reason") or "not needed"
+                lead = [self._line(self.state, "not_required_ack")]
+                ok = True
+            elif self.arranging == item["id"]:          # answer to "can you arrange it before the visit?"
                 self.arranging = None
                 if on == "affirm":
                     self.ctx["will_arrange"].append(item["id"])
@@ -437,25 +471,26 @@ class FlowCall:
             elif on == "deny" and item.get("ask_if_can_arrange"):
                 self.arranging = item["id"]
                 q = self._line(self.state, f"arrange_{item['id']}")
-                self.last_line = q
+                self.last_line, self.last_ref = q, (self.state, f"arrange_{item['id']}")
                 return self._step([q])
             else:
                 ok = on == "affirm"
             self.ctx["readiness"][item["id"]] = ok
             if not ok:
                 self.ctx["missing_items"].append(item["id"])
-            self._emit_readiness(item["id"], ok, arranging=item["id"] in self.ctx["will_arrange"])
+            self._emit_readiness(item["id"], ok, arranging=item["id"] in self.ctx["will_arrange"],
+                                 note=self.ctx["readiness_notes"].get(item["id"]))
             self.readiness_idx += 1
             if self.readiness_idx < len(items):
                 q = self._checklist_question()
                 self.last_line, self.last_ref = q, (self.state, f"ask_{items[self.readiness_idx]['id']}")
-                return self._step([q])
+                return self._step(lead + [q])
             final = "deny" if self.ctx["missing_items"] else "affirm"
             if final == "deny":
                 self.ctx["hold_reason"] = "prerequisites_missing"
             tr = self._pick(self.state, final, None)
             self._apply_set(tr)
-            return self._step(self._enter(tr["to"], tr.get("say")))
+            return self._step(lead + self._enter(tr["to"], tr.get("say")))
 
         if self.state == "ALTERNATE_DAYS" and on == "affirm":
             chosen = self._resolve_option(e)
@@ -466,8 +501,14 @@ class FlowCall:
 
         if on == "proposes_date":
             d = self.ctx.pop("_date", None)
+            if d is not None and d < self.today + timedelta(days=int(self.policies.get("min_notice_days", 1))) \
+                    and d >= self.today:
+                return self._step([f"{self._global_line('same_day')} {self._current_line()}".strip()])
             if d is None or d <= self.today:
                 return self._step([f"{self._global_line('didnt_catch')} {self.last_line}".strip()])
+            if e.get("band") and self.ctx.get("preferred_band"):
+                self.ctx["requested_band"] = self.ctx["preferred_band"]
+                self.ctx["_band_given"] = True
             self.ctx["requested_date"] = d.isoformat()
             slots = [self.context.get("primary_slot")] + list(self.context.get("backup_slots") or [])
             match = next((x for x in slots if x and x["date"] == d.isoformat()), None)
@@ -567,6 +608,14 @@ class FlowCall:
             d = date.fromisoformat(self.ctx["hold_until"])
             v["hold_until_spoken"] = speak_day(d, self.lang)
         v["recall_window_spoken"] = self.ctx.get("recall_window") or ""
+        num = str(self.policies.get("support_number") or "").strip()
+        if self.lang == "hi":
+            v["support_line"] = f" हमारी helpline {num} पर" if num else " हमारी helpline पर"
+        else:
+            v["support_line"] = f" our helpline on {num}" if num else " our helpline"
+        dur = str(self.policies.get("visit_duration") or "").strip()
+        v["visit_duration_spoken"] = ((f", लगभग {dur} लगता है" if self.lang == "hi" else f"; it takes about {dur}")
+                                      if dur else "")
         if self.ctx.get("requested_date"):
             d = date.fromisoformat(self.ctx["requested_date"])
             v["requested_date_spoken"] = f"{speak_weekday(d, self.lang)}, {speak_day(d, self.lang)}"
@@ -593,10 +642,11 @@ class FlowCall:
         self.on_event({"type": "slot", "key": "visit_time_slot", "ok": True, "value": band,
                        "display": speak_band(band or s["band"], self.policies, "en")})
 
-    def _emit_readiness(self, item: str, ok: bool, arranging: bool = False) -> None:
+    def _emit_readiness(self, item: str, ok: bool, arranging: bool = False, note: str | None = None) -> None:
         key = {"ladder": "ladder_available", "water": "water_source_available", "light": "light_available"}.get(
             item, f"{item}_available")
-        display = "will arrange before the visit" if arranging else ("yes" if ok else "no")
+        display = (f"not needed ({note})" if note else "will arrange before the visit" if arranging
+                   else ("yes" if ok else "no"))
         self.on_event({"type": "slot", "key": key, "ok": True, "value": ok, "display": display})
 
     def confirmed_slot(self) -> dict | None:
@@ -619,6 +669,11 @@ class FlowCall:
             parts.append(f"Asked for exact time: {c['preferred_exact_time']}.")
         if c.get("recall_window"):
             parts.append(f"Call back: {c['recall_window']}.")
+        if c.get("site_issues"):
+            parts.append(f"Site issues: {'; '.join(c['site_issues'])}.")
+        if c.get("support_ticket"):
+            t = c["support_ticket"]
+            parts.append(f"Support ticket ({t['category']}, {t['priority']}): {t['customer_words']}.")
         if c.get("will_arrange"):
             parts.append(f"Customer will arrange: {', '.join(c['will_arrange'])}.")
         if o == "date_requested":
@@ -656,6 +711,9 @@ class FlowCall:
             "requested_slot": ({"date": c.get("requested_date"), "band": c.get("requested_band")}
                                if self.outcome == "date_requested" else None),
             "will_arrange": c.get("will_arrange", []),
+            "site_issues": c.get("site_issues", []),
+            "readiness_notes": c.get("readiness_notes", {}),
+            "support_ticket": c.get("support_ticket"),
             "summary": self.summary(),
             "path": self.path,
             "slots": {

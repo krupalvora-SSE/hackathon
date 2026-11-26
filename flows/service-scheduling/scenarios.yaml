@@ -135,6 +135,33 @@
   steps:
     - context_ready
     - affirm
-    - {on: proposes_date, flags: {date_is_free: false}}
+    - {on: proposes_date, flags: {date_is_free: false, band_given: false}}
     - gives_band
   expect: date_requested
+
+- name: own date with a time of day in one answer -> request noted
+  steps:
+    - context_ready
+    - affirm
+    - {on: proposes_date, flags: {date_is_free: false, band_given: true}}
+  expect: date_requested
+
+- name: upset customer, ticket raised, still books the visit
+  steps: [context_ready, affirm, frustrated, affirm, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: upset customer, ticket raised, ends the call
+  steps: [context_ready, affirm, frustrated, deny]
+  expect: support_ticket
+
+- name: customer can't hear the bot twice -> call back
+  steps: [context_ready, affirm, cant_hear, cant_hear]
+  expect: line_issue
+
+- name: quick questions don't move the call on
+  steps: [context_ready, affirm, who_is_this, is_bot, visit_question, someone_home, site_issue, hold_on, change_language, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: ladder not needed counts as ready
+  steps: [context_ready, affirm, affirm, not_required, affirm, action_ok]
+  expect: slot_confirmed

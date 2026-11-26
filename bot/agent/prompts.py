@@ -121,7 +121,11 @@ Entities (fill only when the customer said them, using their own words):
 - exact_time: the exact time they asked for
 - time_range: when to call them back
 - reason: why the site can't be serviced, or why they want a person
-- language: "en" if the customer is speaking English, "hi" if Hindi/Hinglish
+- language: "en" if the customer speaks or asks for English, "hi" for Hindi/Hinglish, "other" for any other language
+- issue: a problem at the site, or what they are upset about, in their own words
+
+If the customer is upset or complains (missed visits, repeated calls, billing, poor service), use "frustrated",
+not "deny" or "unclear". If they only want the calls to stop, use "do_not_call".
 
 Customers speak Hinglish, Hindi in Devanagari, Marathi or English; transcripts are noisy phone ASR.
 "haan / ji / theek hai / chalega" to a yes/no question is affirm; "nahi / nahi hai / nahi chalega" is deny.

@@ -257,6 +257,13 @@ class Flow:
                 for k in keys:
                     if k not in ((p or {}).get("READINESS_CHECK") or {}):
                         self.err(f"prompts/{lang}.yaml: READINESS_CHECK.{k} missing for readiness item")
+        # prefix_if: its prompt key must exist in every language
+        for n, st in self.states.items():
+            pre = st.get("prefix_if")
+            if pre:
+                for lang, p in self.prompts.items():
+                    if pre.get("key") not in ((p or {}).get(n) or {}):
+                        self.err(f"prompts/{lang}.yaml: {n}.{pre.get('key')} missing (prefix_if)")
         # time_line: the alternative prompt key must exist in every language
         for n, st in self.states.items():
             key = st.get("time_line")
@@ -278,6 +285,8 @@ class Flow:
                 for gname, gi in self.global_intents.items():
                     if gname not in disabled and gi.get("goto") not in (None, "$stay"):
                         yield n, gi["goto"]
+                    if gname not in disabled and gi.get("escalate_to"):
+                        yield n, gi["escalate_to"]
                 for ge in self.flow.get("global_events", []) or []:
                     yield n, ge["to"]
 
@@ -343,12 +352,18 @@ class Flow:
         return outcome, path
 
     def _next(self, name, s, on, flags, ctx):
+        streaks = ctx.setdefault("_streaks", {})
+        for k in [k for k in streaks if k != on]:
+            del streaks[k]
         if s.get("type") == "conversation":
             for ge in self.flow.get("global_events", []) or []:
                 if ge["on"] == on:
                     return ge["to"]
             if on in self.global_intents and on not in (s.get("disable_global") or []):
                 gi = self.global_intents[on]
+                streaks[on] = streaks.get(on, 0) + 1
+                if gi.get("escalate_to") and streaks[on] > int(gi.get("escalate_after", 2)):
+                    return gi["escalate_to"]
                 ctx.update(gi.get("set") or {})
                 return name if gi["goto"] == "$stay" else gi["goto"]
         for tr in s.get("transitions", []) or []:

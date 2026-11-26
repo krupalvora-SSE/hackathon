@@ -2,6 +2,16 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.4.0 (2026-11-26, SSE-15527)
+From 3 more sample calls (upset customers, repeated calls, a bad line) and a call-script review:
+- Upset or complaining customers (`frustrated`): the bot stops the script, apologises once, raises a support ticket (`create_support_ticket`), gives the helpline (`support_number` in policies.yaml, empty until confirmed) and asks once whether to fix the visit. No → `support_ticket`.
+- Call limits before dialling (`call_limits`: 24 h between calls, 3 a week) and an apology first when Beat Plan marks the last visit as missed (`prefix_if`).
+- Customer can't hear the bot (`cant_hear`): one "can you hear me?", then end and call back (`line_issue`).
+- Quick answers that keep the call where it was: change language (Hindi/English; others get "only Hindi or English"), hold on, problem at the site (saved as `site_issues` and in the Beat Plan comment), who is calling, are you a robot, what the visit involves, does someone need to be home.
+- Readiness: "not needed here" (e.g. stairs to the roof) counts as ready (`readiness_notes`).
+- "Aaj aa jao" gets the minimum-notice line; a date and time of day in one answer ("kal afternoon") no longer asks the time again.
+- Engine: per-intent escalation (`escalate_after`/`escalate_to` on any global intent), `then_repeat: false`, and the checker follows escalation paths.
+
 ## 0.3.0 (2026-11-26, SSE-15527)
 Changes from listening to 4 real sample calls:
 - Time windows now match service hours: morning 9–12, afternoon 12–3, evening 3–6; asking for a time outside 9 am–6 pm gets the hours and the question again (`outside_service_hours`).

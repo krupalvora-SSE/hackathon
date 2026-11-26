@@ -11,6 +11,16 @@ _global:
   deflection: "इसकी जानकारी हमारी टीम आपको अलग से देगी।"
   reprompt: "हैलो, क्या आप मुझे सुन पा रहे हैं?"
   sms_reminder: "Visit से पहले आपको reminder SMS भी आ जाएगा।"
+  language_switched: "जी, ज़रूर।"
+  only_hi_en: "माफ़ कीजिए, अभी मैं सिर्फ़ हिंदी या English में बात कर सकता हूँ। कौन सी भाषा ठीक रहेगी?"
+  on_line: "जी, कोई बात नहीं, मैं line पर हूँ।"
+  site_issue_noted: "समझ गया, मैंने यह note कर लिया है। हमारे hero visit पर इसे check करेंगे।"
+  who_we_are: "मैं SolarSquare से बोल रहा हूँ, आपके solar AMC plan की maintenance visit के लिए।"
+  i_am_ai: "जी, मैं SolarSquare का AI assistant हूँ। आप चाहें तो मैं team member से बात करवा देता हूँ।"
+  visit_info: "Visit में panels की cleaning और system का health check होगा{visit_duration_spoken}।"
+  someone_home: "जी, visit के समय घर पर किसी का होना ज़रूरी है ताकि hero छत तक जा सकें।"
+  can_you_hear: "हैलो, क्या आपको मेरी आवाज़ आ रही है?"
+  same_day: "आज की visit नहीं हो पाएगी, कम से कम एक दिन पहले book करनी होती है।"
   service_hours: "हमारी visits सुबह 9 से शाम 6 बजे के बीच ही होती हैं।"
   didnt_catch: "माफ़ कीजिए, ठीक से सुनाई नहीं दिया।"
   repeat_lead: "जी, फिर से बता देता हूँ।"
@@ -24,6 +34,7 @@ WRONG_PERSON:
   repeat_main: "क्या यह {name} जी का घर है?"
 
 OFFER_PRIMARY:
+  missed_visit: "पहले तो पिछली visit न हो पाने के लिए माफ़ी चाहता हूँ।"
   main: "{name} जी, आपके solar system का maintenance due है। {weekday}, {date_spoken} को हमारे पास slot है, क्या आप उस दिन available रहेंगे?"
   repeat_main: "{weekday}, {date_spoken} को आप available हैं?"
 
@@ -50,6 +61,8 @@ ASK_BAND_FOR_DATE:
 READINESS_CHECK:
   main: "बढ़िया। Service के लिए कुछ चीज़ें ready रखनी होंगी, बस confirm कर लेता हूँ।"
   ask_ladder: "क्या आपके पास A-type ladder है, जिससे hero छत तक पहुँच सकें?"
+  not_required_ack: "ठीक है, note कर लिया।"
+  repeat_arrange_ladder: "क्या visit से पहले A-type ladder का इंतज़ाम हो पाएगा?"
   arrange_ladder: "कोई बात नहीं। क्या visit से पहले आप कहीं से A-type ladder arrange कर पाएँगे?"
   ask_water: "Panels के पास पानी का source है?"
   ask_light: "और वहाँ light का connection है?"
@@ -115,3 +128,13 @@ NOT_NEEDED_CLOSE:
 
 REQUEST_CLOSE:
   main: "मैंने आपकी {requested_date_spoken}, {requested_band_spoken} की request note कर ली है। यह date अभी fix नहीं है, technician की availability के हिसाब से बदल भी सकती है। हमारी team आपसे confirm कर लेगी। धन्यवाद!"
+
+FRUSTRATED:
+  main: "मैं समझ सकता हूँ, आपको बार बार परेशानी हुई, इसके लिए माफ़ी चाहता हूँ। मैंने आपके लिए support ticket बना दिया है, हमारी support team जल्द आपसे संपर्क करेगी। आप चाहें तो{support_line} भी बात कर सकते हैं। क्या तब तक मैं आपकी maintenance visit fix कर दूँ?"
+  repeat_main: "क्या तब तक visit fix कर दूँ?"
+
+TICKET_CLOSE:
+  main: "ठीक है। आपका ticket बन गया है, हमारी support team आपसे संपर्क करेगी। धन्यवाद।"
+
+LINE_ISSUE_CLOSE:
+  main: "लगता है आपको मेरी आवाज़ नहीं आ रही, हम थोड़ी देर में दोबारा call करेंगे। धन्यवाद।"

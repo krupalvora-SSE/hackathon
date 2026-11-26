@@ -142,7 +142,9 @@ def flow_tools(spec) -> list[dict]:
             "exact_time": {"type": "string", "description": "Exact time they asked for."},
             "time_range": {"type": "string", "description": "When to call back, in their words."},
             "reason": {"type": "string", "description": "Why not serviceable / why they want a person."},
-            "language": {"type": "string", "enum": spec.policies["languages"]},
+            "language": {"type": "string", "enum": spec.policies["languages"] + ["other"],
+                         "description": "Language the customer speaks or asks for; 'other' for e.g. Marathi."},
+            "issue": {"type": "string", "description": "Problem at the site or complaint, in their words."},
         },
         "required": ["intent"],
     }]

@@ -408,3 +408,128 @@ def test_backup_days_offered_without_time_of_day_unless_asked():
     call.handle("affirm")
     r = call.handle("deny")
     assert "सोमवार" in r.speak[0] and "सुबह" not in r.speak[0] and "शाम" not in r.speak[0]
+
+
+# ---------- from call samples 5-7 and the script review (v0.4.0)
+
+def test_upset_customer_gets_apology_ticket_and_helpline():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("frustrated", {"issue": "pichle mahine bhi koi nahi aaya", "reason": "missed_visit"})
+    assert call.state == "FRUSTRATED"
+    line = r.speak[0]
+    assert "माफ़ी" in line and "support ticket" in line and "helpline" in line
+    t = beatplan(events, "create_support_ticket")[0]
+    assert t["category"] == "missed_visit" and t["customer_words"] == "pichle mahine bhi koi nahi aaya"
+    assert "frustrated" not in r.allowed                      # one apology, no loop
+    r = call.handle("deny")
+    assert call.outcome == "support_ticket" and "ticket" in r.speak[0]
+    assert call.record()["support_ticket"]["category"] == "missed_visit"
+
+
+def test_upset_customer_can_still_book():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("frustrated", {"issue": "baar baar phone"})
+    r = call.handle("affirm")
+    assert call.state == "OFFER_PRIMARY" and "शनिवार" in r.speak[0]
+
+
+def test_helpline_number_is_spoken_when_set():
+    spec = FlowSpec.load()
+    spec.policies["support_number"] = "1800 000 0000"
+    call = FlowCall(call_id="H", booking=BOOKING, spec=spec, today=TODAY)
+    call.start()
+    call.handle("affirm")
+    assert "1800 000 0000" in call.handle("frustrated").speak[0]
+
+
+def test_missed_last_visit_gets_an_apology_once():
+    b = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "last_visit_missed": True}}
+    call, _, _ = live(b)
+    r = call.handle("affirm")
+    assert "माफ़ी" in r.speak[0] and "शनिवार" in r.speak[1]
+    call.handle("price_or_offtopic")
+    call.handle("deny")
+    assert sum("पिछली visit" in ln for ln in r.speak) == 1
+
+
+@pytest.mark.parametrize("extra,reason", [({"calls_this_week": 3}, "too_many_calls_this_week"),
+                                          ({"last_call_at": "2099-01-01T00:00:00+05:30"}, "called_recently")])
+def test_call_limits_block_dialling(extra, reason):
+    b = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], **extra}}
+    call, first, _ = live(b)
+    assert first.end and call.outcome == "not_dialled" and call.ctx["blocked_reason"] == reason
+
+
+def test_cant_hear_once_checks_twice_calls_back():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("cant_hear")
+    assert call.state == "OFFER_PRIMARY" and r.speak == ["हैलो, क्या आपको मेरी आवाज़ आ रही है?"]
+    r = call.handle("cant_hear")
+    assert call.outcome == "line_issue" and beatplan(events, "schedule_recall")
+
+
+def test_language_switch_repeats_question_in_new_language():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("change_language", {"language": "en"})
+    assert call.lang == "en" and "Saturday" in r.speak[0]
+    r = call.handle("change_language", {"language": "other"})
+    assert "Hindi or English" in r.speak[0] and call.lang == "en"
+
+
+def test_hold_on_does_not_repeat_the_question():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("hold_on")
+    assert r.speak == ["जी, कोई बात नहीं, मैं line पर हूँ।"] and call.state == "OFFER_PRIMARY"
+
+
+def test_site_issue_is_noted_and_goes_to_beat_plan():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("site_issue", {"issue": "ek panel toot gaya hai"})
+    assert "note" in r.speak[0] and "शनिवार" in r.speak[0]
+    for _ in range(5):
+        call.handle("affirm")
+    rec = call.record()
+    assert rec["site_issues"] == ["ek panel toot gaya hai"] and "ek panel toot gaya hai" in rec["summary"]
+    assert "ek panel toot gaya hai" in beatplan(events, "post_beatplan_comment")[0]["record"]["summary"]
+
+
+def test_ladder_not_needed_counts_as_ready():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    r = call.handle("not_required", {"reason": "stairs to the roof"})
+    assert r.speak[0] == "ठीक है, note कर लिया।" and "पानी" in r.speak[1]
+    call.handle("affirm")
+    call.handle("affirm")
+    assert call.state == "RECAP"
+    assert call.record()["readiness_notes"] == {"ladder": "stairs to the roof"}
+
+
+def test_today_gets_minimum_notice_line():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("proposes_date", {"date": "aaj"})
+    assert "आज की visit" in r.speak[0] and call.state == "OFFER_PRIMARY"
+
+
+def test_own_date_with_time_of_day_skips_the_time_question():
+    call, _, events = live()
+    call.handle("affirm")
+    r = call.handle("proposes_date", {"date": "10 december", "band": "afternoon"})
+    assert call.outcome == "date_requested"
+    assert beatplan(events, "request_date")[0]["requested_band"] == "afternoon"
+
+
+def test_repeat_arrange_question_is_short():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    call.handle("deny")
+    r = call.handle("repeat_request")
+    assert r.speak == ["क्या visit से पहले A-type ladder का इंतज़ाम हो पाएगा?"]
