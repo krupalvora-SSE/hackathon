@@ -14,6 +14,7 @@ _global:
   service_hours: "हमारी visits सुबह 9 से शाम 6 बजे के बीच ही होती हैं।"
   time_window: "उस दिन हमारे service hero {band_spoken} के बीच आएँगे।"
   didnt_catch: "माफ़ कीजिए, ठीक से सुनाई नहीं दिया।"
+  didnt_catch_date: "माफ़ कीजिए, date समझ नहीं आई। जैसे 5 दिसंबर, या एक महीने बाद?"
   repeat_lead: "जी, फिर से बता देता हूँ।"
   hold_ack: "जी, मैं line पर हूँ, आप देख लीजिए।"
   identity_who: "मैं {bot_name} बोल रहा हूँ, SolarSquare से, आपके solar system के maintenance के बारे में।"
@@ -84,8 +85,8 @@ ASK_READY_DATE:
   repeat_main: "{missing_item} किस date तक हो जाएगा?"
 
 RECAP:
-  main: "तो {weekday}, {date_spoken}, और {ready_note}। मैं यह confirm कर दूँ?"
-  with_time: "तो {weekday}, {date_spoken}, {band_spoken} के बीच, और {ready_note}। मैं यह confirm कर दूँ?"
+  main: "तो {weekday}, {date_spoken}। {ready_note}। मैं यह confirm कर दूँ?"
+  with_time: "तो {weekday}, {date_spoken}, {band_spoken} के बीच। {ready_note}। मैं यह confirm कर दूँ?"
   repeat_main: "{weekday}, {date_spoken}। मैं यह confirm कर दूँ?"
   repeat_with_time: "{weekday}, {date_spoken}, {band_spoken}। मैं यह confirm कर दूँ?"
 

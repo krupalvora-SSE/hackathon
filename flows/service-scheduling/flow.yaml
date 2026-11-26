@@ -22,7 +22,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.13.0
+version: 0.14.0
 title: Service scheduling call flow
 ticket: SSE-15557
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -352,6 +352,8 @@ states:
         to: BOOK
       - on: deny
         to: RECAP_CHANGE
+      - on: corrects_readiness           # "actually I have no ladder": the checklist re-runs with the corrected answer
+        to: READINESS_CHECK
       - on: change_date
         to: ALTERNATE_DAYS
       - on: change_time
@@ -361,6 +363,8 @@ states:
     title: Ask what to change
     type: conversation
     transitions:
+      - on: corrects_readiness
+        to: READINESS_CHECK
       - on: change_date
         to: ALTERNATE_DAYS
       - on: change_time

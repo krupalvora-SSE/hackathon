@@ -76,6 +76,14 @@ MONTH_WORD = {w: m for m, ws in MONTHS.items() for w in ws}
 MONTH_NAME = {m: ws[0].capitalize() for m, ws in MONTHS.items()}
 WEEKDAY_HINGLISH = ["Somvar", "Mangalvar", "Budhvar", "Guruvar", "Shukravar", "Shanivar", "Ravivar"]
 
+# "after 1 month": a month counts as 30 days, a week as 7
+DURATION_UNIT = {
+    "din": 1, "दिन": 1, "day": 1, "days": 1,
+    "hafte": 7, "hafta": 7, "hafte.": 7, "हफ़्ते": 7, "हफ्ते": 7, "हफ़्ता": 7, "हफ्ता": 7, "सप्ताह": 7, "week": 7, "weeks": 7,
+    "mahine": 30, "mahina": 30, "महीने": 30, "महीना": 30, "month": 30, "months": 30,
+}
+AFTER_WORD = {"baad", "bad", "बाद", "later", "after", "mein", "में"}
+
 RELATIVE = {
     0: ["aaj", "today", "आज"],
     1: ["kal", "tomorrow", "कल", "udya", "उद्या"],
@@ -154,6 +162,20 @@ def parse_date(text: str, today: date | None = None) -> date | None:
                 ahead = 7
             # "agle somvar" on a Thursday means the coming Monday, same as "somvar"
             return today + timedelta(days=ahead)
+
+    # "1 mahine baad", "15 din baad", "do hafte baad", "after 1 month", "next month / agle hafte"
+    for i, tok in enumerate(tokens):
+        days = DURATION_UNIT.get(tok)
+        if days is None:
+            continue
+        n = _num(tokens[i - 1]) if i > 0 else None
+        if n is None and i > 0 and tokens[i - 1] in ("next", "agle", "agla", "अगले", "अगला", "अगली", "this", "is", "इस"):
+            n = 1
+        if n is None and i == 0:
+            n = 1
+        if n is not None and 1 <= n <= 24 and (set(tokens) & AFTER_WORD or len(tokens) == 2
+                                                 or tokens[i - 1] in ("next", "agle", "agla", "अगले", "अगला")):
+            return today + timedelta(days=n * days)
 
     for offset, words in RELATIVE.items():
         for w in words:

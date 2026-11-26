@@ -2,6 +2,14 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.14.0 (2026-11-26, SSE-15557)
+From a fifth sample call:
+- Relative durations are understood as dates: "1 महीने बाद", "15 दिन बाद", "दो हफ़्ते बाद", "after 1 month", "next week / month" (a month counts as 30 days). Before, "when will the site be ready?" looped three times on "1 महीने बाद".
+- A heard-but-unusable answer (no usable date, time of day or option) now counts toward the same escalation as "not understood": after two repeats a senior is asked to call (reason `repeated_misunderstanding`) instead of asking forever. Date failures use a line that says what is expected ("जैसे 5 दिसंबर, या एक महीने बाद?").
+- A hedge inside a yes ("जी हाँ, फिर तो शायद है") is a maybe: new `hedged` entity on `customer_said`, treated as `unsure` at the readiness questions.
+- A customer can correct a readiness answer at the recap or the "what to change?" step ("मेरे पास ladder नहीं है"): new intent `corrects_readiness` re-runs the checklist with the corrected answer (a ladder that is now missing asks "can you arrange one?" first). Before it was misread as "change the day".
+- The recap is a proper sentence: "ladder और पानी ready हैं, light का इंतज़ाम आप visit से पहले कर लेंगे" (no stray "और ... और ..."); lists read "a, b और c".
+
 ## 0.13.0 (2026-11-26, SSE-15557)
 From a fourth sample call:
 - "Maybe" (शायद / हो सकता है, intents `unsure` and `dont_know`) to the ladder, water or light question is no longer booked as ready: the bot asks once whether they will arrange it before the visit (`arrange_<item>` for all three items). Yes is recorded as `will_arrange`, no or another maybe as missing (hold flow). The recap now says which items the customer will arrange (`{ready_note}`) instead of claiming everything is ready.

@@ -146,12 +146,13 @@ flowchart LR
 
 #### Step 4. Repeat the details, get a yes
 
-> So that's Saturday, 28 November, and {ready_note}. Shall I confirm it?
+> So that's Saturday, 28 November. {ready_note}. Shall I confirm it?
 
 | Customer says | What happens |
 |---|---|
 | Yes | System: Book the visit |
 | No | Check readiness and book: Ask what to change |
+| Corrects an earlier ladder / water / light answer | Step 3: Ask: ladder, water, light ready? |
 | Change day | Find another date or time: Offer other days |
 | Change time | Find another date or time: Tell the time window |
 
@@ -223,6 +224,7 @@ Make sure the ladder, water and light are ready, repeat the details and book the
 
 | Customer says | What happens |
 |---|---|
+| Corrects an earlier ladder / water / light answer | Step 3: Ask: ladder, water, light ready? |
 | Change day | Find another date or time: Offer other days |
 | Change time | Find another date or time: Tell the time window |
 | Wants another time | Find another date or time: Check another time that day |

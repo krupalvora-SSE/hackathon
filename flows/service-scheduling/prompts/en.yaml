@@ -7,6 +7,7 @@ _global:
   service_hours: "Our visits happen only between 9 am and 6 pm."
   time_window: "Our service hero will come between {band_spoken} that day."
   didnt_catch: "Sorry, I didn't catch that."
+  didnt_catch_date: "Sorry, I didn't get the date. For example 5 December, or in one month?"
   repeat_lead: "Sure, let me say that again."
   hold_ack: "Sure, I'm on the line, take your time."
   identity_who: "This is {bot_name} from SolarSquare, calling about your solar system maintenance."
@@ -77,8 +78,8 @@ ASK_READY_DATE:
   repeat_main: "By what date can the {missing_item} be ready?"
 
 RECAP:
-  main: "So that's {weekday}, {date_spoken}, and {ready_note}. Shall I confirm it?"
-  with_time: "So that's {weekday}, {date_spoken}, between {band_spoken}, and {ready_note}. Shall I confirm it?"
+  main: "So that's {weekday}, {date_spoken}. {ready_note}. Shall I confirm it?"
+  with_time: "So that's {weekday}, {date_spoken}, between {band_spoken}. {ready_note}. Shall I confirm it?"
   repeat_main: "{weekday}, {date_spoken}. Shall I confirm?"
   repeat_with_time: "{weekday}, {date_spoken}, {band_spoken}. Shall I confirm?"
 

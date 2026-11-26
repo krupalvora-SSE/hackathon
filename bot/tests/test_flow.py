@@ -688,7 +688,7 @@ def test_a_maybe_that_becomes_a_yes_is_recorded_as_will_arrange_and_the_recap_sa
     call.handle("affirm")                                           # water
     r = call.handle("affirm")                                       # light -> recap
     assert call.state == "RECAP" and call.ctx["will_arrange"] == ["ladder"]
-    assert "ladder का इंतज़ाम आप visit से पहले कर लेंगे" in r.speak[0] and "पानी और light ready रहेंगे" in r.speak[0]
+    assert "ladder का इंतज़ाम आप visit से पहले कर लेंगे" in r.speak[0] and "पानी और light ready हैं" in r.speak[0]
     assert "ladder, पानी" not in r.speak[0]                          # no longer claims the ladder is ready
 
 
@@ -768,6 +768,119 @@ def test_the_customer_himself_still_hears_your():
     call, _, _ = live()
     r = call.handle("affirm")
     assert "आपके solar system" in r.speak[0]
+
+
+# ---- fifth sample call (SSE-15557)
+@pytest.mark.parametrize("text,days", [
+    ("1 महीने बाद", 30), ("एक महीने बाद", 30), ("after 1 month", 30), ("I am saying it will be ready after 1 month.", 30),
+    ("15 दिन बाद", 15), ("दो हफ़्ते बाद", 14), ("10 din baad", 10), ("अगले महीने", 30), ("next week", 7), ("3 din", 3),
+])
+def test_relative_durations_become_dates(text, days):
+    from datetime import timedelta
+    from agent import normalize as N
+
+    assert N.parse_date(text, TODAY) == TODAY + timedelta(days=days)
+
+
+def test_a_month_later_answers_when_will_the_site_be_ready():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("not_serviceable", {"reason": "gaon ja raha hoon"})                # "मैं गाँव जा रहा हूँ"
+    assert call.state == "SITE_ON_HOLD"
+    call.handle("date_given", {"date": "1 महीने बाद"})
+    assert call.state == "HOLD_CONSENT" and call.ctx["hold_until"] == "2026-12-26"
+
+
+def test_unusable_answers_escalate_instead_of_asking_forever():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("not_serviceable", {"reason": "gaon"})
+    r = call.handle("date_given", {"date": "pata nahi kab"})                       # heard, but no date in it
+    assert not r.end and "5 दिसंबर" in r.speak[0] and call.unclear_streak == 1
+    call.handle("date_given", {"date": "abhi nahi"})
+    r = call.handle("date_given", {"date": "kuch bhi"})
+    assert r.end and call.outcome == "rm_callback" and call.record()["rm_callback_reason"] == "repeated_misunderstanding"
+
+
+def test_a_good_answer_resets_the_failed_answer_count():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("not_serviceable", {"reason": "gaon"})
+    call.handle("date_given", {"date": "kuch bhi"})
+    assert call.unclear_streak == 1
+    call.handle("date_given", {"date": "5 december"})
+    assert call.state == "HOLD_CONSENT" and call.unclear_streak == 0
+
+
+def test_yes_with_a_hedge_is_a_maybe_not_a_yes():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")                                                          # ladder question
+    r = call.handle("affirm", {"hedged": True})                                    # "जी हाँ, फिर तो शायद है"
+    assert call.arranging == "ladder" and "arrange" in r.speak[0] and "ladder" not in call.ctx["readiness"]
+
+
+def test_the_recap_is_a_proper_sentence():
+    call, _, _ = live()
+    _to_recap(call)
+    assert "ladder, पानी और light ready हैं" in call.last_line and "और ladder" not in call.last_line
+
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    call.handle("affirm")                                                          # ladder yes
+    call.handle("affirm")                                                          # water yes
+    call.handle("unsure")                                                          # light: "शायद है"
+    r = call.handle("affirm")                                                      # "yes, I'll arrange it"
+    assert call.state == "RECAP"
+    assert "ladder और पानी ready हैं, light का इंतज़ाम आप visit से पहले कर लेंगे" in r.speak[0]
+    assert "रहेंगे और light" not in r.speak[0]
+    call, _, _ = live(lang="en")
+    _to_recap(call)
+    assert "Ladder, water and light will be ready" in call.last_line
+
+
+def test_a_readiness_answer_can_be_corrected_at_the_recap():
+    call, _, _ = live()
+    _to_recap(call)
+    r = call.handle("corrects_readiness", {"readiness": {"ladder": False}})        # "मेरे पास ladder नहीं है"
+    assert call.state == "READINESS_CHECK" and call.arranging == "ladder" and "arrange" in r.speak[-1]
+    call.handle("deny")                                                            # cannot arrange one
+    assert call.state == "ASK_READY_DATE" and call.ctx["missing_items"] == ["ladder"]
+    assert call.ctx["readiness"] == {"ladder": False, "water": True, "light": True}
+
+
+def test_a_promised_item_corrected_to_missing_is_asked_again_from_the_change_step():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    call.handle("unsure")
+    call.handle("affirm")                                                          # ladder: will arrange
+    call.handle("affirm")
+    call.handle("affirm")
+    assert call.state == "RECAP" and call.ctx["will_arrange"] == ["ladder"]
+    call.handle("deny")                                                            # "no" -> what to change?
+    assert call.state == "RECAP_CHANGE"
+    r = call.handle("corrects_readiness", {"readiness": {"ladder": False}})        # the reported moment
+    assert call.arranging == "ladder" and call.ctx["will_arrange"] == []
+
+
+def test_correcting_a_water_answer_goes_to_the_hold_flow_and_a_good_correction_returns_to_the_recap():
+    call, _, _ = live()
+    _to_recap(call)
+    call.handle("corrects_readiness", {"readiness": {"water": False}})
+    assert call.state == "ASK_READY_DATE" and call.ctx["missing_items"] == ["water"]
+    call, _, _ = live()
+    _to_recap(call)
+    call.handle("corrects_readiness", {"readiness": {"light": True}})              # nothing actually changes
+    assert call.state == "RECAP"
+
+
+def test_a_correction_with_no_usable_item_is_not_understood():
+    call, _, _ = live()
+    _to_recap(call)
+    r = call.handle("corrects_readiness", {"readiness": {"roof": False}})
+    assert call.state == "RECAP" and call.unclear_streak == 1 and not r.end
 
 
 def test_price_question_deflects_and_repeats_question():

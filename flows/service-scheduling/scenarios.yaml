@@ -347,3 +347,7 @@
   steps: [context_ready, affirm, affirm, asks_meaning, affirm, affirm, action_ok]
   expect: slot_confirmed
 
+- name: corrects a readiness answer at the recap, then confirms
+  steps: [context_ready, affirm, affirm, affirm, corrects_readiness, affirm, affirm, action_ok]
+  expect: slot_confirmed
+

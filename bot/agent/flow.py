@@ -216,6 +216,7 @@ class FlowCall:
     exact_time_asks: int = 0
     unclear_streak: int = 0
     lang_streak: int = 0                    # consecutive turns in a language we don't speak
+    _prev_streak: int = 0                   # unclear_streak before this turn (a failed answer adds to it)
     readiness_idx: int = 0
     backup_queue: list | None = None
     offered: list = field(default_factory=list)
@@ -277,6 +278,9 @@ class FlowCall:
             is_event = on in self.spec.flow.get("events", [])
             if not is_event and on not in allowed:
                 return Step(error=f"intent '{on}' does not apply in {self.state}", state=self.state, allowed=allowed)
+            if (entities or {}).get("hedged") is True and on == "affirm" and st.get("checklist"):
+                on = "unsure"           # "haan, shayad hai": a hedge inside a yes is a maybe
+            self._prev_streak = self.unclear_streak
             gi0 = self.spec.global_intents.get(on)
             if (gi0 and on not in (st.get("disable_global") or []) and gi0.get("goto") == self.state
                     and not gi0.get("allow_reenter")):
@@ -454,6 +458,16 @@ class FlowCall:
             return self._step([f"{self._global_line(gi.get('say'))} {self._reask()}".strip()])
         return self._step(self._enter(gi["goto"]))
 
+    def _not_understood(self, key: str = "didnt_catch") -> Step:
+        """Heard, but the answer can't be used (no date, no time of day...): ask again, and hand over to a senior
+        after repeated misses instead of looping."""
+        self.unclear_streak = self._prev_streak + 1
+        gi = self.spec.global_intents.get("unclear") or {}
+        if gi.get("escalate_to") and self.unclear_streak > int(gi.get("escalate_after", 2)):
+            self.ctx["rm_callback_reason"] = "repeated_misunderstanding"
+            return self._step(self._enter(gi["escalate_to"]))
+        return self._step([f"{self._global_line(key)} {self._reask()}".strip()])
+
     def _reask(self) -> str:
         """The last question for a re-ask: its short form if it has one, else the full line."""
         state, key = self.last_ref
@@ -538,14 +552,14 @@ class FlowCall:
         if self.state == "ALTERNATE_DAYS" and on == "affirm":
             chosen = self._resolve_option(e)
             if chosen is None:
-                return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
+                return self._not_understood()
             self.ctx["selected_slot"] = chosen
             self._emit_slot()
 
         if on == "proposes_date":
             d = self.ctx.pop("_date", None)
             if d is None or d <= self.today:
-                return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
+                return self._not_understood("didnt_catch_date")
             if d.weekday() not in self.policies.get("visit_days", [0, 1, 2, 3, 4, 5]):
                 return self._step([f"{self._global_line('not_a_visit_day')} {self._reask()}".strip()])
             self.ctx["requested_date"] = d.isoformat()
@@ -560,23 +574,36 @@ class FlowCall:
             self.ctx.pop("preferred_band", None)
             return self._step([f"{self._global_line('service_hours')} {self._reask()}".strip()])
 
+        if on == "corrects_readiness" and self.state in ("RECAP", "RECAP_CHANGE"):
+            ids = {i["id"] for i in self.policies["readiness_items"]}
+            fixes = {k: v for k, v in (e.get("readiness") or {}).items() if k in ids and isinstance(v, bool)}
+            if not fixes:
+                return self._not_understood()
+            current = {**self.ctx["readiness"], **fixes}                 # re-run the checklist with the corrected answers
+            for item in fixes:
+                if item in self.ctx["will_arrange"]:
+                    self.ctx["will_arrange"].remove(item)                # an earlier promise to arrange it no longer holds
+            self.ctx["known_readiness"] = current
+            self.ctx["readiness"], self.ctx["missing_items"] = {}, []
+            return self._step(self._enter("READINESS_CHECK"))
+
         if on == "gives_band":
             band = self.ctx.get("preferred_band")
             if not band:
-                return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
+                return self._not_understood()
             self.ctx["requested_band"] = band
 
         if on == "date_given":
             d = self.ctx.pop("_date", None)
             if d is None or d <= self.today:
-                return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
+                return self._not_understood("didnt_catch_date")
             self.ctx["hold_until"] = d.isoformat()
 
         if on == "time_range_given" and not self.ctx.get("recall_window"):
-            return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
+            return self._not_understood()
 
         if on == "wants_other_band" and not self.ctx.get("preferred_band"):
-            return self._step([f"{self._global_line('didnt_catch')} {self._reask()}".strip()])
+            return self._not_understood()
         return None
 
     def _resolve_option(self, e: dict) -> dict | None:
@@ -696,14 +723,20 @@ class FlowCall:
         arrange = list(self.ctx.get("will_arrange") or [])
         ready = [i["id"] for i in self.policies["readiness_items"]
                  if self.ctx["readiness"].get(i["id"]) and i["id"] not in arrange]
-        join = " और " if hi else " and "
+
+        def listing(ids):                                  # "a", "a और b", "a, b और c"
+            names = [name(i) for i in ids]
+            return names[0] if len(names) == 1 else ", ".join(names[:-1]) + (" और " if hi else " and ") + names[-1]
+
         parts = []
         if ready:
-            parts.append(join.join(map(name, ready)) + (" ready रहेंगे" if hi else " will be ready"))
+            parts.append(listing(ready) + ((" ready हैं" if len(ready) > 1 else " ready है") if hi else " will be ready"))
         if arrange:
-            parts.append(join.join(map(name, arrange)) + (" का इंतज़ाम आप visit से पहले कर लेंगे" if hi
-                                                          else " you will arrange before the visit"))
-        return join.join(parts) if parts else ("सब ready रहेगा" if hi else "everything will be ready")
+            parts.append(listing(arrange) + (" का इंतज़ाम आप visit से पहले कर लेंगे" if hi
+                                             else (" is for you to arrange before the visit" if len(arrange) == 1
+                                                   else " are for you to arrange before the visit")))
+        text = ", ".join(parts) if parts else ("सब ready रहेगा" if hi else "everything will be ready")
+        return text if hi else text[0].upper() + text[1:]
 
     def _line(self, state: str, key: str) -> str:
         p = self.spec.prompts[self.lang].get(state) or {}

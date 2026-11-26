@@ -125,6 +125,8 @@ Entities (fill only when the customer said them, using their own words):
 - asks_time: true when the customer also asks about the time of the visit in the same turn
   ("chalega shukrawar, but kya time hoga?"). The intent is still their answer (affirm / deny / ...); a bare
   question about the time with no answer is the intent ask_time.
+- hedged: true when the customer says yes but hedges in the same sentence ("ji haan, shayad hai", "haan, lagta hai").
+  Any hedge makes the answer unsure, so set hedged = true instead of answering a plain affirm.
 - readiness: when the customer also answers the ladder / water / light questions in the same turn
   ("haan kal aa jao, ladder aur paani dono hain"), give {{"ladder": true, "water": true}} (true = they have it,
   false = they don't). Include only items they actually mentioned; the intent is still the answer to the current question.
@@ -132,6 +134,9 @@ Entities (fill only when the customer said them, using their own words):
 Customers speak Hinglish, Hindi in Devanagari or English; transcripts are noisy phone ASR.
 If the customer is clearly speaking another language (Marathi, Tamil, Telugu, Gujarati, Punjabi, Bengali, ...), use
 other_language; do not guess an answer from garbled text.
+Correcting an earlier answer at the recap ("mere paas ladder nahi hai", "light nahi hai asal mein") is
+corrects_readiness with the readiness entity (false = they don't have it), not change_date or change_time.
+For "when will it be ready?" put the customer's own words in the date entity, including "1 mahine baad" or "after 2 weeks".
 Illness or a family matter ("mujhe bukhar hai", "ghar mein koi bimar hai") is personal_reason, not not_serviceable
 (that one is for the site: out of town, roof work). A complaint about earlier service is complaint, not price_or_offtopic.
 If they say who they are (brother, son, wife) and tell you to go ahead ("bataiye", "bolo"), that is household_member,

@@ -251,8 +251,14 @@ local:
   unsure:
     label: Maybe / not sure (to a yes-no question)
     examples:
-      hi: ["शायद", "हो सकता है", "हो सकती है", "पता नहीं, देखना पड़ेगा", "maybe", "लगता है है"]
+      hi: ["शायद", "जी हाँ, शायद है", "हो सकता है", "हो सकती है", "पता नहीं, देखना पड़ेगा", "maybe", "लगता है है"]
       en: ["maybe", "I think so", "not sure"]
+
+  corrects_readiness:
+    label: Corrects an earlier ladder / water / light answer
+    examples:
+      hi: ["मेरे पास ladder नहीं है", "light नहीं है असल में", "पानी नहीं है", "मुझे लगता है मेरे पास ladder नहीं है"]
+      en: ["actually I don't have a ladder", "there is no water there", "no light connection actually"]
 
   dont_know:
     label: Can't say / doesn't know
