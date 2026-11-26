@@ -208,6 +208,34 @@ def test_repeat_request_without_short_form_falls_back_to_lead_in_plus_full_line(
     assert r.speak[0].startswith("जी, फिर से बता देता हूँ।") and r.speak[0].endswith(call.last_line)
 
 
+def test_hold_on_acknowledges_alone_and_asks_for_a_longer_silence_timeout():
+    call, _, _ = live()
+    call.handle("affirm")
+    full = call.last_line
+    r = call.handle("wait_a_moment")
+    assert call.state == "OFFER_PRIMARY" and r.speak == ["जी, मैं line पर हूँ, आप देख लीजिए।"]
+    assert full not in r.speak[0]                      # the question is not repeated
+    assert r.idle_timeout == 25.0 and r.end is False
+    assert call.handle("price_or_offtopic").idle_timeout is None
+
+
+def test_hold_on_english_and_never_counts_as_unclear():
+    call, _, _ = live(lang="en")
+    call.handle("affirm")
+    for _ in range(4):
+        r = call.handle("wait_a_moment")
+    assert not r.end and r.speak == ["Sure, I'm on the line, take your time."]
+
+
+def test_hold_on_reaches_the_engine_action():
+    from agent.engine import FlowEngine
+
+    e = FlowEngine("H", BOOKING)
+    e.dispatch("customer_said", {"intent": "affirm"})
+    a = e.dispatch("customer_said", {"intent": "wait_a_moment"})
+    assert a.idle_timeout == 25.0 and a.speak == ["जी, मैं line पर हूँ, आप देख लीजिए।"]
+
+
 def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")

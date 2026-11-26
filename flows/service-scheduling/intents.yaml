@@ -65,6 +65,14 @@ global:
       hi: ["phir se boliye", "kya bola", "kya kaha aapne", "dobara bolo", "ek baar aur bolna", "samjha nahi, repeat karo", "kya?"]
       en: ["sorry, what?", "can you repeat that", "say that again", "I didn't get that"]
 
+  wait_a_moment:
+    label: Asks us to hold on
+    goto: $stay
+    say: hold_ack                  # spoken alone: the question is not repeated; silence waits policies.silence.hold_s
+    examples:
+      hi: ["ek minute ruko", "ek second", "ruko zara", "hold karo", "abhi aata hoon", "ek minute line pe rahiye"]
+      en: ["hold on", "one minute please", "just a second", "give me a moment"]
+
   price_or_offtopic:
     label: Asks price or something else
     goto: $stay

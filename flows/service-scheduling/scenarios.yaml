@@ -81,6 +81,10 @@
   steps: [context_ready, repeat_request, affirm, repeat_request, affirm, repeat_request, affirm, affirm, action_ok]
   expect: slot_confirmed
 
+- name: asks to hold on, comes back and confirms
+  steps: [context_ready, affirm, wait_a_moment, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
 - name: price question, then confirms
   steps: [context_ready, affirm, price_or_offtopic, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
