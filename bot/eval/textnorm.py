@@ -1,6 +1,6 @@
 """Script-agnostic scoring for Hinglish transcripts.
 
-Whisper returns Devanagari, or Latin script when it hears English; IndicConformer returns only Devanagari.
+Whisper returns Devanagari, or Latin script when it hears English; references mix both.
 Plain WER would punish whichever engine uses a different script from the reference, so both sides
 are reduced to a loose Latin "skeleton" first: Devanagari is transliterated, long vowels folded,
 doubled letters collapsed. CER on that skeleton is fair across engines.

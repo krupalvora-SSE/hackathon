@@ -300,10 +300,9 @@ function errText(j) {
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // ---------------------------------------------------------------- call settings
-let cfg = null;        // {fields, values, sources, indic_status, whisper_status}
+let cfg = null;        // {fields, values, sources, whisper_status}
 let draft = {};        // key -> raw input value, only for edited fields
 const SRC = { page: "saved here", env: ".env", default: "default" };
-const INDIC_ONLY = ["indic_decoding", "indic_language"];
 
 async function loadConfig() {
   const r = await fetch("/api/config"); const j = await r.json();
@@ -333,16 +332,13 @@ function control(f) {
 function renderConfig() {
   const groups = {};
   cfg.fields.forEach((f) => (groups[f.group] ||= []).push(f));
-  const indic = current("stt_provider") === "indic";
-  const ist = cfg.indic_status || {};
   $("cfg").innerHTML = Object.entries(groups).map(([g, fs]) => `
     <div class="group"><h3>${esc(g)}</h3>${fs.map((f) => {
       const src = cfg.sources[f.key];
-      const na = (!indic && INDIC_ONLY.includes(f.key))
-              || (f.key === "clone_tau" && current("tts_provider") !== "piper_clone");
+      const na = f.key === "clone_tau" && current("tts_provider") !== "piper_clone";
       let extra = "";
       if (f.key === "stt_provider")
-        extra = ` AI4Bharat status: ${ist.message || "unknown"} Whisper status: ${cfg.whisper_status?.message || "unknown"}`;
+        extra = ` Status: ${cfg.whisper_status?.message || "unknown"}`;
       if (f.key === "piper_voice" && current("tts_provider") === "piper_clone")
         extra = local?.has_sample
           ? ` On "Piper + my voice" this is only the base voice: calls are re-voiced as "${local.name || "your sample"}" (Local open-source voice card).`

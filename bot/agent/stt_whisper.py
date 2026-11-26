@@ -2,12 +2,13 @@
 
 On Apple Silicon it runs on the GPU through MLX (~1.3 s for a 5 s Hindi line on an M4); elsewhere
 through faster-whisper on the CPU (~6 s for the same line: too slow for live calls without a GPU).
-Like IndicConformer it is not streaming: the local Silero VAD cuts the customer's speech into
+It is not streaming: the local Silero VAD cuts the customer's speech into
 segments and each is transcribed whole. A reply is transcribed as English when Whisper is
 sure it is English (a customer may switch); everything else, including short Hindi replies it
 mistakes for Japanese/Korean/Urdu, is transcribed as Hindi, so Hindi always comes back in Devanagari.
 
-Setup (once): uv sync --extra indic --extra whisper   (the model, ~1.6 GB, downloads on first call)
+Setup (once): uv sync --extra whisper. The model (~1.6 GB) must already be in the local model cache;
+the bot runs with HF_HUB_OFFLINE=1 and never downloads it.
 """
 from __future__ import annotations
 
@@ -46,9 +47,9 @@ def status() -> dict:
     mlx = use_mlx()
     installed = mlx or importlib.util.find_spec("faster_whisper") is not None
     if not installed:
-        msg = "Not installed: run `uv sync --extra indic --extra whisper` in bot/."
+        msg = "Not installed: run `uv sync --extra whisper` in bot/."
     elif mlx:
-        msg = "Ready: Apple GPU (MLX), about 1 s per reply. First call downloads ~1.6 GB."
+        msg = "Ready: Apple GPU (MLX), about 1 s per reply. Loads from the local model cache."
     else:
         msg = "Ready on CPU only: about 6 s per reply, too slow for live calls without a GPU."
     return {"installed": installed, "ready": installed, "backend": "mlx" if mlx else "cpu", "message": msg}

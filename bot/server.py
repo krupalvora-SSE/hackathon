@@ -12,6 +12,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+# Local models only: Whisper, Piper voices and Smart Turn load from files already on disk. Offline mode
+# stops the Hugging Face client from checking for updates or downloading anything during a call.
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 from fastapi import FastAPI, Form, Request, UploadFile  # noqa: E402
 from fastapi.responses import FileResponse, JSONResponse, Response  # noqa: E402
@@ -28,7 +31,6 @@ from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport  # noq
 from agent import config as call_config  # noqa: E402
 from agent.bot import run_bot  # noqa: E402
 from agent.events import fetch_call  # noqa: E402
-from agent.stt_indic import status as indic_status  # noqa: E402
 from agent.stt_whisper import status as whisper_status  # noqa: E402
 from agent.voice_local import (  # noqa: E402
     CONVERTER_URL,
@@ -44,34 +46,17 @@ BROWSER_RATE = 16000
 app = FastAPI(title="visit-bot")
 
 
-def _preload_indic() -> None:
-    """Load IndicConformer in the background at startup when it is the selected STT engine."""
-    try:
-        from agent.stt_indic import load_model
-
-        load_model()
-    except Exception:  # noqa: BLE001
-        logger.exception("IndicConformer preload failed (check HF_TOKEN and `uv sync --extra indic`)")
-
-
-if call_config.load()["stt_provider"] == "indic" and indic_status()["ready"]:
-    import threading
-
-    threading.Thread(target=_preload_indic, daemon=True).start()
-
-
 def _preload_whisper() -> None:
-    """Load Whisper at startup when it is the selected STT engine, or IndicConformer's fallback."""
+    """Load Whisper at startup so the first call doesn't wait for it."""
     try:
         from agent.stt_whisper import warm_up
 
         warm_up()
     except Exception:  # noqa: BLE001
-        logger.exception("Whisper preload failed (`uv sync --extra indic --extra whisper`)")
+        logger.exception("Whisper preload failed (`uv sync --extra whisper`)")
 
 
-_stt = call_config.load()["stt_provider"]
-if (_stt == "whisper" or (_stt == "indic" and not indic_status()["ready"])) and whisper_status()["ready"]:
+if whisper_status()["ready"]:
     import threading
 
     threading.Thread(target=_preload_whisper, daemon=True).start()
@@ -144,7 +129,7 @@ async def preview_local_voice(request: Request):
 # ------------------------------------------------------------------ Call settings (/voice page)
 async def _config_payload() -> dict:
     values, sources = call_config.resolve()
-    return {"fields": call_config.public_schema(), "values": values, "sources": sources, "indic_status": indic_status(),
+    return {"fields": call_config.public_schema(), "values": values, "sources": sources,
             "whisper_status": whisper_status()}
 
 

@@ -1,7 +1,7 @@
 """Speech-to-text + turn-detection bench: one call config over the audio corpus.
 
-Both engines run locally (AI4Bharat IndicConformer, Whisper) on segments cut by the same Silero VAD
-settings a call uses, so turn starts/ends and latency match a real call.
+Whisper runs locally on segments cut by the same Silero VAD settings a call uses, so turn starts/ends
+and latency match a real call.
 
 Per clip it records: transcript, entity hits, normalised CER, voice-to-transcript latency,
 turn starts/ends. Noise-only clips measure false starts (what makes the bot stop mid-sentence);
@@ -47,22 +47,15 @@ def silero_events(pcm: bytes, sr: int, cfg: dict) -> list[tuple[str, float]]:
 
 
 # ---------------------------------------------------------------- local STT engines
-def _transcriber(cfg: dict):
-    """16 kHz float audio -> text for the configured engine."""
-    if cfg["stt_provider"] == "indic":
-        from agent.stt_indic import transcribe
-
-        return lambda seg: transcribe(seg, cfg["indic_language"], cfg["indic_decoding"])
-    from agent.stt_whisper import transcribe
-
-    return lambda seg: transcribe(seg)[0]
-
-
 def _local_clip(clip: dict, cfg: dict) -> dict:
     from . import audio as A
 
+    from agent.stt_whisper import transcribe as whisper
+
     SAMPLE_RATE = 16000
-    transcribe = _transcriber(cfg)
+
+    def transcribe(seg):
+        return whisper(seg)[0]
 
     pcm, sr = corpus.pcm(clip)
     ev = silero_events(pcm, sr, cfg)
@@ -132,20 +125,12 @@ def summarise(rows: list[dict]) -> dict:
 async def run(cfg: dict, clips: list[dict], concurrency: int = 4) -> tuple[dict, list[dict]]:
     """Run one config over the clips. Returns (summary, per-clip rows)."""
     rows: list[dict] = []
-    if cfg["stt_provider"] == "indic":
-        from agent.stt_indic import load_model, status
+    from agent.stt_whisper import status, warm_up
 
-        st = status()
-        if not st["ready"]:
-            return {"skipped": st["message"]}, []
-        await asyncio.to_thread(load_model)
-    else:
-        from agent.stt_whisper import status, warm_up
-
-        st = status()
-        if not st["ready"]:
-            return {"skipped": st["message"]}, []
-        await asyncio.to_thread(warm_up)
+    st = status()
+    if not st["ready"]:
+        return {"skipped": st["message"]}, []
+    await asyncio.to_thread(warm_up)
     for c in clips:  # one model, one GPU: clips run in turn (concurrency is kept for the CLI)
         rows.append(score_clip(c, await asyncio.to_thread(_local_clip, c, cfg)))
     return summarise(rows), rows

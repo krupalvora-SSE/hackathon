@@ -1,6 +1,6 @@
 """Pipecat pipeline: transport in -> local STT -> LLM (tools) -> local Piper TTS -> transport out.
 
-Speech recognition (AI4Bharat IndicConformer or Whisper) and the voice (Piper) run on this machine.
+Speech recognition (Whisper) and the voice (Piper) run on this machine from local model files.
 
 run_bot() serves SmallWebRTC browser calls (telephony=True models an 8 kHz phone leg for evals).
 """
@@ -181,6 +181,12 @@ def _piper_tts(cfg: dict, call_id: str, sample_rate: int | None = None):
 
     from .voice_local import BilingualPiperTTSService
 
+    from pipecat.services.piper.tts import PIPER_CACHE_DIR
+
+    for voice in filter(None, (cfg["piper_voice"], cfg.get("piper_voice_en"))):  # local files only: never download
+        if not (PIPER_CACHE_DIR / f"{voice}.onnx").exists():
+            raise RuntimeError(f"Piper voice {voice} is not on this machine: copy {voice}.onnx and "
+                               f"{voice}.onnx.json into {PIPER_CACHE_DIR}")
     pace = cfg["tts_pace"]
     settings = PiperTTSService.Settings(voice=cfg["piper_voice"], length_scale=round(1 / pace, 3) if pace else None)
     try:
@@ -202,31 +208,13 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     logger.info(f"call {call_id} booking={booking.get('id')} telephony={telephony} flow={engine.name}")
 
     cfg = call_config.load()  # read per call: /voice page edits apply from the next call
-    if cfg["stt_provider"] == "indic":
-        from .stt_indic import load_model, status
+    from .stt_whisper import make_whisper_stt, status as whisper_status, warm_up
 
-        try:
-            if not status()["ready"]:
-                raise RuntimeError(status()["message"])
-            await asyncio.to_thread(load_model)  # no-op once loaded; first call waits for the download
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"call {call_id} IndicConformer unavailable, using Whisper STT: {e}")
-            cfg["stt_provider"] = "whisper"
-    if cfg["stt_provider"] == "whisper":
-        from .stt_whisper import status as whisper_status, warm_up
-
-        if not whisper_status()["ready"]:
-            raise RuntimeError(f"no local STT available: {whisper_status()['message']}")
-        await asyncio.to_thread(warm_up)  # no-op once loaded; first call waits for the download
+    if not whisper_status()["ready"]:
+        raise RuntimeError(f"no local STT available: {whisper_status()['message']}")
+    await asyncio.to_thread(warm_up)  # no-op once loaded
     logger.info(f"call {call_id} config {cfg}")
-    if cfg["stt_provider"] == "indic":
-        from .stt_indic import IndicConformerSTTService
-
-        stt = IndicConformerSTTService(lang=cfg["indic_language"], decoding=cfg["indic_decoding"])
-    else:
-        from .stt_whisper import make_whisper_stt
-
-        stt = make_whisper_stt()
+    stt = make_whisper_stt()
     tts = _piper_tts(cfg, call_id, sample_rate)
     llm = _llm(cfg)
 

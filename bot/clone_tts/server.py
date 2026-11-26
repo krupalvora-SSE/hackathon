@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+os.environ.setdefault("HF_HUB_OFFLINE", "1")  # the converter checkpoint is already on disk: never download
 
 import librosa  # noqa: E402
 import numpy as np  # noqa: E402

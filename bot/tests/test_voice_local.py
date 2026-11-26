@@ -60,8 +60,15 @@ def test_whisper_is_an_stt_option_and_reports_status():
 
 def test_local_stt_engines_declare_transcription_hook():
     # pipecat's STT base class has no _handle_transcription; each service declares its own.
-    # Missing it made every Whisper/IndicConformer reply raise, so the bot never answered.
-    from agent.stt_indic import IndicConformerSTTService
+    # Missing it made every Whisper reply raise, so the bot never answered.
     from agent.stt_whisper import WhisperHiEnSTTService
-    for cls in (WhisperHiEnSTTService, IndicConformerSTTService):
-        assert "_handle_transcription" in vars(cls), cls.__name__
+    assert "_handle_transcription" in vars(WhisperHiEnSTTService)
+
+
+def test_only_local_stt_and_no_downloads():
+    import server  # noqa: F401 - sets offline mode at import
+    import os
+
+    f = config.BY_KEY["stt_provider"]
+    assert [o[0] for o in f["options"]] == ["whisper"] and f["default"] == "whisper"
+    assert os.environ.get("HF_HUB_OFFLINE") == "1"

@@ -35,8 +35,8 @@ def test_gate_catches_unplanned_setting():
 
 
 def test_normalise_and_when():
-    cfg = normalise({"stt_provider": "indic", "indic_decoding": "ctc"})
-    assert matches(cfg, {"stt_provider": "indic"}) and not matches(cfg, {"stt_provider": "whisper"})
+    cfg = normalise({"stt_provider": "whisper", "vad_stop_secs": 0.4})
+    assert matches(cfg, {"stt_provider": "whisper"}) and not matches(cfg, {"vad_stop_secs": 0.2})
     assert matches(cfg, None)
 
 

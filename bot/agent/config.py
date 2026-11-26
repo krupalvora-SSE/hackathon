@@ -16,22 +16,13 @@ CONFIG_FILE = Path(__file__).resolve().parent.parent / "config.json"
 # type: bool | int | float | select | text. `nullable` fields can be left blank (provider default).
 FIELDS: list[dict[str, Any]] = [
     # ---- Speech to text
-    {"key": "stt_provider", "group": "Speech to text", "type": "select", "default": "indic",
-     "env": "STT_PROVIDER", "label": "STT engine (switch AI4Bharat / Whisper)",
-     "options": [["indic", "AI4Bharat IndicConformer 600M (local)"],
-                 ["whisper", "Whisper large-v3-turbo (local, no account needed)"]],
-     "help": "Applies from the next call. Both are open source and run on this machine; neither streams, so "
-             "the Silero settings below decide when the customer has finished. IndicConformer needs a Hugging "
-             "Face token (bot/README.md); Whisper needs nothing (Apple GPU, ~1 s per reply). If IndicConformer "
-             "isn't ready, calls fall back to Whisper."},
-    {"key": "indic_decoding", "group": "Speech to text", "type": "select", "default": "ctc",
-     "env": "INDIC_DECODING", "label": "IndicConformer decoding",
-     "options": [["ctc", "CTC (faster)"], ["rnnt", "RNNT (often more accurate)"]],
-     "help": "IndicConformer only."},
-    {"key": "indic_language", "group": "Speech to text", "type": "select", "default": "hi",
-     "env": "INDIC_LANGUAGE", "label": "IndicConformer language",
-     "options": [["hi", "Hindi"], ["mr", "Marathi"]],
-     "help": "IndicConformer only. The model has no English; English words come back in Devanagari."},
+    {"key": "stt_provider", "group": "Speech to text", "type": "select", "default": "whisper",
+     "env": "STT_PROVIDER", "label": "STT engine",
+     "options": [["whisper", "Whisper large-v3-turbo (local, Apple GPU)"]],
+     "help": "Runs on this machine from the model already on disk (no account, no download). It doesn't "
+             "stream: the Silero settings below decide when the customer has finished, then the whole "
+             "reply is transcribed (about 1 s)."},
+
     # ---- Interruptions: the usual cause of the bot going quiet mid-sentence
     {"key": "barge_in", "group": "Interruptions", "type": "bool", "default": True,
      "env": "BARGE_IN", "label": "Customer can interrupt the bot",
@@ -61,19 +52,18 @@ FIELDS: list[dict[str, Any]] = [
              "is rewritten in Devanagari before it is spoken (agent/devanagari.py). \"Piper + my voice\" "
              "re-voices Piper as the local sample (\"Local open-source voice\" above) through the converter "
              "in bot/clone_tts; if the converter isn't running, calls speak plain Piper."},
-    {"key": "piper_voice", "group": "Bot voice", "type": "select", "default": "hi_IN-pratham-medium",
+    {"key": "piper_voice", "group": "Bot voice", "type": "select", "default": "hi_IN-jasir-medium",
      "env": "PIPER_VOICE", "label": "Piper speaker",
      "options": [["hi_IN-pratham-medium", "Pratham (male, Hindi)"], ["hi_IN-rohan-medium", "Rohan (male, Hindi)"],
                  ["hi_IN-jasir-medium", "Jasir (male, Hindi, trained on our recordings)"]],
-     "help": "Piper engines only. Male Hindi voices; the bot is a male telecaller. Pratham and Rohan download "
-             "(~60 MB) on first use. Jasir is our own fine-tuned voice (bot/voice_training): copy "
-             "hi_IN-jasir-medium.onnx and .onnx.json into ~/.cache/pipecat/piper/ on each machine. With Jasir, "
-             "use plain \"Piper\" (it already is his voice; \"Piper + my voice\" only adds delay)."},
+     "help": "Male Hindi voices; the bot is a male telecaller. Jasir is our own fine-tuned voice "
+             "(bot/voice_training). Voices load only from ~/.cache/pipecat/piper/ (the .onnx and .onnx.json "
+             "files); nothing is downloaded, so copy a voice there before picking it."},
     {"key": "piper_voice_en", "group": "Bot voice", "type": "select", "default": "en_US-ryan-medium",
      "env": "PIPER_VOICE_EN", "label": "Piper English speaker",
      "options": [["en_US-ryan-medium", "Ryan (male, US English)"], ["en_GB-alan-medium", "Alan (male, UK English)"]],
-     "help": "Piper engines only. Speaks the English lines when the customer switches to English (the Hindi "
-             "voices read English with a Hindi accent). Male; downloaded (~60 MB) on first use."},
+     "help": "Speaks the English lines when the customer switches to English (the Hindi voices read "
+             "English with a Hindi accent). Male; loaded from ~/.cache/pipecat/piper/ like the Hindi voice."},
     {"key": "clone_tau", "group": "Bot voice", "type": "float", "default": 0.3,
      "min": 0.1, "max": 1, "step": 0.05, "env": "CLONE_TAU", "label": "My-voice conversion strength (tau)",
      "help": "Piper + my voice only. OpenVoice's tau: lower sticks closer to your sample's voice, higher keeps "

@@ -16,10 +16,10 @@ Results go to `eval/runs/<time>/`: `report.md`, `recommended.json`, and per-conf
 
 | Stage | What runs | Scored on |
 |---|---|---|
-| `stt` | Every clip in `corpus/` transcribed locally by IndicConformer or Whisper, segmented by the call's Silero settings | call-critical words heard (yes/no, day, date, band, ladder, water), script-normalised CER, latency from end of speech, noise heard as speech, thinking pauses that ended the turn |
+| `stt` | Every clip in `corpus/` transcribed locally by Whisper, segmented by the call's Silero settings | call-critical words heard (yes/no, day, date, band, ladder, water), script-normalised CER, latency from end of speech, noise heard as speech, thinking pauses that ended the turn |
 | `conv` | Simulated customers (`personas.yaml`) talking to the real prompt, tools and flow via `simulate.run_call` | correct outcome, compliance (no prices), LLM latency, cost |
 
-Each stage compares **arms** head to head (IndicConformer, Whisper; one arm per LLM model). Within an arm it tries one setting at a time, keeps the values that beat the baseline by `min_gain`, re-runs them combined (settings interact), and falls back to adding them one by one if the combination is worse. The winning STT settings carry into the conversation stage. Weights and gates are in `plan.yaml`.
+Each stage compares **arms** head to head (one arm per LLM model). Within an arm it tries one setting at a time, keeps the values that beat the baseline by `min_gain`, re-runs them combined (settings interact), and falls back to adding them one by one if the combination is worse. The winning STT settings carry into the conversation stage. Weights and gates are in `plan.yaml`.
 
 ## Who decides what's missing
 
@@ -40,7 +40,6 @@ A person still makes the final decisions: which flagged parameters to expose, an
 ## Limits
 
 - Corpus voices are local Piper speakers (Pratham, Rohan) put through a simulated G.711 phone line with noise. Add real call audio before trusting small differences.
-- IndicConformer is skipped until `HF_TOKEN` is set and `uv sync --extra indic` is run (see `agent/stt_indic.py`).
 - Local turn detection is simulated with Silero alone; Smart Turn, which a live call also runs, is not.
 - The conversation stage calls Gemini through its OpenAI-compatible endpoint, as `simulate.py` does; live calls use pipecat's native Gemini service.
 - TTS settings are pinned: they need listening tests, not a script.

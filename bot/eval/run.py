@@ -2,7 +2,7 @@
 
   uv run python -m eval.run check                 # coverage gate + provider diff (no API calls)
   uv run python -m eval.corpus                    # build the audio corpus once (local Piper voices, cached)
-  uv run python -m eval.run stt  [--quick]        # STT + turn detection: IndicConformer vs Whisper
+  uv run python -m eval.run stt  [--quick]        # STT + turn detection: Whisper + Silero settings
   uv run python -m eval.run conv [--quick]        # LLM settings over simulated customers
   uv run python -m eval.run all  [--quick] [--apply]
 
