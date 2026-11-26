@@ -56,7 +56,13 @@ class MockBeatPlan:
     # ------------------------------------------------------------ pre-call
     def fetch_beatplan_context(self, call: "FlowCall", state: str):
         call.context = context_from_booking(call.booking)
+        # Beat Plan slots on a day we don't visit (Sunday) are never offered; the next valid one becomes the plan.
+        visit_days = call.policies.get("visit_days", [0, 1, 2, 3, 4, 5])
+        slots = [x for x in [call.context["primary_slot"], *call.context["backup_slots"]]
+                 if x and date.fromisoformat(x["date"]).weekday() in visit_days]
+        call.context["primary_slot"], call.context["backup_slots"] = (slots[0] if slots else None), slots[1:]
         if not call.context["primary_slot"]:
+            call.ctx["blocked_reason"] = "no_visit_day_slot"
             return "not_eligible"
         return None
 
@@ -115,6 +121,8 @@ class MockBeatPlan:
     # ------------------------------------------------------------ writes (mocked)
     def confirm_slot(self, call: "FlowCall", state: str):
         s = call.ctx.get("selected_slot") or {}
+        if s and date.fromisoformat(s["date"]).weekday() not in call.policies.get("visit_days", [0, 1, 2, 3, 4, 5]):
+            return "action_failed"          # never book a day we don't visit: the team confirms by hand
         call._report("confirm_slot", {"site_id": call.context["site_id"], **s,
                                       "readiness": call.ctx["readiness"],
                                       "preferred_exact_time": call.ctx.get("preferred_exact_time")})

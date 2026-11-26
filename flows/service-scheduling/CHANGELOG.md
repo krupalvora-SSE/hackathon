@@ -2,6 +2,58 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.15.0 (2026-11-26, SSE-15557)
+From a call where the customer told us of a death in the family and the bot kept asking when to call back:
+- New global intent `sensitive_situation` (death, funeral, accident, hospital / serious emergency): a sincere condolence, the call ends at once (new terminal SENSITIVE_CLOSE), no question and no date asked. Calls are paused for `policies.sensitive_pause_days` (14) and recorded as `site_on_hold` with reason `bereavement_or_emergency`, `hold.until` and consent.
+- New global intent `upset_customer` ("आप में कोई sensitivity है?"): an apology instead, the call ends, calls paused (reason `customer_upset`).
+- `personal_reason` is now only for mild reasons (fever, a family function) and still asks when to call back; "emergency" and "hospital" moved to `sensitive_situation`. The classifier is told that a death is always `sensitive_situation`.
+- "कभी मत करिए" / "मत कीजिए call" added to the `do_not_call` examples.
+
+## 0.14.0 (2026-11-26, SSE-15557)
+From a fifth sample call:
+- Relative durations are understood as dates: "1 महीने बाद", "15 दिन बाद", "दो हफ़्ते बाद", "after 1 month", "next week / month" (a month counts as 30 days). Before, "when will the site be ready?" looped three times on "1 महीने बाद".
+- A heard-but-unusable answer (no usable date, time of day or option) now counts toward the same escalation as "not understood": after two repeats a senior is asked to call (reason `repeated_misunderstanding`) instead of asking forever. Date failures use a line that says what is expected ("जैसे 5 दिसंबर, या एक महीने बाद?").
+- A hedge inside a yes ("जी हाँ, फिर तो शायद है") is a maybe: new `hedged` entity on `customer_said`, treated as `unsure` at the readiness questions.
+- A customer can correct a readiness answer at the recap or the "what to change?" step ("मेरे पास ladder नहीं है"): new intent `corrects_readiness` re-runs the checklist with the corrected answer (a ladder that is now missing asks "can you arrange one?" first). Before it was misread as "change the day".
+- The recap is a proper sentence: "ladder और पानी ready हैं, light का इंतज़ाम आप visit से पहले कर लेंगे" (no stray "और ... और ..."); lists read "a, b और c".
+
+## 0.13.0 (2026-11-26, SSE-15557)
+From a fourth sample call:
+- "Maybe" (शायद / हो सकता है, intents `unsure` and `dont_know`) to the ladder, water or light question is no longer booked as ready: the bot asks once whether they will arrange it before the visit (`arrange_<item>` for all three items). Yes is recorded as `will_arrange`, no or another maybe as missing (hold flow). The recap now says which items the customer will arrange (`{ready_note}`) instead of claiming everything is ready.
+- New global intent `asks_meaning` ("ये A type ladder क्या होता है?"): the bot explains the item being asked (`explain_ladder / water / light`) and asks again, instead of "could not hear".
+- Beat Plan slots on a day we do not visit (Sunday) are dropped before offering; the next valid slot becomes the plan, and a call with none is not placed (`blocked_reason: no_visit_day_slot`). `confirm_slot` refuses a non-visit day so the team confirms by hand.
+- A family member is spoken to as family: `main_family` lines for the offer ("Amit जी के solar system…", "घर पर कोई available रहेगा?") and the goodbye ("Amit जी की visit…").
+- Shorter greeting, recording disclosure kept: "नमस्ते, क्या {name} जी बोल रहे हैं? मैं SolarSquare से {bot_name}। यह call record हो रही है।"
+
+## 0.12.0 (2026-11-26, SSE-15557)
+From three sample calls and two requests:
+- Fix: the Devanagari "सुबह / शाम / दोपहर" were never understood (the word splitter dropped vowel signs), so the band question looped. A clock time outside the service hours at the band question ("सुबह 7:00 बजे") now gets "visits are 9 to 6" and the question again.
+- Re-asks (not understood, off-topic, identity, small talk, silence) use the short form of the question, so the greeting's recording disclosure and the long offer are no longer repeated. Short forms added for ASK_BAND_FOR_DATE and NOT_NEEDED.
+- New global intents: `personal_reason` (ill / family matter: sympathy, then "when should we call?" in RECALL), `complaint` (apology, then a senior callback with reason `complaint`), `small_talk` (brief friendly reply, then the question), `other_language` (any language other than Hindi / English: "I don't understand this language, could you speak Hindi or English?"; after two more turns in that language a senior is asked to call, reason `language_not_supported`).
+- GREET accepts `household_member` ("I'm his brother, go ahead") and goes straight to the offer.
+- Weekday words become dates: every day mentioned is read ("agle somwar ya ravivar"), Sunday is skipped, the first visit day is proposed. A request for a non-visit day gets "visits are Monday to Saturday only" (policy `visit_days`).
+
+## 0.11.0 (2026-11-26, SSE-15551)
+- Fixes a loop seen on a call: after "main Sneha nahi hoon" the bot asked "are you from Sneha's home?", and "nahi" / "wrong number hai" were read as `wrong_person`, which re-entered WRONG_PERSON and repeated the question forever. New global intent `wrong_number` closes the call as a wrong number from any step; in WRONG_PERSON `wrong_person` is handled locally and also closes as a wrong number, and a plain "nahi" (deny) closes as before.
+- Engine safety net: a global intent that would only re-enter the current step is treated as `unclear`, so it escalates to a senior after two misses instead of repeating.
+- Classifier: 6 Hindi and 3 English examples per intent now reach the model (was 3 and 2), Devanagari "हाँ" / "नहीं" lead the yes / no examples, and a hint covers yes/no questions about who is on the line.
+
+## 0.10.0 (2026-11-26, SSE-15554)
+- If saving a call-back time (APPLY_RECALL) or creating the senior's callback (ESCALATE_RM) fails, the call now ends in MANUAL_CONFIRM_CLOSE ("the team will confirm") instead of telling the customer "we will call you" / "a senior will call". This matches BOOK and APPLY_HOLD.
+
+## 0.9.0 (2026-11-26, SSE-15552)
+- "What time?" is answered at any step. `ask_time` is now a global intent: the bot tells the time window of the chosen day (or the 9 am-6 pm service hours while no day is chosen yet) and repeats the current question. OFFER_PRIMARY and NOT_NEEDED keep their own move to TIME_BAND (`disable_global: [ask_time]`).
+- New `asks_time` entity on `customer_said` for replies that answer and ask at once ("chalega Shukrawar, but kya time hoga?"): the time answer is put in front of the next line, whatever step the call moves to, and the recap then mentions the window. Before, the second half was dropped, and a repeated question at the ladder step was read as "no ladder".
+
+## 0.8.0 (2026-11-26, SSE-15551)
+Fixes from an audit of the flow's transitions:
+- Changing the day or time from the recap (new flag `readiness_done`) goes back to RECAP, keeps the day the customer chose and no longer re-asks the ladder / water / light questions. Before, accepting the time window re-selected the planned slot and could book the wrong day.
+- "No" at the recap goes to a new step RECAP_CHANGE ("what would you like to change, the day or the time?").
+- "No" at the greeting goes to WRONG_PERSON; a plain "haan" in WRONG_PERSON goes to the offer (family member).
+- OFFER_PRIMARY accepts `wants_other_band` and `wants_exact_time` (counted toward the exact-time limit), as TIME_BAND does.
+- The exact-time line said "नहीं दे सकती" (feminine); it is now "सकता" like the rest of the male persona.
+- New local intent `dont_know` ("pata nahi", "abhi nahi bata sakta"): in ASK_READY_DATE, SITE_ON_HOLD and RECALL it goes to a senior callback (`rm_callback_reason: customer_unsure`); in ASK_BAND_FOR_DATE it closes the date request without a time of day.
+
 ## 0.7.0 (2026-11-26, SSE-15527 PR #4, merged in SSE-15542)
 Changes from listening to 4 real sample calls (developed as 0.3.0 on its own branch; renumbered when merged after 0.4.0-0.6.0):
 - Time windows now match service hours: morning 9–12, afternoon 12–3, evening 3–6; asking for a time outside 9 am–6 pm gets the hours and the question again (`outside_service_hours`).
