@@ -8,11 +8,13 @@ export async function connectCall({ to, customField, statusCallback }, { env = p
   if (missing.length) return { error: 'exotel_not_configured', missing };
 
   const sid = env.EXOTEL_ACCOUNT_SID;
+  // Singapore cluster: api.exotel.com / my.exotel.com. Mumbai: api.in.exotel.com / my.in.exotel.com.
   const host = env.EXOTEL_SUBDOMAIN || 'api.exotel.com';
+  const flowHost = host.replace(/^api\./, 'my.');
   const form = new URLSearchParams({
     From: to,
     CallerId: env.EXOTEL_CALLER_ID,
-    Url: `http://my.exotel.com/${sid}/exoml/start_voice/${env.EXOTEL_FLOW_ID}`,
+    Url: `http://${flowHost}/${sid}/exoml/start_voice/${env.EXOTEL_FLOW_ID}`,
     CustomField: customField,
   });
   if (statusCallback) form.set('StatusCallback', statusCallback);

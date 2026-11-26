@@ -11,7 +11,7 @@ Browser mic ─────POST /api/offer (WebRTC, 16 kHz)──┘         ▲
 
 ## Run
 ```bash
-cp .env.example .env            # SARVAM_API_KEY, LLM_API_KEY (+ LLM_BASE_URL/LLM_MODEL)
+cp .env.example .env            # SARVAM_API_KEY, GOOGLE_API_KEY (Gemini)
 uv sync
 uv run uvicorn server:app --port 7860
 cd ../app && npm start          # http://localhost:3000 → "Browser" button = mic test

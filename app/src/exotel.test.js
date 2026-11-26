@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { connectCall, missingConfig } from './exotel.js';
 
-const env = { EXOTEL_API_KEY: 'k', EXOTEL_API_TOKEN: 't', EXOTEL_ACCOUNT_SID: 'acme', EXOTEL_CALLER_ID: '0800', EXOTEL_FLOW_ID: '42', EXOTEL_SUBDOMAIN: 'api.in.exotel.com' };
+const env = { EXOTEL_API_KEY: 'k', EXOTEL_API_TOKEN: 't', EXOTEL_ACCOUNT_SID: 'acme', EXOTEL_CALLER_ID: '0800', EXOTEL_FLOW_ID: '42', EXOTEL_SUBDOMAIN: 'api.exotel.com' }; // Singapore cluster
 
 test('missing config is reported without calling Exotel', async () => {
   assert.deepEqual(missingConfig({ EXOTEL_API_KEY: 'k' }), ['EXOTEL_API_TOKEN', 'EXOTEL_ACCOUNT_SID', 'EXOTEL_CALLER_ID', 'EXOTEL_FLOW_ID']);
@@ -15,13 +15,21 @@ test('connect request shape', async () => {
   const fetch = async (url, init) => { req = { url, init }; return { ok: true, json: async () => ({ Call: { Sid: 'SID1' } }) }; };
   const r = await connectCall({ to: '+910000000001', customField: 'CALL-1' }, { env, fetch });
   assert.deepEqual(r, { callSid: 'SID1' });
-  assert.equal(req.url, 'https://api.in.exotel.com/v1/Accounts/acme/Calls/connect.json');
+  assert.equal(req.url, 'https://api.exotel.com/v1/Accounts/acme/Calls/connect.json');
   assert.equal(req.init.headers.authorization, 'Basic ' + Buffer.from('k:t').toString('base64'));
   const f = req.init.body;
   assert.equal(f.get('From'), '+910000000001');
   assert.equal(f.get('CallerId'), '0800');
   assert.equal(f.get('Url'), 'http://my.exotel.com/acme/exoml/start_voice/42');
   assert.equal(f.get('CustomField'), 'CALL-1');
+});
+
+test('Mumbai cluster uses the .in. flow host', async () => {
+  let req;
+  const fetch = async (url, init) => { req = { url, init }; return { ok: true, json: async () => ({ Call: { Sid: 'S' } }) }; };
+  await connectCall({ to: '+91', customField: 'C' }, { env: { ...env, EXOTEL_SUBDOMAIN: 'api.in.exotel.com' }, fetch });
+  assert.equal(req.url, 'https://api.in.exotel.com/v1/Accounts/acme/Calls/connect.json');
+  assert.equal(req.init.body.get('Url'), 'http://my.in.exotel.com/acme/exoml/start_voice/42');
 });
 
 test('exotel error surfaces message', async () => {

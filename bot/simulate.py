@@ -17,6 +17,7 @@ from agent.slots import CallState
 from agent.tools import TOOLS, dispatch
 
 load_dotenv()
+GEMINI_OPENAI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 BOOKING = {"id": "BK-1001", "customerName": "Rahul Joshi", "sseId": "SSE-PUN-20431",
            "date": "2026-11-28", "window": "09-12"}
 
@@ -27,8 +28,12 @@ def main() -> None:
     ap.add_argument("--max-turns", type=int, default=16)
     a = ap.parse_args()
 
-    client = OpenAI(api_key=os.environ["LLM_API_KEY"], base_url=os.getenv("LLM_BASE_URL") or None)
-    model = os.getenv("LLM_MODEL", "gpt-4.1-mini")
+    if os.getenv("LLM_PROVIDER", "google") == "google":  # Gemini's OpenAI-compatible endpoint
+        client = OpenAI(api_key=os.environ["GOOGLE_API_KEY"], base_url=GEMINI_OPENAI_URL)
+        model = os.getenv("LLM_MODEL", "gemini-3.6-flash")
+    else:
+        client = OpenAI(api_key=os.environ["LLM_API_KEY"], base_url=os.getenv("LLM_BASE_URL") or None)
+        model = os.getenv("LLM_MODEL", "gpt-4.1-mini")
     state = CallState(call_id="SIM", booking=BOOKING, on_event=lambda e: print(f"   · {e}"))
     tools = [{"type": "function", "function": {"name": t["name"], "description": t["description"],
               "parameters": {"type": "object", "properties": t["properties"], "required": t["required"]}}}

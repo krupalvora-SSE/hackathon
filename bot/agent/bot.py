@@ -106,7 +106,22 @@ class CallMetrics(FrameProcessor):
                 "turns": len(s)}
 
 
-def _llm() -> OpenAILLMService:
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google")  # google | openai (any OpenAI-compatible endpoint)
+
+
+def _llm():
+    if LLM_PROVIDER == "google":
+        from pipecat.services.google.llm import GoogleLLMService
+
+        # Pipecat sends each model's lowest thinking setting by default (minimal for 3.6 flash).
+        return GoogleLLMService(
+            api_key=os.environ["GOOGLE_API_KEY"],
+            settings=GoogleLLMService.Settings(
+                model=os.getenv("LLM_MODEL", "gemini-3.6-flash"),
+                temperature=0.3,
+                max_tokens=150,
+            ),
+        )
     return OpenAILLMService(
         api_key=os.environ["LLM_API_KEY"],
         base_url=os.getenv("LLM_BASE_URL") or None,
