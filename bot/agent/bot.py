@@ -69,12 +69,12 @@ class GreetingGate(FrameProcessor):
     def __init__(self, on_first_reply):
         super().__init__()
         self._on_first_reply = on_first_reply
-        self._greeted = False
+        self.greeted = False
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
-        if isinstance(frame, LLMContextFrame) and not self._greeted:
-            self._greeted = True
+        if isinstance(frame, LLMContextFrame) and not self.greeted:
+            self.greeted = True
             await self._on_first_reply()
             return
         await self.push_frame(frame, direction)
@@ -261,8 +261,9 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     async def speak_opening() -> None:
         await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
 
+    gate = GreetingGate(speak_opening)
     pipeline = Pipeline([
-        transport.input(), stt, aggregators.user(), GreetingGate(speak_opening), llm, tts,
+        transport.input(), stt, aggregators.user(), gate, llm, tts,
         transport.output(),
         aggregators.assistant(), metrics,
     ])
@@ -338,6 +339,10 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     @aggregators.user().event_handler("on_user_turn_idle")
     async def _silence(_agg):
         if engine.outcome:
+            return
+        if not gate.greeted:  # no reply to "Hello?": give the greeting itself, not a second "Hello?"
+            gate.greeted = True
+            await speak_opening()
             return
         await perform(engine.on_silence())
 
