@@ -189,7 +189,9 @@
       $('live').hidden = false;
       $('live-name').textContent = call.booking?.customerName ?? call.bookingId;
       $('live-id').textContent = call.id;
-      $('hangup').hidden = mode !== 'browser';
+      // Phone calls can't be hung up from here (Exotel controls the line), but the view must never get stuck.
+      $('hangup').hidden = false;
+      $('hangup').lastChild.textContent = mode === 'browser' ? 'Hang up' : 'Close';
       $('transcript').innerHTML = '';
       $('lat').innerHTML = '';
       $('record-wrap').hidden = true;
@@ -204,6 +206,7 @@
 
     function setStatus(status, outcome) {
       const s = outcome ?? status;
+      if (active) active.status = status;
       $('live-status').className = `chip ${s}`;
       $('live-status').textContent = LABEL[s] ?? s;
     }
@@ -228,7 +231,8 @@
       switch (e.type) {
         case 'status':
           setStatus(e.status, e.outcome);
-          if (e.status === 'ended') endLive();
+          if (e.error) banner('live-banner', `The call failed: ${esc(e.error)}`);
+          if (e.status === 'ended' || e.status === 'failed') endLive();
           break;
         case 'transcript': say(e.role === 'customer' ? 'customer' : 'agent', e.text); break;
         case 'slot':
@@ -299,7 +303,11 @@
     }
 
     // Hang up: drop media; keep the event stream open so the bot's final record still arrives.
-    function hangup() { endLive(); }
+    // If the bot never reported anything, show Ended rather than leaving a stale "Starting".
+    function hangup() {
+      if (active?.live && ['created', 'connecting', 'dialing'].includes(active.status)) setStatus('ended');
+      endLive();
+    }
 
     load();
     setInterval(load, 3000); // bookings table only; live call data arrives over SSE

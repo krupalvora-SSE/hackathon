@@ -133,8 +133,20 @@ def _llm():
     )
 
 
-async def run_bot(transport, *, call_id: str, booking: dict, telephony: bool, sample_rate: int,
-                  call_sid: str | None = None) -> None:
+async def run_bot(transport, *, call_id: str, **kwargs) -> None:
+    """Runs a call; any crash (e.g. a missing API key) is reported to the dashboard instead of
+    dying silently in a background task and leaving the call stuck on 'Starting'."""
+    try:
+        await _run_bot(transport, call_id=call_id, **kwargs)
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"call {call_id} failed")
+        emitter = Emitter(call_id)
+        emitter.emit({"type": "status", "status": "failed", "error": f"{type(e).__name__}: {e}"})
+        await emitter.close()
+
+
+async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, sample_rate: int,
+                   call_sid: str | None = None) -> None:
     emitter = Emitter(call_id)
     state = CallState(call_id=call_id, booking=booking, on_event=emitter.emit)
     logger.info(f"call {call_id} booking={booking.get('id')} telephony={telephony}")
