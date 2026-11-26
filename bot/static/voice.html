@@ -28,6 +28,9 @@
           margin-bottom: 16px; }
   .script { background: var(--soft); border-radius: 10px; padding: 16px 18px; font-size: 18px;
             line-height: 1.7; margin: 12px 0; }
+  textarea.script { display: block; width: 100%; box-sizing: border-box; border: 1px solid var(--line);
+                    color: var(--ink); font-family: inherit; resize: vertical; min-height: 220px; }
+  textarea.script:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink);
            border-radius: 8px; padding: 8px 14px; cursor: pointer; }
@@ -100,7 +103,9 @@
         <button data-g="f">"bol rahi hoon"</button>
       </div>
     </div>
-    <div class="script" id="script"></div>
+    <textarea class="script" id="script" spellcheck="false" aria-label="Recording script"></textarea>
+    <div class="row"><span class="muted" style="font-size:13px">Edit the script to suit you. It's saved in this browser.</span>
+      <button id="resetScript" type="button">Reset script</button></div>
     <ul class="tips">
       <li>Quiet room, phone-call distance from the mic, no music or other voices.</li>
       <li>Read it the way you'd talk to a customer: warm, normal pace. The clone copies your pace and tone.</li>
@@ -173,8 +178,20 @@ const SCRIPTS = {
       "Theek hai, main ek baar confirm kar leti hoon. Bahut dhanyavaad ji, aapka din shubh ho!"],
 };
 let gender = "m";
+const scriptKey = () => `voiceScript.${gender}`;
+const defaultScript = () => SCRIPTS[gender].join("\n");
+function loadScript() {
+  try { return localStorage.getItem(scriptKey()) ?? defaultScript(); } catch { return defaultScript(); }
+}
+$("script").addEventListener("input", () => {
+  try { localStorage.setItem(scriptKey(), $("script").value); } catch {}
+});
+$("resetScript").onclick = () => {
+  try { localStorage.removeItem(scriptKey()); } catch {}
+  $("script").value = defaultScript();
+};
 function renderScript() {
-  $("script").innerHTML = SCRIPTS[gender].map((s) => `<div>${s}</div>`).join("");
+  $("script").value = loadScript();
   $("testText").value = $("testText").value.replace(/bol rah[ai] hoon/, gender === "m" ? "bol raha hoon" : "bol rahi hoon");
 }
 document.querySelectorAll("#genderSeg button").forEach((b) => b.onclick = () => {
