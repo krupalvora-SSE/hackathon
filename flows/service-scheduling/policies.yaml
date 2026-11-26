@@ -9,9 +9,12 @@ default_language: hi        # switch to en if the customer speaks mostly English
 
 # ~4-hour bands we commit to. We never commit to an exact time.
 time_bands:
-  morning:   {start: "08:00", end: "12:00"}
-  afternoon: {start: "12:00", end: "16:00"}
-  evening:   {start: "16:00", end: "20:00"}
+  morning:   {start: "09:00", end: "12:00"}
+  afternoon: {start: "12:00", end: "15:00"}
+  evening:   {start: "15:00", end: "18:00"}
+sensitive_pause_days: 14             # death / emergency / upset customer: no calls for this long
+visit_days: [0, 1, 2, 3, 4, 5]    # Monday=0 ... Saturday=5; no Sunday visits
+service_hours: {start: "09:00", end: "18:00"}   # asked for a time outside this -> say the hours, ask again
 
 max_options_per_turn: 2       # never read more than 2 alternate slots in one turn
 exact_time_insist_limit: 1    # repeat "can't guarantee" this many times, then escalate to RM
@@ -20,11 +23,12 @@ backup_slot_order: closest_first
 # What the customer must have ready for the Service Hero. Asked one at a time.
 readiness_items:
   - id: ladder
-    labels: {en: A-type ladder, hi: ए-आकार वाली सीढ़ी}
+    labels: {en: A-type ladder, hi: A-type ladder}
+    ask_if_can_arrange: true     # on "no", first ask "can you arrange one before the visit?"
   - id: water
-    labels: {en: water source, hi: पानी की व्यवस्था}
+    labels: {en: water source, hi: पानी का source}
   - id: light
-    labels: {en: electricity connection, hi: बिजली की सुविधा}
+    labels: {en: light connection, hi: light का connection}
 
 # What to do when a readiness item is missing:
 #   site_on_hold                -> ask ready-by date, put site on hold (current spec)
@@ -35,10 +39,14 @@ site_on_hold:
   max_hold_days: 90           # cap on hold_until; longer -> RM callback
   require_explicit_consent: true
 
+# Say "you'll get a reminder SMS" when a visit is booked. Turn on only once Beat Plan really sends it.
+sms_reminder: false
+
 calling_hours: {start: "09:00", end: "20:00", timezone: Asia/Kolkata}
 
 silence:
   reprompt_after_s: 5
+  hold_s: 25                  # "ek minute ruko": wait this long before the first reprompt
   max_reprompts: 2            # then silence_timeout -> NO_ANSWER_CLOSE
 
 retries_per_question: 2       # misunderstood twice on the same step -> yes/no fallback, then RM

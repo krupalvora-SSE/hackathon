@@ -54,6 +54,7 @@ class Action:
     end: bool = False                # end the call after speaking
     run_llm: bool = True             # let the LLM respond to the result
     ask_next: str | None = None      # spoken after this turn's tool calls (skips a 2nd LLM round trip)
+    idle_timeout: float | None = None  # lengthen the silence timer (customer asked us to hold)
 
 
 ACKS = ["Theek hai.", "Ji, bilkul.", "Achha ji."]
@@ -142,6 +143,16 @@ def flow_tools(spec) -> list[dict]:
             "exact_time": {"type": "string", "description": "Exact time they asked for."},
             "time_range": {"type": "string", "description": "When to call back, in their words."},
             "reason": {"type": "string", "description": "Why not serviceable / why they want a person."},
+            "asks_time": {"type": "boolean", "description": "True if the customer also asks about the time / "
+                                                            "window of the visit in this turn."},
+            "hedged": {"type": "boolean", "description": "True if the customer said yes (haan / ji) but hedged "
+                                                         "(shayad, lagta hai, ho sakta hai)."},
+            "readiness": {
+                "type": "object",
+                "description": "Ladder / water / light answers the customer gave in this turn: true = they have it, "
+                               "false = they don't. Only items they actually mentioned.",
+                "properties": {i["id"]: {"type": "boolean"} for i in spec.policies["readiness_items"]},
+            },
             "language": {"type": "string", "enum": spec.policies["languages"]},
         },
         "required": ["intent"],

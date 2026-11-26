@@ -90,210 +90,268 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 Generated from `flow.yaml` by `tools/flowcheck.py --write`; don't edit them by hand. The call is split into 6 sections (`sections` in `flow.yaml`). Step names come from each state's `title`, arrow text from `label` in `intents.yaml` and `labels` in `flow.yaml`, so renaming something there renames it here.
 
 <!-- flow-diagram:start -->
-**How to read these:** blue = the bot talks · amber = the system does something (Beat Plan / Zeus) · green = the call ends · grey dashed = continues in another part · red = can happen any time. After every call the bot runs: summarise_call, post_beatplan_comment.
+**How to read this:** the call is one straight line of steps. Each step has a small table: what the customer says, and what the bot does next. Anything off the main line is a short detour, listed after it. Lines are shown in English with example values; the Hindi lines are in `prompts/hi.yaml`.
 
-### Overview
-
-```mermaid
-flowchart TD
-  start["1. Start the call"]:::talk
-  slot["2. Fix the date and time"]:::talk
-  confirm["3. Check readiness and book"]:::talk
-  hold["4. Pause the site"]:::talk
-  later["5. Call back or hand over"]:::talk
-  anytime["6. Can happen any time"]:::any
-  start -->|"Yes"| slot
-  slot -->|"Yes …"| confirm
-  slot -->|"Wants exact time"| later
-  confirm -->|"No"| hold
-  hold -->|"Found one …"| confirm
-  confirm -->|"Change day …"| slot
-  anytime -.->|"Not available / site not ready"| hold
-  anytime -.->|"Busy, call later"| later
-  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
-  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
-  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
-  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
-  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
-```
-
-### 1. Start the call
-
-Check the customer can be called, say hello and make sure we're talking to the right person.
+### The usual call
 
 ```mermaid
-flowchart TD
-  PRE_CALL[["Check before calling"]]:::system
-  GREET("Say hello, check it's the customer"):::talk
-  NOT_DIALLED(["Not called"]):::terminal
-  PRE_CALL -->|"OK to call"| GREET
-  PRE_CALL -->|"Can't call now"| NOT_DIALLED
-  GREET -->|"Yes"| OUT_slot
-  OUT_slot(["Go to part 2: Fix the date and time"]):::jump
+flowchart LR
+  P0["Check before calling"]:::sys
+  P1["1. Say hello, check it's the customer"]:::talk
+  P2["2. Offer the planned date"]:::talk
+  P3["3. Ask: ladder, water, light ready?"]:::talk
+  P4["4. Repeat the details, get a yes"]:::talk
+  P5["Book the visit"]:::sys
+  P6(["Visit booked"]):::end_
+  P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6
   classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
-  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
-  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
-  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
-  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
+  classDef sys fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
+  classDef end_ fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
 ```
 
-### 2. Fix the date and time
+#### Step 1. Say hello, check it's the customer
 
-Offer the planned date. If it doesn't suit, try another time that day or another day.
+> Hello, is this Rahul? This is Krupal from SolarSquare. This call is being recorded.
 
-```mermaid
-flowchart TD
-  IN0(["From part 1 · From any step"]):::jump --> OFFER_PRIMARY
-  IN1(["From part 3"]):::jump --> ALTERNATE_DAYS
-  IN2(["From part 3"]):::jump --> TIME_BAND
-  OFFER_PRIMARY("Offer the planned date"):::talk
-  TIME_BAND("Tell the time window"):::talk
-  CHECK_BAND[["Check another time that day"]]:::system
-  ALTERNATE_DAYS("Offer other days"):::talk
-  NO_SLOT_CLOSE(["No free slot"]):::terminal
-  OFFER_PRIMARY -->|"Yes"| OUT_confirm
-  OFFER_PRIMARY -->|"Asks the time"| TIME_BAND
-  OFFER_PRIMARY -->|"No"| ALTERNATE_DAYS
-  TIME_BAND -->|"Yes"| OUT_confirm
-  TIME_BAND -->|"Wants exact time (first time)"| TIME_BAND
-  TIME_BAND -->|"Wants exact time (asks again)"| OUT_later
-  TIME_BAND -->|"Wants another time"| CHECK_BAND
-  TIME_BAND -->|"No"| ALTERNATE_DAYS
-  CHECK_BAND -->|"Free"| OUT_confirm
-  CHECK_BAND -->|"Full"| ALTERNATE_DAYS
-  ALTERNATE_DAYS -->|"No other days"| NO_SLOT_CLOSE
-  ALTERNATE_DAYS -->|"Yes"| OUT_confirm
-  ALTERNATE_DAYS -->|"Wants another time"| CHECK_BAND
-  ALTERNATE_DAYS -->|"No (more days to offer)"| ALTERNATE_DAYS
-  ALTERNATE_DAYS -->|"No (no more days)"| NO_SLOT_CLOSE
-  OUT_confirm(["Go to part 3: Check readiness and book"]):::jump
-  OUT_later(["Go to part 5: Call back or hand over"]):::jump
-  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
-  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
-  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
-  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
-  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
-```
+| Customer says | What happens |
+|---|---|
+| Yes | Step 2: Offer the planned date |
+| No | Someone else answered |
+| Family member, can decide | Step 2: Offer the planned date |
 
-### 3. Check readiness and book
+#### Step 2. Offer the planned date
+
+> Rahul, your solar system maintenance is due. We have a slot on Saturday, 28 November. Will you be available that day?
+
+| Customer says | What happens |
+|---|---|
+| Yes | Step 3: Ask: ladder, water, light ready? |
+| Asks the time | Find another date or time: Tell the time window |
+| Wants exact time | Find another date or time: Tell the time window |
+| Wants another time | Find another date or time: Check another time that day |
+| No | Find another date or time: Offer other days |
+| Suggests their own date (Beat Plan has that day) | Step 3: Ask: ladder, water, light ready? |
+| Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
+
+#### Step 3. Ask: ladder, water, light ready?
+
+> Great. A few things need to be ready for the service, let me quickly confirm.
+
+| Customer says | What happens |
+|---|---|
+| Yes | Step 4: Repeat the details, get a yes |
+| No | Pause the site: Ask when it will be ready |
+| Maybe / not sure (to a yes-no question) | Bot answers and asks again |
+| Can't say / doesn't know | Bot answers and asks again |
+
+#### Step 4. Repeat the details, get a yes
+
+> So that's Saturday, 28 November. {ready_note}. Shall I confirm it?
+
+| Customer says | What happens |
+|---|---|
+| Yes | System: Book the visit |
+| No | Check readiness and book: Ask what to change |
+| Corrects an earlier ladder / water / light answer | Step 3: Ask: ladder, water, light ready? |
+| Change day | Find another date or time: Offer other days |
+| Change time | Find another date or time: Tell the time window |
+
+### Detours
+
+#### Find another date or time
+
+When the planned date or time doesn't suit, or the customer pushes back, find one that does.
+
+**Tell the time window**
+
+> Our service hero will come between 8 am and 12 pm that day. Does that work for you?
+
+| Customer says | What happens |
+|---|---|
+| Yes (already checked) | Step 4: Repeat the details, get a yes |
+| Yes | Step 3: Ask: ladder, water, light ready? |
+| Wants exact time (first time) | Bot answers and asks again |
+| Wants exact time (asks again) | Call back or hand over: Ask a senior to call |
+| Wants another time | Check another time that day |
+| No | Offer other days |
+
+**Check another time that day**
+
+The bot doesn't speak here. **Free (already checked)** → Step 4: Repeat the details, get a yes; **Free** → Step 3: Ask: ladder, water, light ready?; **Full** → Offer other days.
+
+**Offer other days**
+
+> No problem. Would Monday, 30 November, morning or Wednesday, 2 December, evening work for you?
+
+| Customer says | What happens |
+|---|---|
+| No other days | Call ends: No free slot |
+| Yes (already checked) | Step 4: Repeat the details, get a yes |
+| Yes | Step 3: Ask: ladder, water, light ready? |
+| Wants another time | Check another time that day |
+| Suggests their own date (not in Beat Plan) | Ask the time for their date |
+| Suggests their own date (already checked) | Step 4: Repeat the details, get a yes |
+| Suggests their own date | Step 3: Ask: ladder, water, light ready? |
+| No (more days to offer) | Bot answers and asks again |
+| No (no more days) | Call ends: No free slot |
+
+**Explain why the visit helps now**
+
+> You're right, the plan is new. That's why the first visit works as a check-up, so any problem is caught early. Shall I book Saturday, 28 November for you?
+
+| Customer says | What happens |
+|---|---|
+| Yes | Step 3: Ask: ladder, water, light ready? |
+| Asks the time | Tell the time window |
+| No | Call ends: Not needed yet, call later |
+
+**Ask the time for their date**
+
+> Sure. On Thursday, 10 December, would morning, afternoon or evening suit you?
+
+| Customer says | What happens |
+|---|---|
+| Picks a time of day | Call ends: Date request noted |
+| Can't say / doesn't know | Call ends: Date request noted |
+
+#### Check readiness and book
 
 Make sure the ladder, water and light are ready, repeat the details and book the visit.
 
-```mermaid
-flowchart TD
-  IN0(["From part 2"]):::jump --> READINESS_CHECK
-  IN1(["From part 4"]):::jump --> RECAP
-  IN2(["From part 4"]):::jump --> MANUAL_CONFIRM_CLOSE
-  READINESS_CHECK("Ask: ladder, water, light ready?"):::talk
-  RECAP("Repeat the details, get a yes"):::talk
-  BOOK[["Book the visit"]]:::system
-  CONFIRMED_CLOSE(["Visit booked"]):::terminal
-  MANUAL_CONFIRM_CLOSE(["Team will confirm"]):::terminal
-  READINESS_CHECK -->|"Yes"| RECAP
-  READINESS_CHECK -->|"No"| OUT_hold
-  RECAP -->|"Yes"| BOOK
-  RECAP -->|"Change day"| OUT_slot
-  RECAP -->|"Change time"| OUT_slot
-  BOOK -->|"Done"| CONFIRMED_CLOSE
-  BOOK -->|"System error"| MANUAL_CONFIRM_CLOSE
-  OUT_hold(["Go to part 4: Pause the site"]):::jump
-  OUT_slot(["Go to part 2: Fix the date and time"]):::jump
-  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
-  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
-  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
-  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
-  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
-```
+**Ask what to change**
 
-### 4. Pause the site
+> Okay, what would you like to change, the day or the time?
+
+| Customer says | What happens |
+|---|---|
+| Corrects an earlier ladder / water / light answer | Step 3: Ask: ladder, water, light ready? |
+| Change day | Find another date or time: Offer other days |
+| Change time | Find another date or time: Tell the time window |
+| Wants another time | Find another date or time: Check another time that day |
+| Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
+| Suggests their own date | Step 4: Repeat the details, get a yes |
+
+#### Pause the site
 
 If the site isn't ready, get a date and the customer's OK to stop calls until then.
 
-```mermaid
-flowchart TD
-  IN0(["From part 3"]):::jump --> ASK_READY_DATE
-  IN1(["From any step"]):::jump --> SITE_ON_HOLD
-  ASK_READY_DATE("Ask when it will be ready"):::talk
-  FIND_SLOT_AFTER_READY[["Find a free day after that"]]:::system
-  SITE_ON_HOLD("Ask when we can come"):::talk
-  HOLD_CONSENT("Ask OK to pause calls"):::talk
-  APPLY_HOLD[["Pause the site"]]:::system
-  HOLD_CLOSE(["Site paused"]):::terminal
-  HOLD_DECLINED_CLOSE(["Customer said no to pausing"]):::terminal
-  ASK_READY_DATE -->|"Gives a date (if rebooking is on)"| FIND_SLOT_AFTER_READY
-  ASK_READY_DATE -->|"Gives a date (default)"| HOLD_CONSENT
-  FIND_SLOT_AFTER_READY -->|"Found one"| OUT_confirm
-  FIND_SLOT_AFTER_READY -->|"None free"| HOLD_CONSENT
-  SITE_ON_HOLD -->|"Gives a date"| HOLD_CONSENT
-  HOLD_CONSENT -->|"Yes"| APPLY_HOLD
-  HOLD_CONSENT -->|"No"| HOLD_DECLINED_CLOSE
-  APPLY_HOLD -->|"Done"| HOLD_CLOSE
-  APPLY_HOLD -->|"System error"| OUT_confirm
-  OUT_confirm(["Go to part 3: Check readiness and book"]):::jump
-  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
-  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
-  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
-  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
-  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
-```
+**Ask when it will be ready**
 
-### 5. Call back or hand over
+> Understood. By when can the A-type ladder be arranged? Could you give me a date?
+
+| Customer says | What happens |
+|---|---|
+| Gives a date (if rebooking is on) | Find a free day after that |
+| Gives a date (default) | Ask OK to pause calls |
+| Can't say / doesn't know | Call back or hand over: Ask a senior to call |
+
+**Find a free day after that**
+
+The bot doesn't speak here. **Found one** → Step 4: Repeat the details, get a yes; **None free** → Ask OK to pause calls.
+
+**Ask when we can come**
+
+> Understood. From which date will your site be ready for service?
+
+| Customer says | What happens |
+|---|---|
+| Gives a date | Ask OK to pause calls |
+| Can't say / doesn't know | Call back or hand over: Ask a senior to call |
+
+**Ask OK to pause calls**
+
+> Okay, we'll put your site on hold until 5 December. Until then you won't get service calls from SolarSquare. Is that okay?
+
+| Customer says | What happens |
+|---|---|
+| Yes | Pause the site |
+| No | Call ends: Customer said no to pausing |
+
+**Pause the site**
+
+The bot doesn't speak here. **Done** → Call ends: Site paused; **System error** → Call ends: Team will confirm.
+
+#### Call back or hand over
 
 The customer is busy or wants a person. Note when to call back, or ask a senior to call.
 
-```mermaid
-flowchart TD
-  IN0(["From any step"]):::jump --> RECALL
-  IN1(["From part 2 · From any step"]):::jump --> ESCALATE_RM
-  RECALL("Ask when to call back"):::talk
-  APPLY_RECALL[["Note the call-back time"]]:::system
-  RECALL_CLOSE(["We'll call back"]):::terminal
-  ESCALATE_RM[["Ask a senior to call"]]:::system
-  RM_CLOSE(["Senior will call"]):::terminal
-  RECALL -->|"Gives a time"| APPLY_RECALL
-  APPLY_RECALL -->|"Done"| RECALL_CLOSE
-  APPLY_RECALL -->|"System error"| RECALL_CLOSE
-  ESCALATE_RM -->|"Done"| RM_CLOSE
-  ESCALATE_RM -->|"System error"| RM_CLOSE
-  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
-  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
-  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
-  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
-  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
-```
+**Ask when to call back**
 
-### 6. Can happen any time
+> Of course. What time would be good to call you back?
 
-Someone else answers, the customer asks us not to call, or nobody replies.
+| Customer says | What happens |
+|---|---|
+| Gives a time | Note the call-back time |
+| Can't say / doesn't know | Ask a senior to call |
 
-```mermaid
-flowchart TD
-  WRONG_PERSON("Someone else answered"):::talk
-  WRONG_NUMBER_CLOSE(["Wrong number"]):::terminal
-  DNC_CLOSE(["Won't call again"]):::terminal
-  NO_ANSWER_CLOSE(["No answer"]):::terminal
-  WRONG_PERSON -->|"Family member, can decide"| OUT_slot
-  WRONG_PERSON -->|"Customer not home"| OUT_later
-  WRONG_PERSON -->|"No"| WRONG_NUMBER_CLOSE
-  ANY{{"Any step where the bot is talking"}}:::any
-  ANY -.->|"Not available / site not ready"| OUT_hold
-  ANY -.->|"Busy, call later"| OUT_later
-  ANY -.->|"Wants a person"| OUT_later
-  ANY -.->|"Don't call me"| DNC_CLOSE
-  ANY -.->|"Someone else answered"| WRONG_PERSON
-  ANY -.->|"No reply"| NO_ANSWER_CLOSE
-  OUT_slot(["Go to part 2: Fix the date and time"]):::jump
-  OUT_later(["Go to part 5: Call back or hand over"]):::jump
-  OUT_hold(["Go to part 4: Pause the site"]):::jump
-  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
-  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
-  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
-  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
-  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
-```
+**Note the call-back time**
 
-Handled in place at any step (the bot answers, then repeats its question):
+The bot doesn't speak here. **Done** → Call ends: We'll call back; **System error** → Call ends: Team will confirm.
 
-- **Not clear** (`unclear`); after 2 in a row → Ask a senior to call
-- **Asks price or something else** (`price_or_offtopic`)
+**Ask a senior to call**
+
+The bot doesn't speak here. **Done** → Call ends: Senior will call; **System error** → Call ends: Team will confirm.
+
+### Any time in the call
+
+| Customer says | What happens |
+|---|---|
+| Not available / site not ready | Ask when we can come |
+| Busy, call later | Ask when to call back |
+| Wants a person | Ask a senior to call |
+| Don't call me | Won't call again |
+| Someone else answered / not the person asked for | Someone else answered |
+| Says it is the wrong number | Wrong number |
+| Not needed yet | Explain why the visit helps now |
+| Wants a time outside 9 am to 6 pm | Bot answers briefly, then repeats its question |
+| Not clear | Bot asks again; after 2 times in a row: Ask a senior to call |
+| Asks to repeat | Bot answers briefly, then repeats its question |
+| Asks us to hold on | Bot answers briefly, then repeats its question |
+| Asks who is calling | Bot answers briefly, then repeats its question |
+| Asks where we got the number | Bot answers briefly, then repeats its question |
+| Asks if it is a machine | Bot answers briefly, then repeats its question |
+| Asks the time | Bot answers briefly, then repeats its question |
+| Death, accident or serious emergency in the family | Kind goodbye, calls paused |
+| Upset with how the bot is behaving | Kind goodbye, calls paused |
+| Can't take the visit for a personal reason (ill, family matter) | Ask when to call back |
+| Complains about earlier service | Ask a senior to call |
+| Speaks a language other than Hindi or English | Bot asks again; after 2 times in a row: Ask a senior to call |
+| Chit-chat that is not an answer | Bot answers briefly, then repeats its question |
+| Asks what something means or why it is needed | Bot answers briefly, then repeats its question |
+| Asks price or something else | Bot answers briefly, then repeats its question |
+| No reply | No answer |
+
+**Someone else answered**
+
+> No problem. Am I speaking with someone from Rahul's home?
+
+| Customer says | What happens |
+|---|---|
+| Someone else answered / not the person asked for | Call ends: Wrong number |
+| Yes | Step 2: Offer the planned date |
+| Family member, can decide | Step 2: Offer the planned date |
+| Customer not home | Call back or hand over: Ask when to call back |
+| No | Call ends: Wrong number |
+
+
+### How a call can end
+
+| Ending | Outcome code |
+|---|---|
+| Visit booked | `slot_confirmed / slot_confirmed_alt_band / slot_confirmed_alt_day` |
+| Kind goodbye, calls paused | `site_on_hold` |
+| Site paused | `site_on_hold` |
+| Customer said no to pausing | `hold_declined` |
+| No free slot | `no_slot_available` |
+| Senior will call | `rm_callback` |
+| We'll call back | `recall_requested` |
+| Won't call again | `do_not_call` |
+| Wrong number | `wrong_number` |
+| No answer | `no_answer` |
+| Team will confirm | `needs_manual_confirmation` |
+| Not needed yet, call later | `not_needed_now` |
+| Date request noted | `date_requested` |
+| Not called | `not_dialled` |
+
+After every call, whatever the ending, the system runs: summarise_call, post_beatplan_comment.
 <!-- flow-diagram:end -->

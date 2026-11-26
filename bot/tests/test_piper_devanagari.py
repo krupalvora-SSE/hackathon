@@ -62,9 +62,10 @@ def test_english_sentences_skip_devanagari_and_hindi_lines_have_no_english():
     assert not is_english("नमस्ते Rahul जी, आपका समय पक्का हो गया है।")
     assert asyncio.run(devanagari_transform("Shall I confirm it?")) == "Shall I confirm it?"
     hi = yaml.safe_load(open(config.Path(__file__).resolve().parents[2] / "flows/service-scheduling/prompts/hi.yaml"))
-    for st in hi.values():
+    for st in hi.values():  # lines are Hinglish; Piper must still get pure Devanagari after rewriting
         for v in st.values():
-            assert not LATIN.search(re.sub(r"\{\w+\}", "", v)), v   # plain Hindi: Piper reads it natively
+            spoken = to_devanagari(re.sub(r"\{\w+\}", "", v))
+            assert not LATIN.search(spoken), (v, spoken)
 
 
 def test_bilingual_piper_picks_voice_by_language():

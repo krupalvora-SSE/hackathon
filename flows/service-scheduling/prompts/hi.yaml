@@ -1,84 +1,150 @@
-# Hindi lines per state. Male persona (policies.persona).
-# Plain Hindi in Devanagari only: the open-source Hindi voice (Piper) reads English words with a flat
-# accent, so say them in Hindi (समय not slot, पक्का not confirm, कर्मचारी not service hero). Only
-# loanwords every customer uses stay: सोलर पैनल, सोलरस्क्वेयर, रिकॉर्ड, नंबर.
+# Hindi (Hinglish) lines per state. Male persona (policies.persona).
+# Devanagari for Hindi words, English nouns kept as people say them (see hindi-voice-scripting skill).
 # Placeholders are filled by code, already spelled out in words:
 #   {name} {bot_name} {date_spoken} {weekday} {band_spoken} {options_spoken}
 #   {missing_item} {hold_until_spoken} {recall_window_spoken}
-# `main` is spoken on entering the state; other keys are used via `say:` in flow.yaml.
+# `mai` is spoken on entering the state; other keys are used via `say:` in flow.yaml.
 # After a _global line (deflection, didnt_catch, reprompt) the bot repeats the current question.
 # Keep each line under ~20 words, one question per turn. The LLM may paraphrase lightly.
 
 _global:
   deflection: "इसकी जानकारी हमारी टीम आपको अलग से देगी।"
   reprompt: "हैलो, क्या आप मुझे सुन पा रहे हैं?"
-  didnt_catch: "माफ़ कीजिए, आवाज़ थोड़ी कट गई, फिर से बताएँगे?"
+  sms_reminder: "Visit से पहले आपको reminder SMS भी आ जाएगा।"
+  service_hours: "हमारी visits सुबह 9 से शाम 6 बजे के बीच ही होती हैं।"
+  time_window: "उस दिन हमारे service hero {band_spoken} के बीच आएँगे।"
+  didnt_catch: "माफ़ कीजिए, ठीक से सुनाई नहीं दिया।"
+  didnt_catch_date: "माफ़ कीजिए, date समझ नहीं आई। जैसे 5 दिसंबर, या एक महीने बाद?"
+  repeat_lead: "जी, फिर से बता देता हूँ।"
+  hold_ack: "जी, मैं line पर हूँ, आप देख लीजिए।"
+  identity_who: "मैं {bot_name} बोल रहा हूँ, SolarSquare से, आपके solar system के maintenance के बारे में।"
+  identity_source: "आपका number SolarSquare के पास आपके solar system की service के records में है।"
+  identity_robot: "जी, मैं SolarSquare का AI voice assistant हूँ।"
+  empathy_personal: "ओह, कोई बात नहीं, आप अपना ध्यान रखिए।"
+  complaint_ack: "माफ़ कीजिए, यह सुनकर बुरा लगा।"
+  language_not_supported: "I'm sorry, I don't understand this language. माफ़ कीजिए, मुझे यह भाषा समझ नहीं आती। क्या आप हिंदी या English में बात कर सकते हैं?"
+  small_talk: "जी, मैं ठीक हूँ, शुक्रिया।"
+  not_a_visit_day: "हमारी visits सोमवार से शनिवार तक ही होती हैं।"
 
 GREET:
-  main: "नमस्ते, क्या मेरी बात {name} जी से हो रही है? मैं {bot_name}, सोलरस्क्वेयर से बोल रहा हूँ। यह बातचीत रिकॉर्ड की जा रही है।"
+  main: "नमस्ते, क्या {name} जी बोल रहे हैं? मैं SolarSquare से {bot_name}। यह call record हो रही है।"
+  repeat_main: "जी, क्या मैं {name} जी से बात कर रहा हूँ?"
 
 WRONG_PERSON:
   main: "कोई बात नहीं। क्या आप {name} जी के घर से बोल रहे हैं?"
+  repeat_main: "क्या यह {name} जी का घर है?"
 
 OFFER_PRIMARY:
-  main: "{name} जी, आपके सोलर पैनल की सफ़ाई और देखभाल का समय हो गया है। {weekday}, {date_spoken} को हमारे पास समय है, क्या आप उस दिन घर पर रहेंगे?"
+  main: "{name} जी, आपके solar system का maintenance due है। {weekday}, {date_spoken} को हमारे पास slot है, क्या आप उस दिन available रहेंगे?"
+  repeat_main: "{weekday}, {date_spoken} को आप available हैं?"
+  main_family: "{name} जी के solar system का maintenance due है। {weekday}, {date_spoken} को हमारे पास slot है, क्या उस दिन घर पर कोई available रहेगा?"
+  repeat_main_family: "{weekday}, {date_spoken} को घर पर कोई available रहेगा?"
 
 TIME_BAND:
-  main: "उस दिन हमारे कर्मचारी {band_spoken} के बीच आएँगे। क्या यह समय आपके लिए ठीक रहेगा?"
-  no_exact_guarantee: "बिल्कुल सही समय का वादा तो नहीं कर सकता, पर पूरी कोशिश करेंगे कि कर्मचारी आपके बताए समय पर ही आएँ। {band_spoken} चलेगा?"
+  main: "उस दिन हमारे service hero {band_spoken} के बीच आएँगे। क्या यह time आपको ठीक लगेगा?"
+  no_exact_guarantee: "Exact time की guarantee तो नहीं दे सकता, पर पूरी कोशिश करेंगे कि hero आपके बताए time पर ही आए। {band_spoken} चलेगा?"
+  repeat_main: "{band_spoken} के बीच hero आएँगे, चलेगा?"
+  repeat_no_exact_guarantee: "{band_spoken} के बीच आना ठीक रहेगा?"
 
 ALTERNATE_DAYS:
   main: "कोई बात नहीं। {options_spoken} में से कोई दिन आपको ठीक रहेगा?"
-  band_full: "माफ़ कीजिए, उस दिन वह समय खाली नहीं है। {options_spoken} में से कोई दिन चलेगा?"
+  band_full: "माफ़ कीजिए, उस दिन वह time slot खाली नहीं है। {options_spoken} में से कोई दिन चलेगा?"
   next_options: "अच्छा, तो {options_spoken} कैसा रहेगा?"
+  repeat_main: "{options_spoken}, इनमें से कौन सा दिन ठीक रहेगा?"
+  repeat_band_full: "{options_spoken}, इनमें से कौन सा दिन ठीक रहेगा?"
+  repeat_next_options: "{options_spoken}, इनमें से कौन सा दिन ठीक रहेगा?"
+
+NOT_NEEDED:
+  main: "जी, आपकी बात सही है कि plan अभी नया है। इसीलिए पहली visit एक check-up की तरह होती है, ताकि कोई भी problem शुरू में ही पकड़ में आ जाए। तो क्या मैं {weekday}, {date_spoken} का slot book कर दूँ?"
+  repeat_main: "क्या आप उस दिन available रहेंगे?"
+
+ASK_BAND_FOR_DATE:
+  main: "ठीक है। {requested_date_spoken} को सुबह, दोपहर या शाम, कौन सा time आपके लिए ठीक रहेगा?"
+  repeat_main: "सुबह, दोपहर या शाम, कौन सा time ठीक रहेगा?"
 
 READINESS_CHECK:
-  main: "बढ़िया। सफ़ाई के लिए कुछ चीज़ें तैयार रखनी होंगी, बस एक बार पूछ लेता हूँ।"
-  ask_ladder: "क्या आपके पास ए-आकार वाली सीढ़ी है, जिससे हमारे कर्मचारी छत तक पहुँच सकें?"
-  ask_water: "पैनल के पास पानी की व्यवस्था है?"
-  ask_light: "और क्या वहाँ बिजली की सुविधा है?"
+  main: "बढ़िया। Service के लिए कुछ चीज़ें ready रखनी होंगी, बस confirm कर लेता हूँ।"
+  ask_ladder: "क्या आपके पास A-type ladder है, जिससे hero छत तक पहुँच सकें?"
+  arrange_ladder: "कोई बात नहीं। क्या visit से पहले आप कहीं से A-type ladder arrange कर पाएँगे?"
+  repeat_arrange_ladder: "क्या आप ladder arrange कर पाएँगे?"
+  ask_water: "Panels के पास पानी का source है?"
+  ask_light: "और वहाँ light का connection है?"
+  repeat_ask_ladder: "आपके पास A-type ladder है?"
+  repeat_ask_water: "Panels के पास पानी मिल जाएगा?"
+  repeat_ask_light: "वहाँ light का connection है?"
+  arrange_water: "ठीक है। क्या visit से पहले panels के पास पानी का इंतज़ाम हो जाएगा?"
+  arrange_light: "ठीक है। क्या visit से पहले light का connection हो जाएगा?"
+  repeat_arrange_water: "क्या पानी का इंतज़ाम हो जाएगा?"
+  repeat_arrange_light: "क्या light का connection हो जाएगा?"
+  explain_ladder: "A-type ladder वह सीढ़ी है जो दोनों तरफ़ से खड़ी होकर टिकती है; hero उससे छत तक पहुँचता है।"
+  explain_water: "Panels साफ़ करने के लिए पानी चाहिए होता है।"
+  explain_light: "काम के लिए बिजली का connection चाहिए होता है।"
 
 ASK_READY_DATE:
-  main: "समझ गया। {missing_item} कब तक हो जाएगी, कोई तारीख बता सकते हैं?"
+  main: "समझ गया। {missing_item} कब तक arrange हो जाएगा, कोई date बता सकते हैं?"
+  repeat_main: "{missing_item} किस date तक हो जाएगा?"
 
 RECAP:
-  main: "तो {weekday}, {date_spoken}, {band_spoken} के बीच, और सीढ़ी, पानी और बिजली तैयार रहेंगे। मैं यह पक्का कर दूँ?"
+  main: "तो {weekday}, {date_spoken}। {ready_note}। मैं यह confirm कर दूँ?"
+  with_time: "तो {weekday}, {date_spoken}, {band_spoken} के बीच। {ready_note}। मैं यह confirm कर दूँ?"
+  repeat_main: "{weekday}, {date_spoken}। मैं यह confirm कर दूँ?"
+  repeat_with_time: "{weekday}, {date_spoken}, {band_spoken}। मैं यह confirm कर दूँ?"
+
+RECAP_CHANGE:
+  main: "ठीक है, क्या बदलना है, दिन या time?"
+  repeat_main: "दिन बदलना है या time?"
 
 SITE_ON_HOLD:
-  main: "समझ गया। आपकी छत किस तारीख से सफ़ाई के लिए तैयार होगी?"
+  main: "समझ गया। आपकी site किस date से service के लिए ready होगी?"
+  repeat_main: "आपकी site किस date से ready होगी?"
 
 HOLD_CONSENT:
-  main: "ठीक है, हम {hold_until_spoken} तक आपकी सफ़ाई रोक कर रखेंगे। तब तक सोलरस्क्वेयर से आपको इसके लिए फ़ोन नहीं आएगा। क्या यह ठीक है?"
+  main: "ठीक है, हम आपकी site {hold_until_spoken} तक hold पर रख देंगे। तब तक SolarSquare से आपको service के लिए call नहीं आएगी। क्या यह ठीक है?"
+  repeat_main: "{hold_until_spoken} तक site hold पर रखूँ, ठीक है?"
 
 RECALL:
-  main: "जी बिल्कुल। आपको किस समय फ़ोन करना ठीक रहेगा?"
+  main: "जी बिल्कुल। आपको किस time पर call करना ठीक रहेगा?"
+  repeat_main: "आपको किस time call करूँ?"
 
 CONFIRMED_CLOSE:
-  main: "आपका समय {weekday}, {date_spoken}, {band_spoken} के लिए पक्का हो गया है। धन्यवाद, आपका दिन शुभ हो!"
+  main: "आपकी visit {weekday}, {date_spoken} के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+  with_time: "आपकी visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+  main_family: "{name} जी की visit {weekday}, {date_spoken} के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+  with_time_family: "{name} जी की visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+
+SENSITIVE_CLOSE:
+  main: "ओह, यह जानकर बहुत दुख हुआ। हमारी संवेदनाएँ आपके और आपके परिवार के साथ हैं। हम आपको अभी परेशान नहीं करेंगे। कृपया अपना और परिवार का ध्यान रखिए।"
+  apology: "माफ़ कीजिए, मेरा इरादा आपको परेशान करने का नहीं था। हम आपको अभी call नहीं करेंगे। कृपया अपना ध्यान रखिए।"
 
 HOLD_CLOSE:
-  main: "आपकी सफ़ाई {hold_until_spoken} तक रोकी गई है। उसके बाद हम आपसे संपर्क करेंगे। धन्यवाद!"
+  main: "आपकी site {hold_until_spoken} तक hold पर है। उसके बाद हम आपसे संपर्क करेंगे। धन्यवाद!"
 
 HOLD_DECLINED_CLOSE:
   main: "कोई बात नहीं, आपका समय देने के लिए धन्यवाद। आपका दिन शुभ हो!"
 
 NO_SLOT_CLOSE:
-  main: "माफ़ कीजिए, अभी हमारे पास और समय खाली नहीं है। नया समय खुलते ही हमारे लोग आपसे संपर्क करेंगे। धन्यवाद!"
+  main: "माफ़ कीजिए, अभी हमारे पास और slots नहीं हैं। नया slot खुलते ही हमारी team आपसे संपर्क करेगी। धन्यवाद!"
 
 RM_CLOSE:
-  main: "मैं हमारे वरिष्ठ अधिकारी से आपको फ़ोन करवा देता हूँ, वो जल्द ही आपसे बात करेंगे। धन्यवाद!"
+  main: "मैं हमारे senior से आपको callback arrange करवा देता हूँ, वो जल्द ही आपसे बात करेंगे। धन्यवाद!"
 
 RECALL_CLOSE:
-  main: "ठीक है, हम आपको {recall_window_spoken} फ़ोन करेंगे। धन्यवाद!"
+  main: "ठीक है, हम आपको {recall_window_spoken} call करेंगे। धन्यवाद!"
 
 DNC_CLOSE:
-  main: "माफ़ कीजिए परेशानी के लिए। आपको आगे से फ़ोन नहीं आएगा। धन्यवाद।"
+  main: "माफ़ कीजिए परेशानी के लिए। आपको आगे से call नहीं आएगी। धन्यवाद।"
 
 WRONG_NUMBER_CLOSE:
-  main: "माफ़ कीजिए, शायद गलत नंबर लग गया। आपका दिन शुभ हो।"
+  main: "माफ़ कीजिए, शायद number गलत लग गया। आपका दिन शुभ हो।"
 
 NO_ANSWER_CLOSE:
-  main: "लगता है आवाज़ नहीं आ रही, हम आपको दोबारा फ़ोन करेंगे। धन्यवाद।"
+  main: "लगता है आवाज़ नहीं आ रही, हम आपको दोबारा call करेंगे। धन्यवाद।"
 
 MANUAL_CONFIRM_CLOSE:
-  main: "आपकी जानकारी लिख ली है, हमारे लोग जल्द ही पक्का करके बताएँगे। धन्यवाद!"
+  main: "आपकी details note कर ली हैं, हमारी team जल्द ही confirm करके बताएगी। धन्यवाद!"
+
+NOT_NEEDED_CLOSE:
+  main: "ठीक है, कोई बात नहीं। हम कुछ समय बाद आपसे फिर संपर्क करेंगे। धन्यवाद!"
+
+REQUEST_CLOSE:
+  main: "मैंने आपकी {requested_date_spoken}, {requested_band_spoken} की request note कर ली है। यह date अभी fix नहीं है, technician की availability के हिसाब से बदल भी सकती है। हमारी team आपसे confirm कर लेगी। धन्यवाद!"

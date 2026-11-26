@@ -18,12 +18,16 @@ from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import (
     BotStartedSpeakingFrame,
+    BotStoppedSpeakingFrame,
     EndFrame,
+    InterruptionFrame,
     Frame,
     FunctionCallResultProperties,
     LLMContextFrame,
+    LLMFullResponseStartFrame,
     MetricsFrame,
     TTSSpeakFrame,
+    UserIdleTimeoutUpdateFrame,
     UserStoppedSpeakingFrame,
     VADUserStoppedSpeakingFrame,
 )
@@ -45,6 +49,7 @@ from pipecat.turns.user_turn_strategies import UserTurnStrategies, default_user_
 from . import config as call_config
 from .events import Emitter, save_result
 from .engine import make_engine
+from .filler import Filler
 from .prompts import HANDOVER_BROWSER_NOTE
 from .tools import Action
 
@@ -56,6 +61,8 @@ RATE = {
     "llm_per_m_out": float(os.getenv("COST_LLM_INR_PER_M_OUT", "51")),
     "tel_per_min": float(os.getenv("COST_TELEPHONY_INR_PER_MIN", "0.6")),
 }
+YIELD_LINES = ["जी, sorry, आप बोलिए।", "ओह sorry जी, please go ahead।", "जी जी, बोलिए।"]
+
 
 class GreetingGate(FrameProcessor):
     """The bot opens with "Hello?". The customer's first reply is held back from the LLM and the
@@ -65,9 +72,17 @@ class GreetingGate(FrameProcessor):
         super().__init__()
         self._on_first_reply = on_first_reply
         self.greeted = False
+        self._protected_until = 0.0
+
+    def protect(self, secs: float) -> None:
+        """Ignore interruptions for `secs`: early line noise must not cancel "Hello?" before it is heard."""
+        self._protected_until = time.monotonic() + secs
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
+        if (isinstance(frame, InterruptionFrame) and direction == FrameDirection.DOWNSTREAM
+                and time.monotonic() < self._protected_until):
+            return
         if isinstance(frame, LLMContextFrame) and not self.greeted:
             self.greeted = True
             await self._on_first_reply()
@@ -78,10 +93,13 @@ class GreetingGate(FrameProcessor):
 class CallMetrics(FrameProcessor):
     """Sits at the end of the pipeline: per-turn voice-to-voice latency + usage for cost."""
 
-    def __init__(self, emitter: Emitter, telephony: bool):
+    def __init__(self, emitter: Emitter, telephony: bool, on_cut_in=None, on_bot_started=None):
         super().__init__()
         self.emitter = emitter
         self.telephony = telephony
+        self._on_cut_in = on_cut_in
+        self._on_bot_started = on_bot_started
+        self._bot_speaking = False
         self.started = time.monotonic()
         self.latencies: list[int] = []
         self._user_stopped_at: float | None = None
@@ -89,6 +107,18 @@ class CallMetrics(FrameProcessor):
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
+        if isinstance(frame, BotStartedSpeakingFrame):
+            self._bot_speaking = True
+            if self._on_bot_started:
+                self._on_bot_started()
+            self._speaking_since = time.monotonic()
+        elif isinstance(frame, LLMFullResponseStartFrame) and self._on_bot_started:
+            self._on_bot_started()  # the reply is being generated: too late for a filler
+        elif isinstance(frame, BotStoppedSpeakingFrame):
+            self._bot_speaking = False
+        elif (isinstance(frame, InterruptionFrame) and self._bot_speaking and self._on_cut_in
+              and time.monotonic() - self._speaking_since >= 1.0):  # not a clipped first word
+            self._on_cut_in()  # the customer cut the bot off mid-sentence
         if isinstance(frame, (VADUserStoppedSpeakingFrame, UserStoppedSpeakingFrame)):
             self._user_stopped_at = self._user_stopped_at or time.monotonic()
         elif isinstance(frame, BotStartedSpeakingFrame) and self._user_stopped_at:
@@ -235,7 +265,40 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             user_turn_strategies=_turn_strategies(cfg),
         ),
     )
-    metrics = CallMetrics(emitter, telephony)
+    yielded = {"at": 0.0, "n": 0, "turns": 0, "answered": False, "task": None}
+    turn_over = asyncio.Event()
+
+    async def yield_if_unanswered() -> None:
+        # Wait for the customer's turn to end. If they actually answered, the normal reply covers it
+        # (a "sorry, go ahead" on top would stack two acknowledgements). Only yield on a non-answer.
+        try:
+            await asyncio.wait_for(turn_over.wait(), timeout=5)
+        except asyncio.TimeoutError:
+            return
+        if yielded["answered"] or engine.outcome:
+            return
+        yielded["at"] = time.monotonic()
+        line = YIELD_LINES[yielded["n"] % len(YIELD_LINES)]
+        yielded["n"] += 1
+        await worker.queue_frames([TTSSpeakFrame(line, append_to_context=False)])
+
+    def yield_floor() -> None:
+        """Customer cut in mid-sentence (at most every 15 s, never during the hello exchange)."""
+        if (engine.outcome or yielded["turns"] < 2 or time.monotonic() - yielded["at"] < 15
+                or os.getenv("YIELD_ON_INTERRUPT", "1") == "0"):
+            return
+        if yielded["task"]:
+            yielded["task"].cancel()
+        turn_over.clear()
+        yielded["answered"] = False
+        yielded["task"] = asyncio.create_task(yield_if_unanswered())
+
+    async def say_filler(line: str) -> None:
+        await worker.queue_frames([TTSSpeakFrame(line, append_to_context=False)])
+
+    filler = Filler(say_filler, cfg["filler_delay_ms"] / 1000, enabled=cfg["filler"],
+                    active=lambda: not engine.outcome)
+    metrics = CallMetrics(emitter, telephony, on_cut_in=yield_floor, on_bot_started=filler.cancel)
 
     async def speak_opening() -> None:
         await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
@@ -271,8 +334,19 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         logger.info(f"call {call_id} ended ({reason}): {record}")
         await emitter.close()
 
+    on_hold = {"on": False}
+
+    async def end_hold() -> None:
+        """Back to the normal silence timeout once the customer is back (or the hold ran out)."""
+        if on_hold["on"]:
+            on_hold["on"] = False
+            await worker.queue_frames([UserIdleTimeoutUpdateFrame(timeout=cfg["silence_secs"])])
+
     async def perform(action: Action) -> None:
         frames: list[Frame] = [TTSSpeakFrame(t, append_to_context=True) for t in action.speak]
+        if action.idle_timeout:  # "ek minute ruko": wait longer before the first reprompt
+            on_hold["on"] = True
+            frames.append(UserIdleTimeoutUpdateFrame(timeout=action.idle_timeout))
         if action.end:
             if engine.outcome == "handed_to_human" and not telephony:
                 emitter.emit({"type": "transcript", "role": "agent", "text": HANDOVER_BROWSER_NOTE})
@@ -292,6 +366,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             await worker.queue_frames([TTSSpeakFrame(text, append_to_context=True)])
 
     async def handle_tool(params: FunctionCallParams) -> None:
+        filler.cancel()  # the LLM has answered; the real line follows in a moment
         args = dict(params.arguments or {})
         action = engine.dispatch(params.function_name, args)
         logger.info(f"tool {params.function_name}({args}) -> {action.result}")
@@ -309,16 +384,26 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     for t in engine.tools:
         llm.register_function(t["name"], handle_tool, cancel_on_interruption=True)
 
+    @aggregators.user().event_handler("on_user_turn_started")
+    async def _user_started(_agg, _strategy):
+        filler.cancel()
+
     @aggregators.user().event_handler("on_user_turn_stopped")
     async def _user_said(_agg, _strategy, message):
+        yielded["answered"] = bool(getattr(message, "content", None))
+        turn_over.set()
         if getattr(message, "content", None):
             engine.heard_customer()
+            await end_hold()
+            filler.customer_stopped()
+            yielded["turns"] += 1
             emitter.emit({"type": "transcript", "role": "customer", "text": message.content})
 
     @aggregators.user().event_handler("on_user_turn_idle")
     async def _silence(_agg):
         if engine.outcome:
             return
+        await end_hold()
         if not gate.greeted:  # no reply to "Hello?": give the greeting itself, not a second "Hello?"
             gate.greeted = True
             await speak_opening()
@@ -339,6 +424,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if engine.outcome:  # blocked before dialling (DNC / allowlist / hours): say nothing, hang up
             await worker.queue_frames([EndFrame()])
             return
+        gate.protect(float(os.getenv("OPENER_PROTECT_S", "2")))
         await worker.queue_frames([TTSSpeakFrame("Hello?", append_to_context=True)])
 
     @transport.event_handler("on_client_disconnected")

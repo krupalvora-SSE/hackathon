@@ -37,15 +37,38 @@ global:
     label: Don't call me
     goto: DNC_CLOSE
     examples:
-      hi: ["call mat karo", "pareshan mat karo", "DND pe daalo", "band karo yeh calls"]
+      hi: ["call mat karo", "कभी मत करिए", "pareshan mat karo", "मत कीजिए call", "DND pe daalo", "band karo yeh calls"]
       en: ["don't call me again", "stop calling", "unsubscribe me"]
 
   wrong_person:
-    label: Someone else answered
+    label: Someone else answered / not the person asked for
     goto: WRONG_PERSON
     examples:
-      hi: ["mai unka beta bol raha hoon", "wo ghar pe nahi hain", "galat number hai"]
-      en: ["this is his son", "she's not here", "wrong number"]
+      hi: ["मैं Sneha नहीं हूँ", "mai wo nahi hoon", "ये Sneha नहीं हैं", "wo ghar pe nahi hain", "Sneha जी अभी यहाँ नहीं हैं"]
+      en: ["I'm not Sneha", "this isn't Sneha", "she's not here"]
+
+  wrong_number:
+    label: Says it is the wrong number
+    goto: WRONG_NUMBER_CLOSE
+    examples:
+      hi: ["wrong number है", "galat number hai", "आपने गलत नंबर लगाया है", "यहाँ कोई Sneha नहीं रहता", "number galat lag gaya", "ये Sneha का number नहीं है"]
+      en: ["wrong number", "you have the wrong number", "nobody by that name lives here"]
+
+  not_needed_now:
+    label: Not needed yet
+    goto: NOT_NEEDED
+    examples:
+      hi: ["abhi to plan naya hai, zaroorat nahi", "panel abhi saaf hain", "abhi 2 din hi hue hain", "baad mai karwa lenge"]
+      en: ["the plan just started, no need yet", "the panels are clean already"]
+
+  outside_service_hours:
+    shares_time: true
+    label: Wants a time outside 9 am to 6 pm
+    goto: $stay
+    say: service_hours
+    examples:
+      hi: ["9 baje se pehle aa sakte ho?", "subah 8 baje", "shaam 7 baje ke baad", "raat ko aao"]
+      en: ["can they come before 9?", "after 7 in the evening"]
 
   unclear:
     label: Not clear
@@ -54,8 +77,112 @@ global:
     escalate_after: 2              # this many unclear turns in a row on one step...
     escalate_to: ESCALATE_RM       # ...then hand over (reason: repeated_misunderstanding)
     examples:
-      hi: ["hmm", "kya?", "(noise)", "(answer unrelated to the question)"]
-      en: ["what?", "(noise)", "(answer unrelated to the question)"]
+      hi: ["hmm", "(noise)", "(answer unrelated to the question)"]
+      en: ["(noise)", "(answer unrelated to the question)"]
+
+  repeat_request:
+    label: Asks to repeat
+    goto: $stay
+    say: repeat_lead               # fallback; each question has its own short form (repeat_<key> in prompts)
+    examples:
+      hi: ["phir se boliye", "kya bola", "kya kaha aapne", "dobara bolo", "ek baar aur bolna", "samjha nahi, repeat karo", "kya?"]
+      en: ["sorry, what?", "can you repeat that", "say that again", "I didn't get that"]
+
+  wait_a_moment:
+    label: Asks us to hold on
+    goto: $stay
+    say: hold_ack                  # spoken alone: the question is not repeated; silence waits policies.silence.hold_s
+    examples:
+      hi: ["ek minute ruko", "ek second", "ruko zara", "hold karo", "abhi aata hoon", "ek minute line pe rahiye"]
+      en: ["hold on", "one minute please", "just a second", "give me a moment"]
+
+  who_are_you:
+    label: Asks who is calling
+    goto: $stay
+    say: identity_who
+    examples:
+      hi: ["kaun bol raha hai", "aap kaun ho", "kahan se bol rahe ho", "kis company se ho"]
+      en: ["who is this", "who are you", "which company is this"]
+
+  number_source:
+    label: Asks where we got the number
+    goto: $stay
+    say: identity_source
+    examples:
+      hi: ["mera number kahan se mila", "ye number kisne diya", "mera number aapke paas kaise aaya"]
+      en: ["where did you get my number", "how did you get this number"]
+
+  is_robot:
+    label: Asks if it is a machine
+    goto: $stay
+    say: identity_robot            # must admit it is an AI assistant
+    examples:
+      hi: ["aap robot ho", "machine bol rahi hai kya", "insaan ho ya computer", "kya ye AI hai"]
+      en: ["are you a robot", "am I talking to a machine", "is this an AI"]
+
+  ask_time:
+    shares_time: true
+    label: Asks the time
+    goto: $stay                    # tells the window (or the service hours) and repeats the question; OFFER_PRIMARY and NOT_NEEDED
+    say: time_window               # keep their own move to TIME_BAND (disable_global)
+    examples:
+      hi: ["kitne baje aayenge", "time kya hoga", "kya time rahega", "subah aayenge ya shaam ko"]
+      en: ["what time will they come", "what time will it be", "morning or evening?"]
+
+  sensitive_situation:
+    label: Death, accident or serious emergency in the family
+    goto: SENSITIVE_CLOSE          # condolence, end the call, ask nothing, no date; calls paused (sensitive_pause_days)
+    examples:
+      hi: ["मेरे family में एक death हो गई है", "पिताजी गुज़र गए", "घर में किसी का देहांत हो गया", "अभी अंतिम संस्कार है", "accident हो गया है", "हम hospital में हैं, हालत गंभीर है"]
+      en: ["there has been a death in the family", "my father passed away", "we're at the hospital, it's serious"]
+
+  upset_customer:
+    label: Upset with how the bot is behaving
+    goto: SENSITIVE_CLOSE          # apology, end the call, ask nothing; calls paused
+    examples:
+      hi: ["आप में कोई sensitivity है?", "आपको समझ नहीं आता?", "तमीज़ से बात कीजिए", "मैंने कहा ना, परेशान मत करो"]
+      en: ["do you have any sensitivity", "don't you understand", "that's rude"]
+
+  personal_reason:
+    label: Can't take the visit for a personal reason (ill, family matter)
+    goto: RECALL
+    allow_reenter: true            # said again inside RECALL: sympathy, then the question
+    examples:
+      hi: ["नहीं, अभी मुझे बुखार है", "मेरी तबीयत ठीक नहीं है", "सर्दी-ज़ुकाम है", "आज घर में function है", "शादी में जाना है"]
+      en: ["I'm not well", "I have a fever", "we have a function at home"]
+
+  complaint:
+    label: Complains about earlier service
+    goto: ESCALATE_RM
+    examples:
+      hi: ["पहले भी गड़बड़ हुई", "पिछली बार कोई नहीं आया", "service बहुत खराब थी", "मेरी complaint है", "पहले भी बोला था, कुछ नहीं हुआ", "panel ठीक से साफ़ नहीं हुए थे"]
+      en: ["it went wrong last time", "nobody came last time", "I have a complaint"]
+
+  other_language:
+    label: Speaks a language other than Hindi or English
+    goto: $stay
+    say: language_not_supported
+    escalate_after: 2              # more than this many turns in a row in that language...
+    escalate_to: ESCALATE_RM       # ...and a senior is asked to call (reason: language_not_supported)
+    examples:
+      hi: ["(the customer speaks Tamil, Telugu, Kannada, Malayalam, Gujarati, Punjabi, Bengali, Marathi, Odia...)"]
+      en: ["(any language that is not Hindi, Hinglish or English)"]
+
+  small_talk:
+    label: Chit-chat that is not an answer
+    goto: $stay
+    say: small_talk
+    examples:
+      hi: ["Apple खाया?", "आप कैसे हैं", "खाना खाया?", "मौसम बहुत गर्म है", "Nice, nice"]
+      en: ["how are you", "have you eaten", "nice weather"]
+
+  asks_meaning:
+    label: Asks what something means or why it is needed
+    goto: $stay
+    say: deflection                # explained from the step's own explain_<item> line when it has one
+    examples:
+      hi: ["ये A type ladder क्या होता है?", "इसका मतलब क्या है", "ये क्यों चाहिए", "पानी क्यों चाहिए"]
+      en: ["what is an A-type ladder", "what does that mean", "why do you need water"]
 
   price_or_offtopic:
     label: Asks price or something else
@@ -70,22 +197,17 @@ local:
   affirm:
     label: Yes
     examples:
-      hi: ["haan", "ji haan", "theek hai", "chalega", "ho jayega", "sab ready hai"]
+      hi: ["हाँ", "haan", "ji haan", "जी, ठीक है", "theek hai", "chalega", "ho jayega", "sab ready hai"]
       en: ["yes", "okay", "that works", "everything is ready"]
 
   deny:
     label: No
     examples:
-      hi: ["nahi", "us din nahi ho payega", "ladder nahi hai", "nahi chalega"]
+      hi: ["नहीं", "nahi", "नहीं, नहीं हो पाएगा", "us din nahi ho payega", "ladder nahi hai", "nahi chalega"]
       en: ["no", "I'm not available that day", "we don't have a ladder"]
 
-  ask_time:
-    label: Asks the time
-    examples:
-      hi: ["kitne baje aayenge", "time kya hoga", "subah aayenge ya shaam ko"]
-      en: ["what time will they come", "morning or evening?"]
-
   wants_exact_time:
+    shares_time: true
     label: Wants exact time
     entities: [preferred_exact_time]
     examples:
@@ -93,6 +215,7 @@ local:
       en: ["I need an exact time", "come at 10 sharp"]
 
   wants_other_band:
+    shares_time: true
     label: Wants another time
     entities: [preferred_band]
     examples:
@@ -102,14 +225,28 @@ local:
   household_member:
     label: Family member, can decide
     examples:
-      hi: ["mai unki wife hoon, mujhe bata do", "haan ghar ka hi hoon, bolo"]
-      en: ["I'm his wife, you can tell me", "I live here, go ahead"]
+      hi: ["मैं उनका भाई बोल रहा हूँ, बताइए", "mai unki wife hoon, mujhe bata do", "haan ghar ka hi hoon, bolo", "मैं उनकी बेटी हूँ, आप बताइए"]
+      en: ["I'm his brother, go ahead", "I'm his wife, you can tell me", "I live here, go ahead"]
 
   customer_unavailable:
     label: Customer not home
     examples:
       hi: ["wo abhi nahi hain, baad mai call karo", "mere bete se baat karna"]
       en: ["he isn't here, call later", "talk to my son"]
+
+  proposes_date:
+    label: Suggests their own date
+    entities: [date]
+    examples:
+      hi: ["25 tareekh ko aa jao", "agle Sunday rakh do", "is date pe nahi, 10 ko aana"]
+      en: ["can you come on the 25th instead", "make it next Sunday"]
+
+  gives_band:
+    label: Picks a time of day
+    entities: [band]
+    examples:
+      hi: ["subah", "dopahar mai", "shaam ko"]
+      en: ["morning", "afternoon", "evening"]
 
   date_given:
     label: Gives a date
@@ -124,6 +261,24 @@ local:
     examples:
       hi: ["kal shaam 5 se 7", "do ghante baad", "Sunday subah"]
       en: ["tomorrow 5 to 7 pm", "in two hours"]
+
+  unsure:
+    label: Maybe / not sure (to a yes-no question)
+    examples:
+      hi: ["शायद", "जी हाँ, शायद है", "हो सकता है", "हो सकती है", "पता नहीं, देखना पड़ेगा", "maybe", "लगता है है"]
+      en: ["maybe", "I think so", "not sure"]
+
+  corrects_readiness:
+    label: Corrects an earlier ladder / water / light answer
+    examples:
+      hi: ["मेरे पास ladder नहीं है", "light नहीं है असल में", "पानी नहीं है", "मुझे लगता है मेरे पास ladder नहीं है"]
+      en: ["actually I don't have a ladder", "there is no water there", "no light connection actually"]
+
+  dont_know:
+    label: Can't say / doesn't know
+    examples:
+      hi: ["pata nahi", "abhi nahi bata sakta", "dekhna padega", "mujhe nahi pata kab tak"]
+      en: ["I don't know", "I can't say right now", "I'll have to check"]
 
   change_date:
     label: Change day

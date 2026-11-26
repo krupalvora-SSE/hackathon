@@ -43,6 +43,15 @@ createServer(async (req, res) => {
   if (req.method === 'GET' && pathname === '/api/config') return json(res, 200, { botUrl: process.env.BOT_URL || 'http://localhost:7860' });
   if (req.method === 'GET' && pathname === '/api/bookings') return json(res, 200, store.list());
 
+  // The generated whole-workflow page (tools/flowcheck.py --write), read-only.
+  if (req.method === 'GET' && pathname === '/flow') {
+    try {
+      const html = await readFile(join(import.meta.dirname, '..', 'flows', 'service-scheduling', 'flow.html'));
+      res.writeHead(200, { 'content-type': 'text/html' });
+      return res.end(html);
+    } catch { return json(res, 404, { error: 'not_found' }); }
+  }
+
   const m = pathname.match(/^\/api\/bookings\/([\w-]+)(?:\/(confirm|reject))?$/);
   if (m && req.method === 'GET' && !m[2]) {
     const b = store.get(m[1]);

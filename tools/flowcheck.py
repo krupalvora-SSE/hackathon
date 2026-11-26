@@ -250,11 +250,24 @@ class Flow:
             for b in langs:
                 for n, k in sorted(key_sets[a] - key_sets[b]):
                     self.err(f"prompt {n}.{k} exists in {a} but not in {b}")
-        # readiness items need an ask_<id> line
+        # readiness items need an ask_<id> line (and arrange_<id> when ask_if_can_arrange is on)
         for item in self.policies.get("readiness_items", []):
+            keys = [f"ask_{item['id']}"] + ([f"arrange_{item['id']}"] if item.get("ask_if_can_arrange") else [])
             for lang, p in self.prompts.items():
-                if f"ask_{item['id']}" not in ((p or {}).get("READINESS_CHECK") or {}):
-                    self.err(f"prompts/{lang}.yaml: READINESS_CHECK.ask_{item['id']} missing for readiness item")
+                for k in keys:
+                    if k not in ((p or {}).get("READINESS_CHECK") or {}):
+                        self.err(f"prompts/{lang}.yaml: READINESS_CHECK.{k} missing for readiness item")
+        # time_line: the alternative prompt key must exist in every language
+        for n, st in self.states.items():
+            key = st.get("time_line")
+            if not key:
+                continue
+            for lang, p in self.prompts.items():
+                if key not in ((p or {}).get(n) or {}):
+                    self.err(f"prompts/{lang}.yaml: {n}.{key} missing (time_line)")
+        if not any((i or {}).get("shares_time") for i in {**self.global_intents, **self.local_intents}.values()):
+            if any(st.get("time_line") for st in self.states.values()):
+                self.warn("time_line is used but no intent has shares_time: true")
 
     def _edges(self):
         for n, s in self.states.items():
@@ -389,133 +402,146 @@ class Flow:
     def _section_of(self) -> dict:
         return {st: key for key, sec in (self.flow.get("sections") or {}).items() for st in sec.get("states", [])}
 
-    def _node(self, n) -> str:
-        s = self.states[n]
-        title = (s.get("title") or n).replace('"', "'")
-        t = s.get("type")
-        if t == "system":
-            return f'{n}[["{title}"]]:::system'
-        if t == "terminal":
-            return f'{n}(["{title}"]):::terminal'
-        return f'{n}("{title}"):::talk'
+    # The usual call = follow yes / ok answers from the start until the call ends.
+    PATH_PREFER = ["context_ready", "affirm", "action_ok", "band_available"]
 
-    CLASSDEFS = [
-        "  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41",
-        "  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200",
-        "  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620",
-        "  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3",
-        "  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18",
-    ]
+    def _main_path(self) -> list:
+        path, cur, seen = [], self.flow.get("start"), set()
+        while cur and cur not in seen:
+            seen.add(cur)
+            path.append(cur)
+            trs = self.states[cur].get("transitions", []) or []
+            cur = next((t["to"] for p_ in self.PATH_PREFER for t in trs if t["on"] == p_), None)
+        return path
 
-    def _overview(self) -> str:
-        secs = self.flow.get("sections") or {}
-        where = self._section_of()
-        lines = ["flowchart TD"]
-        for key, sec in secs.items():
-            cls = "any" if key == "anytime" else "talk"
-            lines.append(f'  {key}["{sec["title"]}"]:::{cls}')
-        edges: dict = {}
-        for n, s in self.states.items():
-            for tr in s.get("transitions", []) or []:
-                a, b = where.get(n), where.get(tr["to"])
-                if a and b and a != b and a != "anytime":
-                    edges.setdefault((a, b), [])
-                    lbl = self._label(tr["on"])
-                    if lbl not in edges[(a, b)]:
-                        edges[(a, b)].append(lbl)
-        for (a, b), lbls in edges.items():
-            text = lbls[0] + (" …" if len(lbls) > 1 else "")
-            lines.append(f'  {a} -->|"{text}"| {b}')
-        if "anytime" in secs:  # one dotted arrow per section a global intent can jump to
-            targets = {}
-            for g, gi in self.global_intents.items():
-                tgt = where.get(gi.get("goto"))
-                if tgt and tgt != "anytime":
-                    targets.setdefault(tgt, []).append(self._label(g))
-            for tgt, lbls in targets.items():
-                lines.append(f'  anytime -.->|"{lbls[0]}"| {tgt}')
-        lines += self.CLASSDEFS
-        return "\n".join(lines)
+    def _talk_path(self) -> list:
+        return [n for n in self._main_path() if self.states[n].get("type") == "conversation"]
 
-    def _section_diagram(self, key: str) -> str:
-        secs = self.flow["sections"]
-        where = self._section_of()
-        members = secs[key]["states"]
-        lines = ["flowchart TD"]
-        # entry points from other sections
-        entries = {}
-        for n, s in self.states.items():
-            if where.get(n) == key:
+    def _detours(self) -> list:
+        """Sections as side processes: their talking/system steps that are not on the usual call."""
+        on_path = set(self._main_path())
+        out = []
+        for key, sec in (self.flow.get("sections") or {}).items():
+            if key == "anytime":
                 continue
-            for tr in s.get("transitions", []) or []:
-                if tr["to"] in members:
-                    entries.setdefault(tr["to"], set()).add(where.get(n))
-        if key != "anytime":
-            for g, gi in self.global_intents.items():
-                if gi.get("goto") in members:
-                    entries.setdefault(gi["goto"], set()).add("anytime")
-        for i, (target, froms) in enumerate(entries.items()):
-            nums = sorted(secs[f]["title"].split(". ", 1)[0] for f in froms if f and f != "anytime")
-            text = " · ".join(([f"From part {', '.join(nums)}"] if nums else []) +
-                              (["From any step"] if "anytime" in froms else []))
-            lines.append(f'  IN{i}(["{text}"]):::jump --> {target}')
-        for n in members:
-            lines.append(f"  {self._node(n)}")
-        exits = {}
-        for n in members:
-            for tr in self.states[n].get("transitions", []) or []:
-                lbl = self._label(tr["on"], tr.get("when"))
-                if tr["to"] in members:
-                    lines.append(f'  {n} -->|"{lbl}"| {tr["to"]}')
-                else:
-                    dest = where.get(tr["to"])
-                    ex = exits.setdefault(dest, f"OUT_{dest}")
-                    lines.append(f'  {n} -->|"{lbl}"| {ex}')
-        if key == "anytime":
-            lines.append('  ANY{{"Any step where the bot is talking"}}:::any')
-            for g, gi in self.global_intents.items():
-                goto = gi.get("goto")
-                if goto == "$stay":
-                    continue
-                if goto in members:
-                    lines.append(f'  ANY -.->|"{self._label(g)}"| {goto}')
-                else:
-                    dest = where.get(goto)
-                    ex = exits.setdefault(dest, f"OUT_{dest}")
-                    lines.append(f'  ANY -.->|"{self._label(g)}"| {ex}')
-            for ge in self.flow.get("global_events") or []:
-                lines.append(f'  ANY -.->|"{self._label(ge["on"])}"| {ge["to"]}')
-        for dest, ex in exits.items():
-            num, _, name = secs[dest]["title"].partition(". ")
-            lines.append(f'  {ex}(["Go to part {num}: {name}"]):::jump')
-        lines += self.CLASSDEFS
-        return "\n".join(lines)
+            steps = [n for n in sec["states"] if n not in on_path and self.states[n].get("type") != "terminal"]
+            if steps:
+                out.append({"key": key, "title": sec["title"].partition(". ")[2] or sec["title"],
+                            "about": sec.get("about", ""), "steps": steps})
+        return out
+
+    def _row(self, n, tr) -> dict:
+        """One line of a step's decision table: what the customer says -> what happens."""
+        to = tr["to"]
+        st = self.states[to]
+        title = st.get("title", to)
+        talk = self._talk_path()
+        where = self._section_of()
+        detour_of = {s: d for d in self._detours() for s in d["steps"]}
+        if st.get("type") == "terminal":
+            kind, text = "end", f"Call ends: {title}"
+        elif to == n:
+            kind, text = "stay", "Bot answers and asks again"
+        elif to in talk:
+            kind, text = "path", f"Step {talk.index(to) + 1}: {title}"
+        elif to in self._main_path():
+            kind, text = "path", f"System: {title}"
+        elif to in detour_of and detour_of.get(n, {}).get("key") == detour_of[to]["key"]:
+            kind, text = "step", title
+        elif to in detour_of:
+            kind, text = "detour", f"{detour_of[to]['title']}: {title}"
+        else:
+            kind, text = "step", title
+        return {"label": self._label(tr["on"], tr.get("when")), "to": to, "kind": kind, "text": text,
+                "detour": (detour_of.get(to) or {}).get("key"), "section": where.get(to)}
+
+    def _sample_line(self, n, lang="en", key="main") -> str:
+        vals = (self.flow.get("sample_values") or {}).get(lang) or {}
+        text = (((self.prompts.get(lang) or {}).get(n) or {}).get(key)) or ""
+        return re.sub(r"\{(\w+)\}", lambda m: vals.get(m.group(1), m.group(0)), text)
+
+    def _anytime_rows(self) -> list:
+        rows = []
+        for g, gi in self.global_intents.items():
+            goto = gi.get("goto")
+            if goto == "$stay":
+                text = "Bot answers briefly, then repeats its question"
+                if gi.get("escalate_to"):
+                    text = (f"Bot asks again; after {gi.get('escalate_after')} times in a row: "
+                            f"{self.states[gi['escalate_to']].get('title', gi['escalate_to'])}")
+            else:
+                text = self.states[goto].get("title", goto)
+            rows.append({"label": gi.get("label", g), "text": text, "to": None if goto == "$stay" else goto,
+                         "stay": goto == "$stay"})
+        for ge in self.flow.get("global_events") or []:
+            rows.append({"label": self._label(ge["on"]), "text": self.states[ge["to"]].get("title", ge["to"]),
+                         "to": ge["to"], "stay": False})
+        return rows
 
     def diagrams_markdown(self) -> str:
-        secs = self.flow.get("sections") or {}
-        post = ", ".join((self.flow.get("post_call") or {}).get("actions", []))
+        path = self._main_path()
+        talk = self._talk_path()
+        esc = lambda t: str(t).replace("|", "\\|")  # noqa: E731
         out = [
-            "**How to read these:** blue = the bot talks · amber = the system does something (Beat Plan / Zeus) · "
-            "green = the call ends · grey dashed = continues in another part · red = can happen any time. "
-            f"After every call the bot runs: {post}.",
+            "**How to read this:** the call is one straight line of steps. Each step has a small table: what the "
+            "customer says, and what the bot does next. Anything off the main line is a short detour, listed "
+            "after it. Lines are shown in English with example values; the Hindi lines are in `prompts/hi.yaml`.",
             "",
-            "### Overview",
+            "### The usual call",
             "",
-            "```mermaid", self._overview(), "```",
+            "```mermaid",
+            "flowchart LR",
         ]
-        for key, sec in secs.items():
-            out += ["", f"### {sec['title']}", ""]
-            if sec.get("about"):
-                out += [sec["about"], ""]
-            out += ["```mermaid", self._section_diagram(key), "```"]
-        stay = [(g, gi) for g, gi in self.global_intents.items() if gi.get("goto") == "$stay"]
-        if stay:
-            out += ["", "Handled in place at any step (the bot answers, then repeats its question):", ""]
-            for g, gi in stay:
-                extra = ""
-                if gi.get("escalate_to"):
-                    extra = f"; after {gi.get('escalate_after')} in a row → {self.states[gi['escalate_to']].get('title', gi['escalate_to'])}"
-                out.append(f"- **{self._label(g)}** (`{g}`){extra}")
+        nodes = []
+        for i, n in enumerate(path):
+            s = self.states[n]
+            t = s.get("title", n).replace('"', "'")
+            if s.get("type") == "terminal":
+                nodes.append(f'  P{i}(["{t}"]):::end_')
+            elif s.get("type") == "system":
+                nodes.append(f'  P{i}["{t}"]:::sys')
+            else:
+                nodes.append(f'  P{i}["{talk.index(n) + 1}. {t}"]:::talk')
+        out += nodes
+        out.append("  " + " --> ".join(f"P{i}" for i in range(len(path))))
+        out += ["  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41",
+                "  classDef sys fill:#FFF4E0,stroke:#C98A1B,color:#4A3200",
+                "  classDef end_ fill:#E6F4EA,stroke:#3C8D50,color:#1E4620", "```", ""]
+
+        def step_block(n, heading):
+            block = [heading, ""]
+            line = self._sample_line(n)
+            if line:
+                block += [f"> {line}", ""]
+            trs = self.states[n].get("transitions", []) or []
+            if self.states[n].get("type") == "system":
+                block += ["The bot doesn't speak here. " + "; ".join(
+                    f"**{r['label']}** → {r['text']}" for r in (self._row(n, t) for t in trs)) + ".", ""]
+                return block
+            block += ["| Customer says | What happens |", "|---|---|"]
+            block += [f"| {esc(r['label'])} | {esc(r['text'])} |" for r in (self._row(n, t) for t in trs)]
+            return block + [""]
+
+        for i, n in enumerate(talk):
+            out += step_block(n, f"#### Step {i + 1}. {self.states[n].get('title', n)}")
+        out += ["### Detours", ""]
+        for d in self._detours():
+            out += [f"#### {d['title']}", "", d["about"], ""]
+            for n in d["steps"]:
+                out += step_block(n, f"**{self.states[n].get('title', n)}**")
+        out += ["### Any time in the call", "", "| Customer says | What happens |", "|---|---|"]
+        out += [f"| {esc(r['label'])} | {esc(r['text'])} |" for r in self._anytime_rows()]
+        wp = [n for n in (self.flow.get("sections") or {}).get("anytime", {}).get("states", [])
+              if self.states[n].get("type") == "conversation"]
+        for n in wp:
+            out += [""] + step_block(n, f"**{self.states[n].get('title', n)}**")
+        out += ["", "### How a call can end", "", "| Ending | Outcome code |", "|---|---|"]
+        for n, s in self.states.items():
+            if s.get("type") == "terminal":
+                code = s.get("outcome") or " / ".join((s.get("outcome_map") or {}).values())
+                out.append(f"| {esc(s.get('title', n))} | `{code}` |")
+        post = ", ".join((self.flow.get("post_call") or {}).get("actions", []))
+        out += ["", f"After every call, whatever the ending, the system runs: {post}."]
         return "\n".join(out)
 
     # ---------------------------------------------------------------- shareable HTML
@@ -571,27 +597,17 @@ class Flow:
 
         def fill(text, lang):
             vals = samples.get(lang) or {}
-            return re.sub(r"\{(\w+)\}", lambda m: f"[[{vals[m.group(1)]}]]" if m.group(1) in vals else m.group(0), text)
+            return re.sub(r"\{(\w+)\}", lambda m: (f"[[{vals[m.group(1)]}]]" if vals[m.group(1)] else "")
+                          if m.group(1) in vals else m.group(0), text)
 
         for n, st in states.items():
             st["say"] = {lang: {k: fill(v, lang) for k, v in keys.items()} for lang, keys in st["lines"].items()}
         glob = {lang: {k: fill(v, lang) for k, v in ((p or {}).get("_global") or {}).items()} for lang, p in self.prompts.items()}
 
-        # the usual call: follow yes / ok answers from the start until the call ends
-        path, cur, seen = [], self.flow.get("start"), set()
-        prefer = ["context_ready", "affirm", "action_ok", "band_available"]
-        while cur and cur not in seen:
-            seen.add(cur)
-            path.append({"id": cur, "title": self.states[cur].get("title", cur), "type": self.states[cur].get("type"),
-                         "section": where.get(cur)})
-            trs = self.states[cur].get("transitions", []) or []
-            nxt = next((t["to"] for p_ in prefer for t in trs if t["on"] == p_), None)
-            cur = nxt
-
-        section_ends = {}
-        for k, v in secs.items():
-            section_ends[k] = [{"id": n, "title": self.states[n].get("title", n)} for n in v["states"]
-                               if self.states[n].get("type") == "terminal"]
+        for n, st in states.items():
+            st["rows"] = [self._row(n, t) for t in self.states[n].get("transitions", []) or []]
+        path = [{"id": n, "type": self.states[n].get("type"), "title": self.states[n].get("title", n)} for n in self._main_path()]
+        anytime_states = [n for n in (secs.get("anytime") or {}).get("states", []) if self.states[n].get("type") == "conversation"]
         title = (self.flow.get("title") or self.dir.name.replace("-", " ").capitalize() + " call flow")
         return {
             "flow": self.dir.name, "title": title, "version": str(self.flow.get("version")),
@@ -599,10 +615,8 @@ class Flow:
             "subtitle": self.flow.get("summary", ""),
             "languages": {k: langs.get(k, k) for k in self.prompts},
             "counts": {"states": len(self.states), "outcomes": len(self.outcomes)},
-            "overview": self._overview(),
-            "sections": [{"key": k, "title": v["title"], "about": v.get("about", ""), "ends": section_ends[k],
-                          "steps": len(v["states"]), "mermaid": self._section_diagram(k)} for k, v in secs.items()],
-            "path": path, "global_lines": glob,
+            "path": path, "talk": self._talk_path(), "detours": self._detours(),
+            "anytime": self._anytime_rows(), "anytime_states": anytime_states, "global_lines": glob,
             "states": states, "outcomes": outcomes, "stay": stay,
         }
 

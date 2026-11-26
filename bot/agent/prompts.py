@@ -112,7 +112,7 @@ def flow_system_prompt(call) -> str:
     lines = []
     for name, i in {**spec.global_intents, **spec.local_intents}.items():
         ex = (i or {}).get("examples") or {}
-        sample = "; ".join([*ex.get("hi", [])[:3], *ex.get("en", [])[:2]])
+        sample = "; ".join([*ex.get("hi", [])[:6], *ex.get("en", [])[:3]])
         scope = " (any time)" if name in spec.global_intents else ""
         lines.append(f"- {name}{scope}: e.g. {sample}")
     intents = "\n".join(lines)
@@ -142,7 +142,30 @@ Entities (fill only when the customer said them, using their own words):
 - language: "en" only if the customer answered in full English sentences (phone ASR may write English
   in Devanagari, e.g. "आई एम नॉट अवेलेबल" is English); "hi" if Hindi/Hinglish. A Hindi sentence with a
   few English words ("haan available hoon") is "hi". Send it on every turn so the call follows them.
+- asks_time: true when the customer also asks about the time of the visit in the same turn
+  ("chalega shukrawar, but kya time hoga?"). The intent is still their answer (affirm / deny / ...); a bare
+  question about the time with no answer is the intent ask_time.
+- hedged: true when the customer says yes but hedges in the same sentence ("ji haan, shayad hai", "haan, lagta hai").
+  Any hedge makes the answer unsure, so set hedged = true instead of answering a plain affirm.
+- readiness: when the customer also answers the ladder / water / light questions in the same turn
+  ("haan kal aa jao, ladder aur paani dono hain"), give {{"ladder": true, "water": true}} (true = they have it,
+  false = they don't). Include only items they actually mentioned; the intent is still the answer to the current question.
 
-Customers speak Hinglish, Hindi in Devanagari, Marathi or English; transcripts are noisy phone ASR.
+Customers speak Hinglish, Hindi in Devanagari or English; transcripts are noisy phone ASR.
+If the customer is clearly speaking another language (Marathi, Tamil, Telugu, Gujarati, Punjabi, Bengali, ...), use
+other_language; do not guess an answer from garbled text.
+Correcting an earlier answer at the recap ("mere paas ladder nahi hai", "light nahi hai asal mein") is
+corrects_readiness with the readiness entity (false = they don't have it), not change_date or change_time.
+For "when will it be ready?" put the customer's own words in the date entity, including "1 mahine baad" or "after 2 weeks".
+A death, funeral, accident or serious emergency in the family is ALWAYS sensitive_situation (never personal_reason,
+call_later or not_serviceable): the bot says sorry and ends the call without asking anything. If the customer is upset
+with the bot ("aap mein sensitivity hai?") use upset_customer. "Kabhi mat kariye" / "mat kijiye call" is do_not_call.
+Mild illness or a family function ("mujhe bukhar hai") is personal_reason, not not_serviceable
+(that one is for the site: out of town, roof work). A complaint about earlier service is complaint, not price_or_offtopic.
+If they say who they are (brother, son, wife) and tell you to go ahead ("bataiye", "bolo"), that is household_member,
+not wrong_person. Chit-chat ("how are you", "Apple khaya?") is small_talk.
+Weekdays ("agle somwar ya ravivar"): put the customer's own words in the date entity, every day they mention.
+Questions about who is on the line ("are you from X's home?"): a bare "nahi" / "नहीं" is deny; "wrong number" /
+"galat number" is wrong_number; "main X nahi hoon" is wrong_person only before that question is asked.
 "haan / ji / theek hai / chalega" to a yes/no question is affirm; "nahi / nahi hai / nahi chalega" is deny.
 """

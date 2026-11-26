@@ -3,49 +3,111 @@
 _global:
   deflection: "Our team will share those details with you separately."
   reprompt: "Hello, can you hear me?"
-  didnt_catch: "Sorry, the line broke a little. Could you say that again?"
+  sms_reminder: "You'll also get a reminder SMS before the visit."
+  service_hours: "Our visits happen only between 9 am and 6 pm."
+  time_window: "Our service hero will come between {band_spoken} that day."
+  didnt_catch: "Sorry, I didn't catch that."
+  didnt_catch_date: "Sorry, I didn't get the date. For example 5 December, or in one month?"
+  repeat_lead: "Sure, let me say that again."
+  hold_ack: "Sure, I'm on the line, take your time."
+  identity_who: "This is {bot_name} from SolarSquare, calling about your solar system maintenance."
+  identity_source: "Your number is in SolarSquare's records for your solar system service."
+  identity_robot: "Yes, I'm SolarSquare's AI voice assistant."
+  empathy_personal: "Oh, I'm sorry to hear that, please take care."
+  complaint_ack: "I'm sorry to hear that."
+  language_not_supported: "I'm sorry, I don't understand this language. माफ़ कीजिए, मुझे यह भाषा समझ नहीं आती। Could you speak Hindi or English?"
+  small_talk: "I'm doing well, thank you."
+  not_a_visit_day: "Our visits are Monday to Saturday only."
 
 GREET:
-  main: "Hello, am I speaking with {name}? This is {bot_name} from SolarSquare. This call is being recorded."
+  main: "Hello, is this {name}? This is {bot_name} from SolarSquare. This call is being recorded."
+  repeat_main: "Am I speaking with {name}?"
 
 WRONG_PERSON:
   main: "No problem. Am I speaking with someone from {name}'s home?"
+  repeat_main: "Is this {name}'s home?"
 
 OFFER_PRIMARY:
-  main: "{name}, your solar plant maintenance is due. We have a slot on {weekday}, {date_spoken}. Will you be available that day?"
+  main: "{name}, your solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will you be available that day?"
+  repeat_main: "Are you free on {weekday}, {date_spoken}?"
+  main_family: "{name}'s solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will someone be home that day?"
+  repeat_main_family: "Will someone be home on {weekday}, {date_spoken}?"
 
 TIME_BAND:
-  main: "Our technician will come between {band_spoken} that day. Does that work for you?"
-  no_exact_guarantee: "I can't guarantee an exact time, but we'll do our best to send the technician at your preferred time. Does {band_spoken} work?"
+  main: "Our service hero will come between {band_spoken} that day. Does that work for you?"
+  no_exact_guarantee: "I can't guarantee an exact time, but we'll do our best to send the hero at your preferred time. Does {band_spoken} work?"
+  repeat_main: "The hero will come between {band_spoken}. Is that okay?"
+  repeat_no_exact_guarantee: "Does {band_spoken} work for you?"
 
 ALTERNATE_DAYS:
   main: "No problem. Would {options_spoken} work for you?"
   band_full: "Sorry, that time slot isn't free on that day. Would {options_spoken} work instead?"
   next_options: "Okay, how about {options_spoken}?"
+  repeat_main: "Which day works: {options_spoken}?"
+  repeat_band_full: "Which day works: {options_spoken}?"
+  repeat_next_options: "Which day works: {options_spoken}?"
+
+NOT_NEEDED:
+  main: "You're right, the plan is new. That's why the first visit works as a check-up, so any problem is caught early. Shall I book {weekday}, {date_spoken} for you?"
+  repeat_main: "Will you be available that day?"
+
+ASK_BAND_FOR_DATE:
+  main: "Sure. On {requested_date_spoken}, would morning, afternoon or evening suit you?"
+  repeat_main: "Morning, afternoon or evening?"
 
 READINESS_CHECK:
   main: "Great. A few things need to be ready for the service, let me quickly confirm."
-  ask_ladder: "Do you have an A-type ladder so our technician can reach the roof?"
+  ask_ladder: "Do you have an A-type ladder so the hero can reach the roof?"
+  arrange_ladder: "No problem. Could you arrange an A-type ladder before the visit?"
+  repeat_arrange_ladder: "Can you arrange a ladder before the visit?"
   ask_water: "Is there a water source near the panels?"
-  ask_light: "And is there an electricity connection there?"
+  ask_light: "And is there a light connection there?"
+  repeat_ask_ladder: "Do you have an A-type ladder?"
+  repeat_ask_water: "Is there water near the panels?"
+  repeat_ask_light: "Is there a light connection there?"
+  arrange_water: "Okay. Will you be able to arrange water near the panels before the visit?"
+  arrange_light: "Okay. Will you be able to arrange a light connection before the visit?"
+  repeat_arrange_water: "Can you arrange water before the visit?"
+  repeat_arrange_light: "Can you arrange a light connection?"
+  explain_ladder: "An A-type ladder is a folding ladder shaped like the letter A that stands on its own; our hero uses it to reach the roof."
+  explain_water: "We need water to clean the panels."
+  explain_light: "We need a power connection for the work."
 
 ASK_READY_DATE:
   main: "Understood. By when can the {missing_item} be arranged? Could you give me a date?"
+  repeat_main: "By what date can the {missing_item} be ready?"
 
 RECAP:
-  main: "So that's {weekday}, {date_spoken}, between {band_spoken}, with the ladder, water and electricity ready. Shall I confirm it?"
+  main: "So that's {weekday}, {date_spoken}. {ready_note}. Shall I confirm it?"
+  with_time: "So that's {weekday}, {date_spoken}, between {band_spoken}. {ready_note}. Shall I confirm it?"
+  repeat_main: "{weekday}, {date_spoken}. Shall I confirm?"
+  repeat_with_time: "{weekday}, {date_spoken}, {band_spoken}. Shall I confirm?"
+
+RECAP_CHANGE:
+  main: "Okay, what would you like to change, the day or the time?"
+  repeat_main: "The day or the time?"
 
 SITE_ON_HOLD:
   main: "Understood. From which date will your site be ready for service?"
+  repeat_main: "From which date will the site be ready?"
 
 HOLD_CONSENT:
   main: "Okay, we'll put your site on hold until {hold_until_spoken}. Until then you won't get service calls from SolarSquare. Is that okay?"
+  repeat_main: "Is it okay to hold your site until {hold_until_spoken}?"
 
 RECALL:
   main: "Of course. What time would be good to call you back?"
+  repeat_main: "What time should I call you back?"
 
 CONFIRMED_CLOSE:
-  main: "Your slot is confirmed for {weekday}, {date_spoken}, between {band_spoken}. Thank you, have a great day!"
+  main: "Your visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
+  with_time: "Your visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{sms_line} Thank you, have a great day!"
+  main_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
+  with_time_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{sms_line} Thank you, have a great day!"
+
+SENSITIVE_CLOSE:
+  main: "I'm so sorry to hear that. Our thoughts are with you and your family. We won't trouble you now. Please take care of yourselves."
+  apology: "I'm sorry, I didn't mean to trouble you. We won't call you for now. Please take care."
 
 HOLD_CLOSE:
   main: "Your site is on hold until {hold_until_spoken}. We'll reach out after that. Thank you!"
@@ -73,3 +135,9 @@ NO_ANSWER_CLOSE:
 
 MANUAL_CONFIRM_CLOSE:
   main: "I've noted your details, our team will confirm shortly. Thank you!"
+
+NOT_NEEDED_CLOSE:
+  main: "No problem. We'll get in touch again after some time. Thank you!"
+
+REQUEST_CLOSE:
+  main: "I've noted your request for {requested_date_spoken}, {requested_band_spoken}. The date isn't fixed yet and may change with technician availability. Our team will confirm with you. Thank you!"
