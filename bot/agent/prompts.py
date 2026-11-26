@@ -137,6 +137,9 @@ other_language; do not guess an answer from garbled text.
 Correcting an earlier answer at the recap ("mere paas ladder nahi hai", "light nahi hai asal mein") is
 corrects_readiness with the readiness entity (false = they don't have it), not change_date or change_time.
 For "when will it be ready?" put the customer's own words in the date entity, including "1 mahine baad" or "after 2 weeks".
+"Do you charge / is it free / kitne paise" is asks_price. Other things we can't answer (generation, savings, subsidy,
+inverter problems) are price_or_offtopic. A plain "haan, boliye / haan bolo" at the greeting is affirm: the customer
+saying yes, not household_member (that needs a relationship: brother, son, wife...).
 A death, funeral, accident or serious emergency in the family is ALWAYS sensitive_situation (never personal_reason,
 call_later or not_serviceable): the bot says sorry and ends the call without asking anything. If the customer is upset
 with the bot ("aap mein sensitivity hai?") use upset_customer. "Kabhi mat kariye" / "mat kijiye call" is do_not_call.

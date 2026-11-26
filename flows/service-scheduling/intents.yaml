@@ -184,13 +184,21 @@ global:
       hi: ["ये A type ladder क्या होता है?", "इसका मतलब क्या है", "ये क्यों चाहिए", "पानी क्यों चाहिए"]
       en: ["what is an A-type ladder", "what does that mean", "why do you need water"]
 
-  price_or_offtopic:
-    label: Asks price or something else
+  asks_price:
+    label: Asks if the visit costs anything
     goto: $stay
-    say: deflection
+    say: price_free                # policies.price_answer: free; never an amount
     examples:
-      hi: ["kitna charge lagega", "generation kam ho raha hai", "inverter mai error aa raha hai"]
-      en: ["how much will it cost", "my generation is low"]
+      hi: ["आप पैसे लोगे क्या इसके लिए?", "कितना charge लगेगा", "free है या paid", "इसके कितने पैसे लगेंगे"]
+      en: ["how much will it cost", "is it free", "do you charge for this"]
+
+  price_or_offtopic:
+    label: Asks something we can't answer (generation, inverter, savings...)
+    goto: $stay
+    say: deflection                # twice in a row, then a senior is asked to call (policies.deflect_limit)
+    examples:
+      hi: ["generation कम हो रहा है", "inverter में error आ रहा है", "bill कितना कम होगा", "subsidy मिलेगी क्या"]
+      en: ["my generation is low", "how much will I save", "is there a subsidy"]
 
 local:
 
@@ -225,7 +233,7 @@ local:
   household_member:
     label: Family member, can decide
     examples:
-      hi: ["मैं उनका भाई बोल रहा हूँ, बताइए", "mai unki wife hoon, mujhe bata do", "haan ghar ka hi hoon, bolo", "मैं उनकी बेटी हूँ, आप बताइए"]
+      hi: ["मैं उनका भाई बोल रहा हूँ, बताइए", "mai unki wife hoon, mujhe bata do", "मैं उनका बेटा हूँ, आप बताइए", "मैं उनकी बेटी हूँ, आप बताइए"]
       en: ["I'm his brother, go ahead", "I'm his wife, you can tell me", "I live here, go ahead"]
 
   customer_unavailable:

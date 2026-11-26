@@ -13,6 +13,8 @@ time_bands:
   afternoon: {start: "12:00", end: "15:00"}
   evening:   {start: "15:00", end: "18:00"}
 sensitive_pause_days: 14             # death / emergency / upset customer: no calls for this long
+price_answer: free                  # asked "do you charge?": say the visit is free for now. Clear it to deflect instead.
+deflect_limit: 2                    # "our team will tell you separately" at most this many times in a row, then a senior calls
 visit_days: [0, 1, 2, 3, 4, 5]    # Monday=0 ... Saturday=5; no Sunday visits
 service_hours: {start: "09:00", end: "18:00"}   # asked for a time outside this -> say the hours, ask again
 
@@ -54,4 +56,4 @@ retries_per_question: 2       # misunderstood twice on the same step -> yes/no f
 compliance:
   recording_disclosure: true
   test_numbers_only: true     # hackathon rule: dial only ALLOWED_TEST_NUMBERS
-  never_promise: [price, savings, generation, subsidy]
+  never_promise: [price_amounts, savings, generation, subsidy]   # no amounts, ever; see price_answer for the one allowed price line

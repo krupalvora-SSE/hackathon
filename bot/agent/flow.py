@@ -216,6 +216,7 @@ class FlowCall:
     exact_time_asks: int = 0
     unclear_streak: int = 0
     lang_streak: int = 0                    # consecutive turns in a language we don't speak
+    deflect_streak: int = 0                 # consecutive "our team will tell you separately" replies
     _prev_streak: int = 0                   # unclear_streak before this turn (a failed answer adds to it)
     readiness_idx: int = 0
     backup_queue: list | None = None
@@ -289,6 +290,8 @@ class FlowCall:
                 self.unclear_streak = 0
             if on != "other_language":
                 self.lang_streak = 0
+            if on not in ("price_or_offtopic", "asks_price", "asks_meaning"):
+                self.deflect_streak = 0
             self.silences = 0
 
         self.on_event({"type": "flow", "state": self.state, "intent": on, "entities": entities})
@@ -429,7 +432,15 @@ class FlowCall:
             state, key = self.last_ref
             item = key.split("_", 1)[1] if key.startswith(("ask_", "arrange_")) else None
             line = self._line(state, f"explain_{item}") if item else ""
-            return self._step([f"{line or self._global_line('deflection')} {self._reask()}".strip()])
+            if not line:
+                return self._deflection()
+            return self._step([f"{line} {self._reask()}".strip()])
+        if name == "price_or_offtopic":
+            return self._deflection()
+        if name == "asks_price":
+            if self.policies.get("price_answer") == "free":
+                return self._step([f"{self._global_line('price_free')} {self._reask()}".strip()])
+            return self._deflection()
         if name in ("sensitive_situation", "upset_customer"):
             # a death / emergency, or an upset customer: say sorry, ask nothing, no date, and pause our calls
             until = self.today + timedelta(days=int(self.policies.get("sensitive_pause_days", 14)))
@@ -463,6 +474,14 @@ class FlowCall:
         if gi.get("goto") == "$stay":
             return self._step([f"{self._global_line(gi.get('say'))} {self._reask()}".strip()])
         return self._step(self._enter(gi["goto"]))
+
+    def _deflection(self) -> Step:
+        """"Our team will tell you separately" - twice at most, then say we don't know and a senior will call back."""
+        self.deflect_streak += 1
+        if self.deflect_streak > int(self.policies.get("deflect_limit", 2)):
+            self.ctx["rm_callback_reason"] = "unanswered_question"
+            return self._step([self._global_line("unknown_handover"), *self._enter("ESCALATE_RM")])
+        return self._step([f"{self._global_line('deflection')} {self._reask()}".strip()])
 
     def _not_understood(self, key: str = "didnt_catch") -> Step:
         """Heard, but the answer can't be used (no date, no time of day...): ask again, and hand over to a senior
