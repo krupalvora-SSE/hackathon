@@ -274,3 +274,24 @@
     - {on: proposes_date, flags: {date_is_free: false}}
     - dont_know
   expect: date_requested
+
+- name: asks the time while choosing another day, then confirms
+  steps:
+    - context_ready
+    - affirm
+    - deny
+    - ask_time
+    - {on: affirm, flags: {readiness_done: false}}
+    - affirm
+    - affirm
+    - action_ok
+  expect: slot_confirmed_alt_day
+
+- name: asks the time at the readiness question, then confirms
+  steps: [context_ready, affirm, affirm, ask_time, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: asks the time at the recap, then confirms
+  steps: [context_ready, affirm, affirm, affirm, ask_time, affirm, action_ok]
+  expect: slot_confirmed
+

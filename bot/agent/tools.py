@@ -143,6 +143,8 @@ def flow_tools(spec) -> list[dict]:
             "exact_time": {"type": "string", "description": "Exact time they asked for."},
             "time_range": {"type": "string", "description": "When to call back, in their words."},
             "reason": {"type": "string", "description": "Why not serviceable / why they want a person."},
+            "asks_time": {"type": "boolean", "description": "True if the customer also asks about the time / "
+                                                            "window of the visit in this turn."},
             "readiness": {
                 "type": "object",
                 "description": "Ladder / water / light answers the customer gave in this turn: true = they have it, "

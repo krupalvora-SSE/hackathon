@@ -12,6 +12,7 @@ _global:
   reprompt: "हैलो, क्या आप मुझे सुन पा रहे हैं?"
   sms_reminder: "Visit से पहले आपको reminder SMS भी आ जाएगा।"
   service_hours: "हमारी visits सुबह 9 से शाम 6 बजे के बीच ही होती हैं।"
+  time_window: "उस दिन हमारे service hero {band_spoken} के बीच आएँगे।"
   didnt_catch: "माफ़ कीजिए, ठीक से सुनाई नहीं दिया।"
   repeat_lead: "जी, फिर से बता देता हूँ।"
   hold_ack: "जी, मैं line पर हूँ, आप देख लीजिए।"

@@ -90,8 +90,10 @@ class FlowSpec:
         s = self.states[state]
         if s.get("type") != "conversation":
             return []
-        local = [t["on"] for t in s.get("transitions", []) if t["on"] in self.local_intents]
         disabled = set(s.get("disable_global") or [])
+        # a global intent this step switches off and handles itself (a transition on it) still counts as allowed here
+        local = [t["on"] for t in s.get("transitions", [])
+                 if t["on"] in self.local_intents or t["on"] in disabled]
         glob = [g for g in self.global_intents if g not in disabled]
         return list(dict.fromkeys(local + glob))
 
@@ -236,6 +238,18 @@ class FlowCall:
 
     def handle(self, on: str, entities: dict | None = None, flags: dict | None = None) -> Step:
         """Feed one intent (from the LLM) or event (paper mode) into the flow."""
+        step = self._handle(on, entities, flags)
+        # "yes, Friday - but what time?": answer the time in front of the next line, whatever step we moved to
+        if ((entities or {}).get("asks_time") is True and on != "ask_time" and not step.error and not step.end
+                and step.speak and step.state != "TIME_BAND"):
+            step.speak = [f"{self._time_answer()} {step.speak[0]}".strip(), *step.speak[1:]]
+        return step
+
+    def _time_answer(self) -> str:
+        """The window for the chosen day, or just the service hours while no day is chosen yet."""
+        return self._global_line("time_window" if self.ctx.get("selected_slot") else "service_hours")
+
+    def _handle(self, on: str, entities: dict | None = None, flags: dict | None = None) -> Step:
         if self.outcome:
             return Step(error="call_already_ended", end=True)
         entities = {k: v for k, v in (entities or {}).items() if v not in (None, "")}
@@ -387,6 +401,8 @@ class FlowCall:
                 return self._step(self._enter(gi["escalate_to"]))
         if name == "repeat_request":
             return self._step([self._repeat_line()])
+        if name == "ask_time":
+            return self._step([f"{self._time_answer()} {self.last_line}".strip()])
         if name == "wait_a_moment":
             step = self._step([self._global_line("hold_ack")])
             step.idle_timeout = float(self.policies["silence"]["hold_s"])
@@ -413,7 +429,7 @@ class FlowCall:
             known = self.ctx.setdefault("known_readiness", {})
             known.update({k: v for k, v in e["readiness"].items() if k in ids and isinstance(v, bool)})
         intent = {**self.spec.global_intents, **self.spec.local_intents}.get(on) or {}
-        if intent.get("shares_time"):
+        if intent.get("shares_time") or e.get("asks_time") is True:
             self.ctx["time_shared"] = True
         if e.get("exact_time"):
             self.ctx["preferred_exact_time"] = e["exact_time"]

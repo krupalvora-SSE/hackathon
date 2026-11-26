@@ -304,6 +304,7 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Asks who is calling | Bot answers briefly, then repeats its question |
 | Asks where we got the number | Bot answers briefly, then repeats its question |
 | Asks if it is a machine | Bot answers briefly, then repeats its question |
+| Asks the time | Bot answers briefly, then repeats its question |
 | Asks price or something else | Bot answers briefly, then repeats its question |
 | No reply | No answer |
 

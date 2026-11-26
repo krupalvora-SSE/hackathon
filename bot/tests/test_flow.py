@@ -429,6 +429,71 @@ def test_dont_know_the_time_of_day_still_records_the_requested_date():
     assert r.end and call.outcome == "date_requested"
 
 
+def test_yes_and_asks_the_time_in_one_turn_gets_the_time_answered():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("deny")                                                           # other days
+    r = call.handle("affirm", {"option": 2, "asks_time": True})                   # "ok that one, but what time?"
+    window = call._global_line("time_window")
+    assert call.state == "READINESS_CHECK" and window and r.speak[0].startswith(window)
+    assert "A-type ladder" in r.speak[-1]                                          # and the next question follows
+    for _ in range(3):
+        last = call.handle("affirm")
+    assert call.state == "RECAP" and "के बीच" in last.speak[0]                    # the recap now names the window
+    assert call.record()["time_window_told"] is True
+
+
+def test_asks_the_time_at_the_ladder_question_is_answered_not_read_as_no():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")                                                         # ladder question
+    ladder = call.last_line
+    r = call.handle("ask_time")
+    assert call.state == "READINESS_CHECK" and r.speak[0].startswith(call._global_line("time_window"))
+    assert r.speak[0].endswith(ladder) and call.arranging is None                 # same question, no "can you arrange?"
+
+    r = call.handle("deny", {"asks_time": True})                                  # "no, and what time?"
+    assert r.speak[0].startswith(call._global_line("time_window")) and "arrange" in r.speak[0]
+    assert call.arranging == "ladder"
+
+
+def test_asking_the_time_before_a_day_is_chosen_gives_the_service_hours():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("deny")
+    options = call.last_line
+    r = call.handle("ask_time")
+    assert call.state == "ALTERNATE_DAYS"
+    assert r.speak[0].startswith(call._global_line("service_hours")) and "सुबह 9 से शाम 6" in r.speak[0]
+    assert r.speak[0].endswith(options) or "में से कोई दिन" in r.speak[0]
+
+
+def test_ask_time_at_the_offer_still_moves_to_the_time_window_step():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("ask_time")
+    assert call.state == "TIME_BAND" and "आएँगे" in r.speak[0]
+
+
+def test_asks_time_flag_is_ignored_when_unset_and_not_doubled_in_the_time_step():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("affirm")                                                     # no asks_time: no prefix
+    assert not r.speak[0].startswith(call._global_line("time_window"))
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("ask_time", {"asks_time": True})                              # TIME_BAND already tells the window
+    assert call.state == "TIME_BAND" and r.speak[0].count("आएँगे") == 1
+
+
+def test_asking_the_time_in_english():
+    call, _, _ = live(lang="en")
+    call.handle("affirm")
+    call.handle("affirm")
+    r = call.handle("ask_time")
+    assert r.speak[0].startswith("Our service hero will come between")
+
+
 def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")

@@ -113,6 +113,15 @@ global:
       hi: ["aap robot ho", "machine bol rahi hai kya", "insaan ho ya computer", "kya ye AI hai"]
       en: ["are you a robot", "am I talking to a machine", "is this an AI"]
 
+  ask_time:
+    shares_time: true
+    label: Asks the time
+    goto: $stay                    # tells the window (or the service hours) and repeats the question; OFFER_PRIMARY and NOT_NEEDED
+    say: time_window               # keep their own move to TIME_BAND (disable_global)
+    examples:
+      hi: ["kitne baje aayenge", "time kya hoga", "kya time rahega", "subah aayenge ya shaam ko"]
+      en: ["what time will they come", "what time will it be", "morning or evening?"]
+
   price_or_offtopic:
     label: Asks price or something else
     goto: $stay
@@ -134,13 +143,6 @@ local:
     examples:
       hi: ["nahi", "us din nahi ho payega", "ladder nahi hai", "nahi chalega"]
       en: ["no", "I'm not available that day", "we don't have a ladder"]
-
-  ask_time:
-    shares_time: true
-    label: Asks the time
-    examples:
-      hi: ["kitne baje aayenge", "time kya hoga", "subah aayenge ya shaam ko"]
-      en: ["what time will they come", "morning or evening?"]
 
   wants_exact_time:
     shares_time: true

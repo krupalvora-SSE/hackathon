@@ -5,6 +5,7 @@ _global:
   reprompt: "Hello, can you hear me?"
   sms_reminder: "You'll also get a reminder SMS before the visit."
   service_hours: "Our visits happen only between 9 am and 6 pm."
+  time_window: "Our service hero will come between {band_spoken} that day."
   didnt_catch: "Sorry, I didn't catch that."
   repeat_lead: "Sure, let me say that again."
   hold_ack: "Sure, I'm on the line, take your time."

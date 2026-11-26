@@ -22,9 +22,9 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.8.0
+version: 0.9.0
 title: Service scheduling call flow
-ticket: SSE-15551
+ticket: SSE-15552
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
 start: PRE_CALL
 
@@ -173,6 +173,7 @@ states:
   OFFER_PRIMARY:
     title: Offer the planned date
     type: conversation
+    disable_global: [ask_time]          # here "what time?" moves on to TIME_BAND
     transitions:
       - on: affirm
         to: READINESS_CHECK
@@ -272,7 +273,7 @@ states:
     title: Explain why the visit helps now
     type: conversation
     # Entered from the global not_needed_now intent ("plan is new", "panels are clean"). One try only.
-    disable_global: [not_needed_now]
+    disable_global: [not_needed_now, ask_time]
     transitions:
       - on: affirm
         to: READINESS_CHECK
