@@ -72,11 +72,11 @@ FIELDS: list[dict[str, Any]] = [
     {"key": "tts_loudness", "group": "Bot voice", "type": "float", "default": None, "nullable": True,
      "min": 0.3, "max": 3, "step": 0.1, "env": "SARVAM_TTS_LOUDNESS", "label": "Loudness",
      "help": "bulbul:v4-flash stock voice only."},
-    {"key": "tts_min_buffer", "group": "Bot voice", "type": "int", "default": 50,
+    {"key": "tts_min_buffer", "group": "Bot voice", "type": "int", "default": 150,
      "min": 30, "max": 200, "step": 10, "env": "SARVAM_TTS_MIN_BUFFER", "label": "Min buffer (chars)",
      "help": "Text Sarvam collects before it starts speaking. Higher means fewer, longer audio chunks and "
              "fewer pauses inside a sentence, but a slightly later start."},
-    {"key": "tts_max_chunk", "group": "Bot voice", "type": "int", "default": 150,
+    {"key": "tts_max_chunk", "group": "Bot voice", "type": "int", "default": 300,
      "min": 50, "max": 500, "step": 10, "env": "SARVAM_TTS_MAX_CHUNK", "label": "Max chunk (chars)",
      "help": "Longest piece Sarvam synthesises at once. Raise it if long sentences break up."},
 
