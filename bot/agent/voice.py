@@ -23,6 +23,7 @@ _DEV = "\u0900-\u097F"
 SPOKEN_FIXES = [
     (r"\b[Mm]ain\b", "mai"),
     (r"\b[Mm]ein\b", "mai"),
+    (r"\b[Aa]-[Tt]ype\b", "ए टाइप"),     # read as "air type" otherwise
     (rf"(?<![{_DEV}])(?:में|मैं)(?![{_DEV}])", "मै"),
 ]
 _FIXES = [(re.compile(p), r) for p, r in SPOKEN_FIXES]
