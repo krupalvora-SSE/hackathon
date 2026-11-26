@@ -185,3 +185,15 @@
 - name: abusive -> supervisor call
   steps: [context_ready, affirm, abusive, action_ok]
   expect: rm_callback
+
+- name: first PM, asks what this service is, then books
+  steps: [context_ready, affirm, what_is_service, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: first PM, asks why so early, then books
+  steps: [context_ready, affirm, why_so_early, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: asks why so early, then says no and no other day is free
+  steps: [context_ready, affirm, why_so_early, deny, no_backup_slots]
+  expect: no_slot_available

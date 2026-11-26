@@ -39,7 +39,7 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 
 1. **PRE_CALL**: load the Beat Plan context. Don't dial if the customer is DNC, it's outside calling hours, or the number is not on the test allowlist.
 2. **GREET**: name, "calling from SolarSquare", recording disclosure, identity check. Family member → can continue; doesn't know the customer → wrong number.
-3. **OFFER_PRIMARY**: "Your maintenance is due, we have a slot on {date}. Will you be available?"
+3. **OFFER_PRIMARY**: "Your maintenance is due, we have a slot on {date}. Will you be available?" On the **first PM** (Beat Plan `first_pm`, or `pm_number: 1`) the bot says instead that the system was commissioned recently, its first check-up is due, and it's included in the AMC plan.
    - **Yes** → readiness check.
    - **Asks the time** → **TIME_BAND**: share the 4-hour band. If they want an exact time, say we can't guarantee it but will try (and log their preferred time). If they insist again → **RM callback**. If they want a different band that day → check Beat Plan: free → readiness; full → alternate days.
    - **Not that day** → **ALTERNATE_DAYS**: Beat Plan backup slots, closest first, 2 at a time. None fit → "no other slots now, team will reconnect".
@@ -47,7 +47,9 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 5. **At any point**:
    - out of town / not serviceable → **SITE_ON_HOLD**: ask the date, then **explicit consent** ("you won't get calls from SolarSquare until then"). Yes → hold API. No → thank and close.
    - "call me later" → **RECALL**: ask a time range. The recall API doesn't exist yet (`stub`), so we post it as a Beat Plan comment and create a scheduler task.
-   - asks for a person → **RM callback**. "Don't call me" → DNC. Price/technical questions → one-line deflection, stay in the step.
+   - asks for a person → **RM callback**. "Don't call me" → DNC.
+   - questions answered in place, then the bot repeats its question: price → "this visit is included in your AMC plan"; "what is this service?" → the AMC preventive maintenance visit, included in the plan; "what will you do / how long?" → panel cleaning, wiring and connectors, inverter, earthing and mounting structure, about 45 minutes; "why so early?" → on the first PM, "the first check-up is due a week after commissioning, to catch loose connections early", otherwise "regular visits in your plan".
+   - "not needed yet" → one try to explain (first-PM and later-visit versions), then close as `not_needed_now`.
    - silence → no-answer close.
 6. **POST_CALL** (every call, every outcome): LLM summary + structured record → Beat Plan comment.
 
@@ -99,6 +101,7 @@ Rules the bot follows with upset customers, from de-escalation practice:
 - **Missing readiness ≠ always hold.** If the ladder will be ready by Thursday and a backup slot exists after Thursday, rebooking beats holding. Switch with `on_missing_prereq` in `policies.yaml`; default is `site_on_hold` per the current spec.
 - **Exact-time requests are signal.** `preferred_exact_time` is logged even when we don't escalate, so Beat Plan can learn and route heroes.
 - **Holds must expire back into Beat Plan** on `hold_until`, or they become silent churn.
+- **First PM is a different conversation.** It comes 7 days after commissioning (not installation), so customers often ask "what is this?" or "why so soon?". These are questions, not refusals: answer and re-offer the date.
 - **North-star metric:** % of Beat Plan sites confirmed on the first call. Also track hold rate, RM escalation rate, no-slot rate, average handle time, voice latency.
 
 ## Open questions (owner: Beat Plan / Zeus team)
@@ -224,7 +227,7 @@ The bot doesn't speak here. **Free** → Step 3: Ask: ladder, water, light ready
 
 **Explain why the visit helps now**
 
-> You're right, the plan is new. That's why the first visit works as a check-up, so any problem is caught early. Shall I book Saturday, 28 November for you?
+> I understand. The regular AMC visit cleans the panels and checks the system, so any problem is caught early. Shall I book Saturday, 28 November for you?
 
 | Customer says | What happens |
 |---|---|
@@ -333,6 +336,8 @@ The bot doesn't speak here. **Done** → Call ends: Supervisor will call; **Syst
 | Wants another language | Bot answers briefly, then repeats its question |
 | Mentions a problem at the site | Bot answers briefly, then repeats its question |
 | Asks what the visit involves | Bot answers briefly, then repeats its question |
+| Asks what this service is | Bot answers briefly, then repeats its question |
+| Asks why the visit is so soon | Bot answers briefly, then repeats its question |
 | Asks if someone must be home | Bot answers briefly, then repeats its question |
 | Not needed yet | Explain why the visit helps now |
 | Wants a time outside 9 am to 6 pm | Bot answers briefly, then repeats its question |

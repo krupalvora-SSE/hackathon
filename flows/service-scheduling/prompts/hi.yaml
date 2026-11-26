@@ -3,7 +3,7 @@
 # Placeholders are filled by code, already spelled out in words:
 #   {name} {bot_name} {date_spoken} {weekday} {band_spoken} {options_spoken}
 #   {missing_item} {hold_until_spoken} {recall_window_spoken}
-# `mai` is spoken on entering the state; other keys are used via `say:` in flow.yaml.
+# `main` is spoken on entering the state; other keys are used via `say:` in flow.yaml.
 # After a _global line (deflection, didnt_catch, reprompt) the bot repeats the current question.
 # Keep each line under ~20 words, one question per turn. The LLM may paraphrase lightly.
 
@@ -14,7 +14,11 @@ _global:
   language_switched: "जी, ज़रूर।"
   only_hi_en: "माफ़ कीजिए, अभी मैं सिर्फ़ हिंदी या English में बात कर सकता हूँ। कौन सी भाषा ठीक रहेगी?"
   site_issue_noted: "समझ गया, मैंने यह note कर लिया है। हमारे hero visit पर इसे check करेंगे।"
-  visit_info: "Visit में panels की cleaning और system का health check होगा{visit_duration_spoken}।"
+  visit_info: "Visit में hero panels की cleaning करेंगे, और wiring, connectors, inverter, earthing और mounting structure check करेंगे{visit_duration_spoken}।"
+  service_info: "यह आपके SolarSquare AMC plan की preventive maintenance visit है, जो plan में शामिल है। Hero panels साफ़ करेंगे और wiring, inverter, earthing और structure check करेंगे।"
+  why_early: "आपके AMC plan में regular maintenance visits होती हैं, और यह visit अभी due है। Regular cleaning और check-up से system ठीक चलता रहता है।"
+  why_early_first_pm: "पहला check-up commissioning के एक हफ़्ते बाद due होता है। नए system में कभी loose connection या installation की धूल रह जाती है, इसलिए हम इसे जल्दी check करते हैं।"
+  price_included: "यह visit आपके AMC plan में शामिल है।"
   someone_home: "जी, visit के समय घर पर किसी का होना ज़रूरी है ताकि hero छत तक जा सकें।"
   can_you_hear: "हैलो, क्या आपको मेरी आवाज़ आ रही है?"
   same_day: "आज की visit नहीं हो पाएगी, कम से कम एक दिन पहले book करनी होती है।"
@@ -39,6 +43,8 @@ OFFER_PRIMARY:
   missed_visit: "पहले तो पिछली visit न हो पाने के लिए माफ़ी चाहता हूँ।"
   main: "{name} जी, आपके solar system का maintenance due है। {weekday}, {date_spoken} को हमारे पास slot है, क्या आप उस दिन available रहेंगे?"
   repeat_main: "{weekday}, {date_spoken} को आप available हैं?"
+  first_pm: "{name} जी, आपका solar system हाल ही में commission हुआ है, तो उसका पहला maintenance check-up due है, जो आपके AMC plan में शामिल है। {weekday}, {date_spoken} को slot है, क्या आप available रहेंगे?"
+  repeat_first_pm: "{weekday}, {date_spoken} को आप available हैं?"
 
 TIME_BAND:
   main: "उस दिन हमारे service hero {band_spoken} के बीच आएँगे। क्या यह time आपको ठीक लगेगा?"
@@ -55,7 +61,8 @@ ALTERNATE_DAYS:
   repeat_next_options: "{options_spoken}, इनमें से कौन सा दिन ठीक रहेगा?"
 
 NOT_NEEDED:
-  main: "जी, आपकी बात सही है कि plan अभी नया है। इसीलिए पहली visit एक check-up की तरह होती है, ताकि कोई भी problem शुरू में ही पकड़ में आ जाए। तो क्या मैं {weekday}, {date_spoken} का slot book कर दूँ?"
+  main: "जी, समझ सकता हूँ। AMC plan की regular visit में panels की cleaning और system का check-up होता है, ताकि कोई problem शुरू में ही पकड़ में आ जाए। तो क्या मैं {weekday}, {date_spoken} का slot book कर दूँ?"
+  first_pm: "जी, आपकी बात सही है कि system अभी नया है। पहला check-up commissioning के एक हफ़्ते बाद होता है, ताकि कोई loose connection या problem शुरू में ही पकड़ में आ जाए। यह AMC plan में शामिल है। तो क्या मैं {weekday}, {date_spoken} का slot book कर दूँ?"
 
 ASK_BAND_FOR_DATE:
   main: "ठीक है। {requested_date_spoken} को सुबह, दोपहर या शाम, कौन सा time आपके लिए ठीक रहेगा?"

@@ -447,7 +447,8 @@ class FlowCall:
             return self.handle("date_given")
         if gi.get("goto") == "$stay":
             again = self._current_line() if gi.get("then_repeat", True) else ""
-            return self._step([f"{self._global_line(gi.get('say'))} {again}".strip()])
+            say = self._if_context(gi.get("say_if")) or gi.get("say")
+            return self._step([f"{self._global_line(say)} {again}".strip()])
         return self._step(self._enter(gi["goto"]))
 
     def _current_line(self) -> str:
@@ -624,9 +625,16 @@ class FlowCall:
         return "affirm"
 
     def _main_key(self, st: dict) -> str:
-        """Prompt key to speak on entering a state: its time_line once the customer asked about time."""
+        """Prompt key to speak on entering a state: its time_line once the customer asked about time,
+        else its main_if line when that Beat Plan context flag is set (e.g. first PM), else main."""
         key = st.get("time_line")
-        return key if key and self.ctx.get("time_shared") else "main"
+        if key and self.ctx.get("time_shared"):
+            return key
+        return self._if_context(st.get("main_if")) or "main"
+
+    def _if_context(self, rule: dict | None) -> str | None:
+        """`{context: <flag>, key: <prompt key>}` -> the key when that context flag is truthy."""
+        return rule["key"] if rule and self.context.get(rule.get("context")) else None
 
     def _checklist_key(self) -> str:
         item = self.policies[self.spec.states[self.state]["checklist"]][self.readiness_idx]["id"]
@@ -690,9 +698,9 @@ class FlowCall:
             v["support_line"] = f" हमारी helpline {speak_phone(num, 'hi')} पर" if num else " हमारी helpline पर"
         else:
             v["support_line"] = f" our helpline on {speak_phone(num, 'en')}" if num else " our helpline"
-        dur = str(self.policies.get("visit_duration") or "").strip()
-        v["visit_duration_spoken"] = ((f", लगभग {dur} लगता है" if self.lang == "hi" else f"; it takes about {dur}")
-                                      if dur else "")
+        mins = int(self.policies.get("visit_duration_minutes") or 0)
+        v["visit_duration_spoken"] = ((f", लगभग {mins} मिनट लगते हैं" if self.lang == "hi" else f". It takes about {mins} minutes")
+                                      if mins else "")
         if self.ctx.get("requested_date"):
             d = date.fromisoformat(self.ctx["requested_date"])
             v["requested_date_spoken"] = f"{speak_weekday(d, self.lang)}, {speak_day(d, self.lang)}"

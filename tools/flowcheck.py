@@ -272,6 +272,20 @@ class Flow:
                 for lang, p in self.prompts.items():
                     if pre.get("key") not in ((p or {}).get(n) or {}):
                         self.err(f"prompts/{lang}.yaml: {n}.{pre.get('key')} missing (prefix_if)")
+        # main_if: the alternative main line must exist in every language
+        for n, st in self.states.items():
+            rule = st.get("main_if")
+            if rule:
+                for lang, p in self.prompts.items():
+                    if rule.get("key") not in ((p or {}).get(n) or {}):
+                        self.err(f"prompts/{lang}.yaml: {n}.{rule.get('key')} missing (main_if)")
+        # say_if on global intents: the alternative _global line must exist in every language
+        for name, gi in self.global_intents.items():
+            rule = (gi or {}).get("say_if")
+            if rule:
+                for lang, p in self.prompts.items():
+                    if rule.get("key") not in ((p or {}).get("_global") or {}):
+                        self.err(f"intent {name}: say_if '{rule.get('key')}' missing in prompts/{lang}.yaml under _global")
         # time_line: the alternative prompt key must exist in every language
         for n, st in self.states.items():
             key = st.get("time_line")

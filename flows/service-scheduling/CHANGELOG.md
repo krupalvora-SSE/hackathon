@@ -2,6 +2,14 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.9.0 (2026-11-26, SSE-15527)
+First-PM (first preventive maintenance) case:
+- Beat Plan context `first_pm` (or `pm_number: 1`). On the first PM, OFFER_PRIMARY says the system was commissioned recently, its first check-up is due and it's included in the AMC plan (`main_if` in flow.yaml picks the line).
+- New global intents that answer and repeat the question: `what_is_service` ("what is this service?", "I didn't book anything") and `why_so_early` (first PM: due a week after commissioning, to catch loose connections and installation dust early; later visits: regular visits in the plan, via `say_if`).
+- NOT_NEEDED has a first-PM line and a general line for later visits.
+- Price question now answers "this visit is included in your AMC plan" (always true, per ops) instead of "our team will share details".
+- `visit_info` lists the scope: panel cleaning, wiring and connectors, inverter, earthing and mounting structure. `policies.visit_duration_minutes: 45` replaces `visit_duration`.
+
 ## 0.8.0 (2026-11-26, SSE-15527)
 Developed as 0.4.0 and 0.5.0 on the SSE-15527 branch after PR #4; merged on top of 0.7.0. Teammates' `wait_a_moment` (0.4.0) and `who_are_you` / `number_source` / `is_robot` (0.5.0) replace this branch's `hold_on`, `who_is_this` and `is_bot`.
 - Helpline 9830003000, read out digit by digit in groups of five ("nine eight three zero zero, zero three zero zero zero"), after "please take a pen". The bot asks whether it was noted; if not, it repeats it twice slowly, and says it once more when the call ends.

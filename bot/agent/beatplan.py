@@ -42,6 +42,8 @@ def context_from_booking(b: dict) -> dict:
         "plan_window_end": bp.get("plan_window_end"),
         "fail_actions": bp.get("fail_actions") or [],
         "last_visit_missed": bool(bp.get("last_visit_missed", False)),
+        # First preventive maintenance: due 7 days after commissioning, always included in the AMC plan.
+        "first_pm": bool(bp.get("first_pm", False) or bp.get("pm_number") == 1),
         "last_call_at": bp.get("last_call_at"),
         "calls_this_week": int(bp.get("calls_this_week", 0)),
     }

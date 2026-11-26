@@ -12,6 +12,9 @@
 #   - `tone: <name>` on a state: how the bot sounds there (policies.tones), overriding the customer's mood.
 #   - `prefix_if: {context: <flag>, key: <prompt key>}`: speak that line first when the Beat Plan context
 #     flag is true (once per call).
+#   - `main_if: {context: <flag>, key: <prompt key>}`: speak that line instead of `main` when the Beat Plan
+#     context flag is true (e.g. first_pm: the first maintenance visit after commissioning).
+#   - Global intents can use `say_if` the same way to pick a different `_global` line.
 #   - `time_line: <key>` on a state: use that prompt key instead of `main` once the customer has asked
 #     about time (intents with `shares_time: true`). Otherwise the bot never mentions a time window,
 #     which keeps the team free to move the slot within the day.
@@ -25,7 +28,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.8.0
+version: 0.9.0
 title: Service scheduling call flow
 ticket: SSE-15539
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -82,11 +85,11 @@ sample_values:
   hi: {name: राहुल, bot_name: Krupal, weekday: शनिवार, date_spoken: 28 नवंबर, band_spoken: सुबह आठ से बारह बजे,
        options_spoken: "सोमवार, 30 नवंबर, सुबह या बुधवार, 2 दिसंबर, शाम", missing_item: A-type ladder,
        hold_until_spoken: 5 दिसंबर, recall_window_spoken: कल शाम 5 से 7 बजे,
-       requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह, sms_line: "", support_line: " हमारी helpline नौ आठ तीन शून्य शून्य, शून्य तीन शून्य शून्य शून्य पर", support_number_spoken: "नौ आठ तीन शून्य शून्य, शून्य तीन शून्य शून्य शून्य", visit_duration_spoken: ""}
+       requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह, sms_line: "", support_line: " हमारी helpline नौ आठ तीन शून्य शून्य, शून्य तीन शून्य शून्य शून्य पर", support_number_spoken: "नौ आठ तीन शून्य शून्य, शून्य तीन शून्य शून्य शून्य", visit_duration_spoken: ", लगभग 45 मिनट लगते हैं"}
   en: {name: Rahul, bot_name: Krupal, weekday: Saturday, date_spoken: 28 November, band_spoken: 8 am and 12 pm,
        options_spoken: "Monday, 30 November, morning or Wednesday, 2 December, evening", missing_item: A-type ladder,
        hold_until_spoken: 5 December, recall_window_spoken: tomorrow 5 to 7 pm,
-       requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning, sms_line: "", support_line: " our helpline on nine eight three zero zero, zero three zero zero zero", support_number_spoken: "nine eight three zero zero, zero three zero zero zero", visit_duration_spoken: ""}
+       requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning, sms_line: "", support_line: " our helpline on nine eight three zero zero, zero three zero zero zero", support_number_spoken: "nine eight three zero zero, zero three zero zero zero", visit_duration_spoken: ". It takes about 45 minutes"}
 
 # Events raised by code (timers, action results), not by the customer.
 events:
@@ -175,6 +178,8 @@ states:
     type: conversation
     # If Beat Plan says the last visit was missed, apologise for it first (once).
     prefix_if: {context: last_visit_missed, key: missed_visit}
+    # First PM (Beat Plan first_pm): say it's the first check-up after commissioning, included in the plan.
+    main_if: {context: first_pm, key: first_pm}
     transitions:
       - on: affirm
         to: READINESS_CHECK
@@ -260,6 +265,7 @@ states:
     type: conversation
     # Entered from the global not_needed_now intent ("plan is new", "panels are clean"). One try only.
     disable_global: [not_needed_now]
+    main_if: {context: first_pm, key: first_pm}
     transitions:
       - on: affirm
         to: READINESS_CHECK

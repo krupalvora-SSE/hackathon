@@ -42,8 +42,8 @@ sms_reminder: false
 
 # Helpline the bot gives to upset customers. Spoken digit by digit, slowly, and the bot checks it was noted.
 support_number: "9830003000"
-# Spoken visit length for "how long will it take?", e.g. "45 minute". Empty = not mentioned.
-visit_duration: ""
+# Visit length in minutes for "how long will it take?". 0 = not mentioned.
+visit_duration_minutes: 45
 # Don't call a site more often than this (customers complained about repeated calls).
 call_limits: {min_hours_between_calls: 24, max_calls_per_week: 3}
 # Earliest visit is this many days ahead ("aaj aa jao" gets the nearest day instead).

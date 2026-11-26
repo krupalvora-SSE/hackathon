@@ -7,7 +7,11 @@ _global:
   language_switched: "Sure."
   only_hi_en: "Sorry, right now I can speak only Hindi or English. Which would you prefer?"
   site_issue_noted: "Understood, I've noted that. Our hero will check it during the visit."
-  visit_info: "The visit covers cleaning the panels and a health check of the system{visit_duration_spoken}."
+  visit_info: "The hero cleans the panels and checks the wiring and connectors, the inverter, and the earthing and mounting structure{visit_duration_spoken}."
+  service_info: "This is the preventive maintenance visit in your SolarSquare AMC plan, and it's included in the plan. The hero cleans the panels and checks the wiring, inverter, earthing and structure."
+  why_early: "Your AMC plan has regular maintenance visits, and this one is due now. Regular cleaning and check-ups keep the system healthy."
+  why_early_first_pm: "The first check-up is due a week after commissioning. A new system can have a loose connection or dust from installation, so we check it early."
+  price_included: "This visit is included in your AMC plan."
   someone_home: "Yes, someone needs to be home at the time of the visit so the hero can get to the roof."
   can_you_hear: "Hello, can you hear me?"
   same_day: "A visit today isn't possible; it needs to be booked at least a day ahead."
@@ -32,6 +36,8 @@ OFFER_PRIMARY:
   missed_visit: "First, I'm sorry we missed your last visit."
   main: "{name}, your solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will you be available that day?"
   repeat_main: "Are you free on {weekday}, {date_spoken}?"
+  first_pm: "{name}, your solar system was commissioned recently, so its first maintenance check-up is due, and it's included in your AMC plan. We have a slot on {weekday}, {date_spoken}. Will you be available?"
+  repeat_first_pm: "Are you free on {weekday}, {date_spoken}?"
 
 TIME_BAND:
   main: "Our service hero will come between {band_spoken} that day. Does that work for you?"
@@ -48,7 +54,8 @@ ALTERNATE_DAYS:
   repeat_next_options: "Which day works: {options_spoken}?"
 
 NOT_NEEDED:
-  main: "You're right, the plan is new. That's why the first visit works as a check-up, so any problem is caught early. Shall I book {weekday}, {date_spoken} for you?"
+  main: "I understand. The regular AMC visit cleans the panels and checks the system, so any problem is caught early. Shall I book {weekday}, {date_spoken} for you?"
+  first_pm: "You're right, the system is new. The first check-up is due a week after commissioning, so a loose connection or any problem is caught early. It's included in your AMC plan. Shall I book {weekday}, {date_spoken} for you?"
 
 ASK_BAND_FOR_DATE:
   main: "Sure. On {requested_date_spoken}, would morning, afternoon or evening suit you?"

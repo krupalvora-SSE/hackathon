@@ -23,7 +23,9 @@
     "primary_slot": {"$ref": "#/definitions/slot"},
     "backup_slots": {"type": "array", "items": {"$ref": "#/definitions/slot"}},
     "plan_window_end": {"type": "string", "format": "date", "description": "Usually today + 15 days"},
-    "last_service_date": {"type": ["string", "null"], "format": "date"}
+    "last_service_date": {"type": ["string", "null"], "format": "date"},
+    "first_pm": {"type": "boolean", "description": "First preventive maintenance after commissioning (due 7 days after commissioning). Beat Plan may send pm_number = 1 instead."},
+    "last_visit_missed": {"type": "boolean", "description": "Previous scheduled visit didn't happen; bot apologises first"}
   },
   "definitions": {
     "slot": {

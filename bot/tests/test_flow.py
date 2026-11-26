@@ -326,11 +326,11 @@ def test_junk_readiness_entities_are_ignored():
     assert call.ctx["readiness"] == {} and "ladder" in r.speak[-1].lower()  # the ladder is still asked
 
 
-def test_price_question_deflects_and_repeats_question():
+def test_price_question_says_included_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")
     r = call.handle("price_or_offtopic")
-    assert call.state == "OFFER_PRIMARY" and "टीम" in r.speak[0] and "available" in r.speak[0]
+    assert call.state == "OFFER_PRIMARY" and "AMC plan में शामिल" in r.speak[0] and "available" in r.speak[0]
 
 
 def test_unclear_three_times_escalates():
@@ -711,3 +711,64 @@ def test_repeat_arrange_question_is_short():
     call.handle("deny")
     r = call.handle("repeat_request")
     assert r.speak == ["क्या आप ladder arrange कर पाएँगे?"]
+
+
+FIRST_PM = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "first_pm": True}}
+
+
+def test_first_pm_offer_says_first_checkup_included_in_plan():
+    call, _, _ = live(FIRST_PM, lang="en")
+    assert call.context["first_pm"] is True
+    r = call.handle("affirm")
+    assert "first maintenance check-up" in r.speak[0] and "included in your AMC plan" in r.speak[0]
+    assert "Saturday" in r.speak[0]
+
+
+def test_later_visit_offer_uses_normal_line():
+    call, _, _ = live(lang="en")
+    r = call.handle("affirm")
+    assert "first" not in r.speak[0] and "maintenance is due" in r.speak[0]
+
+
+def test_pm_number_one_counts_as_first_pm():
+    b = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "pm_number": 1}}
+    call, _, _ = live(b)
+    assert call.context["first_pm"] is True
+
+
+def test_what_is_service_explains_and_stays():
+    call, _, _ = live(FIRST_PM, lang="en")
+    call.handle("affirm")
+    r = call.handle("what_is_service")
+    assert call.state == "OFFER_PRIMARY"
+    assert "preventive maintenance" in r.speak[0] and "included" in r.speak[0] and "available" in r.speak[0].lower()
+
+
+@pytest.mark.parametrize("booking,expect", [(FIRST_PM, "a week after commissioning"), (BOOKING, "regular maintenance")])
+def test_why_so_early_answer_depends_on_first_pm(booking, expect):
+    call, _, _ = live(booking, lang="en")
+    call.handle("affirm")
+    r = call.handle("why_so_early")
+    assert call.state == "OFFER_PRIMARY" and expect in r.speak[0]
+    call.handle("affirm")
+    assert call.state == "READINESS_CHECK"
+
+
+def test_not_needed_line_depends_on_first_pm():
+    call, _, _ = live(FIRST_PM, lang="en")
+    call.handle("affirm")
+    r = call.handle("not_needed_now")
+    assert call.state == "NOT_NEEDED" and "commissioning" in r.speak[-1]
+    call2, _, _ = live(lang="en")
+    call2.handle("affirm")
+    r2 = call2.handle("not_needed_now")
+    assert "commissioning" not in r2.speak[-1] and "regular AMC visit" in r2.speak[-1]
+
+
+@pytest.mark.parametrize("lang,words", [("en", ["inverter", "earthing", "45 minutes"]),
+                                        ("hi", ["inverter", "earthing", "45 मिनट"])])
+def test_visit_question_lists_scope_and_duration(lang, words):
+    call, _, _ = live(lang=lang)
+    call.handle("affirm")
+    r = call.handle("visit_question")
+    assert all(w in r.speak[0] for w in words), r.speak[0]

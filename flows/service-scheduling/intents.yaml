@@ -117,6 +117,24 @@ global:
       hi: ["visit mai kya karoge", "kitna time lagega"]
       en: ["what will you do in the visit", "how long will it take"]
 
+  what_is_service:
+    label: Asks what this service is
+    goto: $stay
+    say: service_info
+    examples:
+      hi: ["ye kaun si service hai", "maine to koi service book nahi ki", "ye kis cheez ki visit hai", "AMC kya hota hai"]
+      en: ["what service is this", "I didn't book any service", "what is this visit for"]
+
+  why_so_early:
+    label: Asks why the visit is so soon
+    # A question, not a refusal: answer and repeat the offer. First PM gets the commissioning reason.
+    goto: $stay
+    say: why_early
+    say_if: {context: first_pm, key: why_early_first_pm}
+    examples:
+      hi: ["itni jaldi kyun", "abhi to lagaya hai, abhi se service kyun", "abhi kyun aana hai"]
+      en: ["why so early", "it was just installed, why a service already", "why now"]
+
   someone_home:
     label: Asks if someone must be home
     goto: $stay
@@ -193,8 +211,9 @@ global:
 
   price_or_offtopic:
     label: Asks about price
+    # The visit is always included in the AMC plan. Never quote any other price.
     goto: $stay
-    say: deflection
+    say: price_included
     examples:
       hi: ["kitna charge lagega", "paise lagenge kya", "free hai na"]
       en: ["how much will it cost", "is it free"]
