@@ -13,7 +13,7 @@
       "type": "string",
       "enum": ["slot_confirmed", "slot_confirmed_alt_band", "slot_confirmed_alt_day", "site_on_hold", "hold_declined",
                "no_slot_available", "rm_callback", "recall_requested", "do_not_call", "wrong_number", "no_answer",
-               "needs_manual_confirmation", "not_dialled"]
+               "needs_manual_confirmation", "not_dialled", "not_needed_now", "date_requested"]
     },
     "spoke_to": {"type": "string", "enum": ["customer", "family_member", "other", "nobody"]},
     "confirmed_slot": {
@@ -24,6 +24,16 @@
         "hero_id": {"type": "string"}
       }
     },
+    "requested_slot": {
+      "type": ["object", "null"],
+      "description": "The customer's own date and time of day when Beat Plan had no matching slot (outcome date_requested)",
+      "properties": {
+        "date": {"type": "string", "format": "date"},
+        "band": {"type": "string", "enum": ["morning", "afternoon", "evening"]}
+      }
+    },
+    "will_arrange": {"type": "array", "items": {"type": "string"}, "description": "Readiness items the customer promised to arrange before the visit"},
+    "time_window_told": {"type": "boolean", "description": "True only if the customer asked about time and the bot told them a window"},
     "slot_source": {"type": ["string", "null"], "enum": ["primary", "alt_band", "alt_day", null]},
     "preferred_exact_time": {"type": ["string", "null"], "description": "Logged whenever the customer asked for one, even if not escalated"},
     "readiness": {

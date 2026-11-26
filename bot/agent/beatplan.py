@@ -138,6 +138,11 @@ class MockBeatPlan:
                                             "preferred_exact_time": call.ctx.get("preferred_exact_time")})
         return None
 
+    def request_date(self, call: "FlowCall", state: str):
+        call._report("request_date", {"site_id": call.context["site_id"], "requested_date": call.ctx.get("requested_date"),
+                                      "requested_band": call.ctx.get("requested_band")})
+        return None
+
     def mark_dnc(self, call: "FlowCall", state: str):
         call._report("mark_dnc", {"customer_id": call.context["customer"]["customer_id"]})
         return None
