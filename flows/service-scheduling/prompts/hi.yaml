@@ -1,4 +1,4 @@
-# Hindi (Hinglish) lines per state. Female persona (policies.persona).
+# Hindi (Hinglish) lines per state. Male persona (policies.persona).
 # Devanagari for Hindi words, English nouns kept as people say them (see hindi-voice-scripting skill).
 # Placeholders are filled by code, already spelled out in words:
 #   {name} {bot_name} {date_spoken} {weekday} {band_spoken} {options_spoken}

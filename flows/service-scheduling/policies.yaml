@@ -1,8 +1,8 @@
 # Tunable business rules. Change values here; no code change needed.
 
 persona:
-  name: Pooja
-  gender: female            # drives Hindi verb forms in prompts (karti hoon / karta hoon)
+  name: Krupal
+  gender: male              # drives Hindi verb forms in prompts (karti hoon / karta hoon)
 
 languages: [hi, en]         # every conversation/terminal state needs a line in prompts/<lang>.yaml
 default_language: hi        # switch to en if the customer speaks mostly English

@@ -19,7 +19,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.1.0
+version: 0.1.1
 start: PRE_CALL
 
 # Events raised by code (timers, action results), not by the customer.
