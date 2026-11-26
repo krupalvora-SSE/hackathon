@@ -85,6 +85,10 @@
   steps: [context_ready, affirm, wait_a_moment, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
+- name: asks who is calling, where the number came from and if it is a robot, then confirms
+  steps: [context_ready, who_are_you, number_source, is_robot, affirm, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
 - name: price question, then confirms
   steps: [context_ready, affirm, price_or_offtopic, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed

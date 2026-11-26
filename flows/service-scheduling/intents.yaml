@@ -73,6 +73,30 @@ global:
       hi: ["ek minute ruko", "ek second", "ruko zara", "hold karo", "abhi aata hoon", "ek minute line pe rahiye"]
       en: ["hold on", "one minute please", "just a second", "give me a moment"]
 
+  who_are_you:
+    label: Asks who is calling
+    goto: $stay
+    say: identity_who
+    examples:
+      hi: ["kaun bol raha hai", "aap kaun ho", "kahan se bol rahe ho", "kis company se ho"]
+      en: ["who is this", "who are you", "which company is this"]
+
+  number_source:
+    label: Asks where we got the number
+    goto: $stay
+    say: identity_source
+    examples:
+      hi: ["mera number kahan se mila", "ye number kisne diya", "mera number aapke paas kaise aaya"]
+      en: ["where did you get my number", "how did you get this number"]
+
+  is_robot:
+    label: Asks if it is a machine
+    goto: $stay
+    say: identity_robot            # must admit it is an AI assistant
+    examples:
+      hi: ["aap robot ho", "machine bol rahi hai kya", "insaan ho ya computer", "kya ye AI hai"]
+      en: ["are you a robot", "am I talking to a machine", "is this an AI"]
+
   price_or_offtopic:
     label: Asks price or something else
     goto: $stay

@@ -297,5 +297,8 @@ Handled in place at any step (the bot answers, then repeats its question):
 - **Not clear** (`unclear`); after 2 in a row → Ask a senior to call
 - **Asks to repeat** (`repeat_request`)
 - **Asks us to hold on** (`wait_a_moment`)
+- **Asks who is calling** (`who_are_you`)
+- **Asks where we got the number** (`number_source`)
+- **Asks if it is a machine** (`is_robot`)
 - **Asks price or something else** (`price_or_offtopic`)
 <!-- flow-diagram:end -->
