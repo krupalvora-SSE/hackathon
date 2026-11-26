@@ -41,11 +41,18 @@ global:
       en: ["don't call me again", "stop calling", "unsubscribe me"]
 
   wrong_person:
-    label: Someone else answered
+    label: Someone else answered / not the person asked for
     goto: WRONG_PERSON
     examples:
-      hi: ["mai unka beta bol raha hoon", "wo ghar pe nahi hain", "galat number hai"]
-      en: ["this is his son", "she's not here", "wrong number"]
+      hi: ["मैं Sneha नहीं हूँ", "mai wo nahi hoon", "mai unka beta bol raha hoon", "मैं उनका बेटा बोल रहा हूँ", "ये Sneha नहीं हैं", "wo ghar pe nahi hain"]
+      en: ["I'm not Sneha", "this is his son", "she's not here"]
+
+  wrong_number:
+    label: Says it is the wrong number
+    goto: WRONG_NUMBER_CLOSE
+    examples:
+      hi: ["wrong number है", "galat number hai", "आपने गलत नंबर लगाया है", "यहाँ कोई Sneha नहीं रहता", "number galat lag gaya", "ये Sneha का number नहीं है"]
+      en: ["wrong number", "you have the wrong number", "nobody by that name lives here"]
 
   not_needed_now:
     label: Not needed yet
@@ -135,13 +142,13 @@ local:
   affirm:
     label: Yes
     examples:
-      hi: ["haan", "ji haan", "theek hai", "chalega", "ho jayega", "sab ready hai"]
+      hi: ["हाँ", "haan", "ji haan", "जी, ठीक है", "theek hai", "chalega", "ho jayega", "sab ready hai"]
       en: ["yes", "okay", "that works", "everything is ready"]
 
   deny:
     label: No
     examples:
-      hi: ["nahi", "us din nahi ho payega", "ladder nahi hai", "nahi chalega"]
+      hi: ["नहीं", "nahi", "नहीं, नहीं हो पाएगा", "us din nahi ho payega", "ladder nahi hai", "nahi chalega"]
       en: ["no", "I'm not available that day", "we don't have a ladder"]
 
   wants_exact_time:

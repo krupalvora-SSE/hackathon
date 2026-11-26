@@ -303,3 +303,19 @@
   steps: [context_ready, affirm, wants_human, action_failed]
   expect: needs_manual_confirmation
 
+- name: not the person, then a plain no -> wrong number
+  steps: [context_ready, wrong_person, deny]
+  expect: wrong_number
+
+- name: not the person, then says wrong number -> wrong number
+  steps: [context_ready, wrong_person, wrong_number]
+  expect: wrong_number
+
+- name: not the person twice -> wrong number, no loop
+  steps: [context_ready, wrong_person, wrong_person]
+  expect: wrong_number
+
+- name: says wrong number straight at the greeting
+  steps: [context_ready, wrong_number]
+  expect: wrong_number
+

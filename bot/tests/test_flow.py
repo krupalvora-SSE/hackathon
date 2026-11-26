@@ -494,6 +494,46 @@ def test_asking_the_time_in_english():
     assert r.speak[0].startswith("Our service hero will come between")
 
 
+@pytest.mark.parametrize("second_reply", ["deny", "wrong_person", "wrong_number"])
+def test_not_the_person_then_any_kind_of_no_ends_as_a_wrong_number(second_reply):
+    """The reported call: 'main Sneha nahi hoon' -> 'are you from her home?' -> 'nahi' / 'wrong number hai'."""
+    call, _, _ = live()
+    r = call.handle("wrong_person")
+    assert call.state == "WRONG_PERSON" and "के घर से" in r.speak[0]
+    r = call.handle(second_reply)
+    assert r.end and call.outcome == "wrong_number" and call.state == "WRONG_NUMBER_CLOSE"
+
+
+def test_wrong_number_closes_from_any_step():
+    for steps in ([], ["affirm"], ["affirm", "affirm"]):
+        call, _, _ = live()
+        for on in steps:
+            call.handle(on)
+        r = call.handle("wrong_number")
+        assert r.end and call.outcome == "wrong_number"
+
+
+def test_a_global_intent_that_would_reenter_the_step_counts_as_unclear(monkeypatch):
+    monkeypatch.setitem(SPEC.states["WRONG_PERSON"], "disable_global", [])      # as before the fix
+    call, _, _ = live()
+    call.handle("wrong_person")
+    question = call.last_line
+    r = call.handle("wrong_person")                                             # used to repeat the question forever
+    assert call.state == "WRONG_PERSON" and r.speak[0].endswith(question) and call.unclear_streak == 1
+    call.handle("wrong_person")
+    r = call.handle("wrong_person")
+    assert r.end and call.outcome == "rm_callback"                               # escalates instead of looping
+
+
+def test_the_classifier_prompt_carries_the_examples_for_this_case():
+    from agent.prompts import flow_system_prompt
+
+    call, _, _ = live()
+    prompt = flow_system_prompt(call)
+    assert "wrong_number" in prompt and "wrong number है" in prompt and "मैं Sneha नहीं हूँ" in prompt
+    assert "bare \"nahi\"" in prompt
+
+
 def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")

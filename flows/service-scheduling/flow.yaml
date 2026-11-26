@@ -22,9 +22,9 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.10.0
+version: 0.11.0
 title: Service scheduling call flow
-ticket: SSE-15554
+ticket: SSE-15551
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
 start: PRE_CALL
 
@@ -158,7 +158,10 @@ states:
   WRONG_PERSON:
     title: Someone else answered
     type: conversation
+    disable_global: [wrong_person]      # "it's not them" again here means a wrong number, not another round of the question
     transitions:
+      - on: wrong_person
+        to: WRONG_NUMBER_CLOSE
       - on: affirm
         to: OFFER_PRIMARY
         set: {spoke_to: family_member}

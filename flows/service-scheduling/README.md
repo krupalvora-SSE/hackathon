@@ -295,7 +295,8 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Busy, call later | Ask when to call back |
 | Wants a person | Ask a senior to call |
 | Don't call me | Won't call again |
-| Someone else answered | Someone else answered |
+| Someone else answered / not the person asked for | Someone else answered |
+| Says it is the wrong number | Wrong number |
 | Not needed yet | Explain why the visit helps now |
 | Wants a time outside 9 am to 6 pm | Bot answers briefly, then repeats its question |
 | Not clear | Bot asks again; after 2 times in a row: Ask a senior to call |
@@ -314,6 +315,7 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 
 | Customer says | What happens |
 |---|---|
+| Someone else answered / not the person asked for | Call ends: Wrong number |
 | Yes | Step 2: Offer the planned date |
 | Family member, can decide | Step 2: Offer the planned date |
 | Customer not home | Call back or hand over: Ask when to call back |

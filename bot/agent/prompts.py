@@ -94,7 +94,7 @@ def flow_system_prompt(call) -> str:
     lines = []
     for name, i in {**spec.global_intents, **spec.local_intents}.items():
         ex = (i or {}).get("examples") or {}
-        sample = "; ".join([*ex.get("hi", [])[:3], *ex.get("en", [])[:2]])
+        sample = "; ".join([*ex.get("hi", [])[:6], *ex.get("en", [])[:3]])
         scope = " (any time)" if name in spec.global_intents else ""
         lines.append(f"- {name}{scope}: e.g. {sample}")
     intents = "\n".join(lines)
@@ -130,5 +130,7 @@ Entities (fill only when the customer said them, using their own words):
   false = they don't). Include only items they actually mentioned; the intent is still the answer to the current question.
 
 Customers speak Hinglish, Hindi in Devanagari, Marathi or English; transcripts are noisy phone ASR.
+Questions about who is on the line ("are you from X's home?"): a bare "nahi" / "नहीं" is deny; "wrong number" /
+"galat number" is wrong_number; "main X nahi hoon" is wrong_person only before that question is asked.
 "haan / ji / theek hai / chalega" to a yes/no question is affirm; "nahi / nahi hai / nahi chalega" is deny.
 """

@@ -263,6 +263,9 @@ class FlowCall:
             is_event = on in self.spec.flow.get("events", [])
             if not is_event and on not in allowed:
                 return Step(error=f"intent '{on}' does not apply in {self.state}", state=self.state, allowed=allowed)
+            gi0 = self.spec.global_intents.get(on)
+            if gi0 and on not in (st.get("disable_global") or []) and gi0.get("goto") == self.state:
+                on = "unclear"          # would only re-enter this step and repeat the question: treat as not understood
             if on != "unclear":
                 self.unclear_streak = 0
             self.silences = 0
