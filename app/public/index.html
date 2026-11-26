@@ -124,6 +124,17 @@
     .slot-icon svg { width:15px; height:15px; }
     .chip { display:inline-flex; align-items:center; gap:7px; padding:5px 9px!important; border-radius:999px!important; font-size:var(--text-xs)!important; font-weight:800!important; }
     .chip::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+    .chip.in_progress::before { animation: pulse 1.4s ease-in-out infinite; }
+    .chip.ending { background: var(--ink-100); color: var(--fg-2); }
+    .chip.ending::before { animation: pulse .8s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: .25; } }
+    [hidden] { display: none !important; }   /* component display rules must not override the hidden attribute */
+    .wait { display:flex; align-items:center; gap:10px; margin:12px 0; padding:10px 12px; border:1px solid var(--border-2); border-radius:10px; background:var(--bg-sunken); color:var(--fg-2); font-size:var(--text-sm); }
+    .wait .spin { width:14px; height:14px; border:2px solid var(--ink-300); border-top-color:var(--blue-500); border-radius:50%; animation: spin .8s linear infinite; flex:none; }
+    .wait.late .spin { animation:none; border-color:var(--ink-300); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .msg.sys.end { text-align:center; font-weight:600; }
+    @media (prefers-reduced-motion: reduce) { .chip::before, .wait .spin { animation: none !important; } }
     button.action { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; border:1px solid var(--border-1); border-radius:10px; background:white; color:var(--fg-2); padding:7px 10px; cursor:pointer; font:800 var(--text-xs) var(--font-sans); }
     button.action.primary { border-color:var(--navy); background:var(--navy); color:white; }
     button.action.danger { color:var(--rust-600); }
@@ -203,6 +214,7 @@
             <div><small>Cost so far</small><b id="cost">–</b></div>
           </div>
           <div class="lat" id="lat"></div>
+          <div class="wait" id="record-wait" role="status" hidden><span class="spin"></span><span id="record-wait-text"></span></div>
           <div id="record-wrap" hidden><h4>Final record</h4><pre id="record"></pre></div>
         </div>
         <div>
@@ -224,7 +236,7 @@
       slot_confirmed: 'Confirmed', slot_confirmed_alt_band: 'Confirmed (other time)', slot_confirmed_alt_day: 'Confirmed (other day)',
       site_on_hold: 'Site on hold', hold_declined: 'Hold declined', no_slot_available: 'No slot', rm_callback: 'RM callback',
       recall_requested: 'Call later', needs_manual_confirmation: 'Needs manual confirm', not_dialled: 'Not dialled',
-      created: 'Starting', dialing: 'Dialing', connecting: 'Connecting', in_progress: 'On call', ended: 'Ended', failed: 'Failed',
+      created: 'Starting', dialing: 'Dialing', connecting: 'Connecting', in_progress: 'On call', ending: 'Ending call…', ended: 'Ended', failed: 'Failed',
     };
     const SLOTS = [
       ['visit_date', 'Visit date'], ['visit_time_slot', 'Time slot'],
@@ -325,6 +337,7 @@
       $('transcript').innerHTML = '';
       $('lat').innerHTML = '';
       $('record-wrap').hidden = true;
+      stopWaiting();
       $('p50').textContent = '–'; $('turns').textContent = '0'; $('cost').textContent = '–';
       banner('live-banner', '');
       setStatus(call.status);
@@ -362,7 +375,7 @@
         case 'status':
           setStatus(e.status, e.outcome);
           if (e.error) banner('live-banner', `The call failed: ${esc(e.error)}`);
-          if (e.status === 'ended' || e.status === 'failed') endLive();
+          if (e.status === 'ended' || e.status === 'failed') { stopWaiting(); endLive(); }
           break;
         case 'transcript': say(e.role === 'customer' ? 'customer' : 'agent', e.text); break;
         case 'slot':
@@ -384,6 +397,8 @@
         case 'metrics': if (e.cost_inr != null) $('cost').textContent = `₹${Number(e.cost_inr).toFixed(2)}`; break;
         case 'result':
           setStatus('ended', e.record?.outcome);
+          stopWaiting();
+          say('sys end', `Call ended${e.record?.duration_s != null ? ` · ${fmtDuration(e.record.duration_s)}` : ''}`);
           $('record').textContent = JSON.stringify(e.record, null, 2);
           $('record-wrap').hidden = false;
           if (e.record?.cost_inr != null) $('cost').textContent = `₹${Number(e.record.cost_inr).toFixed(2)}`;
@@ -438,7 +453,28 @@
     // If the bot never reported anything, show Ended rather than leaving a stale "Starting".
     function hangup() {
       if (active?.live && ['created', 'connecting', 'dialing'].includes(active.status)) setStatus('ended');
+      else if (active?.live && !active.record) { setStatus('ending'); waitForRecord(); }
       endLive();
+    }
+
+    const fmtDuration = (s) => (s >= 60 ? `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s` : `${Math.round(s)}s`);
+
+    // After hang up the bot still has to finish and send the call record: say so instead of looking frozen.
+    function waitForRecord() {
+      const box = $('record-wait');
+      box.classList.remove('late');
+      box.hidden = false;
+      $('record-wait-text').textContent = 'Saving the call record…';
+      clearTimeout(active.waitTimer);
+      active.waitTimer = setTimeout(() => {
+        box.classList.add('late');
+        $('record-wait-text').textContent = 'The call has ended. Still waiting for the record; it will appear here when it arrives.';
+      }, 10000);
+    }
+
+    function stopWaiting() {
+      if (active) clearTimeout(active.waitTimer);
+      $('record-wait').hidden = true;
     }
 
     load();
