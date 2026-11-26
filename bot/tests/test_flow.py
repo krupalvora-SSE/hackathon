@@ -540,6 +540,37 @@ def test_confirm_api_failure_needs_manual_confirmation():
     assert call.outcome == "needs_manual_confirmation" and beatplan(events, "create_rm_callback")
 
 
+def test_failed_callback_save_does_not_promise_a_callback():
+    b = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "fail_actions": ["schedule_recall"]}}
+    call, _, events = live(b)
+    call.handle("wrong_person")
+    call.handle("customer_unavailable")
+    r = call.handle("time_range_given", {"time_range": "kal shaam 5 se 7"})
+    assert call.outcome == "needs_manual_confirmation" and r.end
+    assert "call करेंगे" not in r.speak[-1] and "team जल्द ही confirm" in r.speak[-1]
+
+
+def test_failed_senior_callback_does_not_promise_one():
+    b = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "fail_actions": ["create_rm_callback"]}}
+    call, _, _ = live(b)
+    call.handle("affirm")
+    r = call.handle("wants_human")
+    assert call.outcome == "needs_manual_confirmation" and r.end
+    assert "senior" not in r.speak[-1] and "team जल्द ही confirm" in r.speak[-1]
+
+
+def test_working_saves_still_promise_the_callback():
+    call, _, _ = live()
+    call.handle("wrong_person")
+    call.handle("customer_unavailable")
+    call.handle("time_range_given", {"time_range": "kal shaam 5 se 7"})
+    assert call.outcome == "recall_requested"
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("wants_human")
+    assert call.outcome == "rm_callback"
+
+
 def test_english_switch():
     call, _, _ = live()
     r = call.handle("affirm", {"language": "en"})

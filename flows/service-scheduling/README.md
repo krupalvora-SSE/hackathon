@@ -281,11 +281,11 @@ The customer is busy or wants a person. Note when to call back, or ask a senior 
 
 **Note the call-back time**
 
-The bot doesn't speak here. **Done** → Call ends: We'll call back; **System error** → Call ends: We'll call back.
+The bot doesn't speak here. **Done** → Call ends: We'll call back; **System error** → Call ends: Team will confirm.
 
 **Ask a senior to call**
 
-The bot doesn't speak here. **Done** → Call ends: Senior will call; **System error** → Call ends: Senior will call.
+The bot doesn't speak here. **Done** → Call ends: Senior will call; **System error** → Call ends: Team will confirm.
 
 ### Any time in the call
 

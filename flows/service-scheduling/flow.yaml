@@ -22,9 +22,9 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.9.0
+version: 0.10.0
 title: Service scheduling call flow
-ticket: SSE-15552
+ticket: SSE-15554
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
 start: PRE_CALL
 
@@ -429,7 +429,7 @@ states:
       - on: action_ok
         to: RECALL_CLOSE
       - on: action_failed
-        to: RECALL_CLOSE
+        to: MANUAL_CONFIRM_CLOSE      # never say "we will call you" when saving it failed
 
   ESCALATE_RM:
     title: Ask a senior to call
@@ -439,7 +439,7 @@ states:
       - on: action_ok
         to: RM_CLOSE
       - on: action_failed
-        to: RM_CLOSE
+        to: MANUAL_CONFIRM_CLOSE      # never say "we will call you" when saving it failed
 
   # ---------- terminal states (each ends the call with one outcome) ----------
 

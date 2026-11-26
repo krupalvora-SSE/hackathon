@@ -2,6 +2,9 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.10.0 (2026-11-26, SSE-15554)
+- If saving a call-back time (APPLY_RECALL) or creating the senior's callback (ESCALATE_RM) fails, the call now ends in MANUAL_CONFIRM_CLOSE ("the team will confirm") instead of telling the customer "we will call you" / "a senior will call". This matches BOOK and APPLY_HOLD.
+
 ## 0.9.0 (2026-11-26, SSE-15552)
 - "What time?" is answered at any step. `ask_time` is now a global intent: the bot tells the time window of the chosen day (or the 9 am-6 pm service hours while no day is chosen yet) and repeats the current question. OFFER_PRIMARY and NOT_NEEDED keep their own move to TIME_BAND (`disable_global: [ask_time]`).
 - New `asks_time` entity on `customer_said` for replies that answer and ask at once ("chalega Shukrawar, but kya time hoga?"): the time answer is put in front of the next line, whatever step the call moves to, and the recap then mentions the window. Before, the second half was dropped, and a repeated question at the ladder step was read as "no ladder".

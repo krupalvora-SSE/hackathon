@@ -295,3 +295,11 @@
   steps: [context_ready, affirm, affirm, affirm, ask_time, affirm, action_ok]
   expect: slot_confirmed
 
+- name: call-back time could not be saved -> team will confirm
+  steps: [context_ready, wrong_person, customer_unavailable, time_range_given, action_failed]
+  expect: needs_manual_confirmation
+
+- name: senior callback could not be created -> team will confirm
+  steps: [context_ready, affirm, wants_human, action_failed]
+  expect: needs_manual_confirmation
+
