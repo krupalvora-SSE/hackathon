@@ -134,6 +134,14 @@ FIELDS: list[dict[str, Any]] = [
     {"key": "turn_stop_timeout", "group": "Call flow", "type": "float", "default": 5,
      "min": 1, "max": 20, "step": 0.5, "env": "USER_TURN_STOP_TIMEOUT", "label": "Turn stop fallback (s)",
      "help": "Closes a customer turn that never got an end-of-speech signal."},
+    {"key": "filler", "group": "Call flow", "type": "bool", "default": True,
+     "env": "FILLER", "label": "Spoken filler when the reply is slow",
+     "help": "Plays a short 'जी, एक second' if the bot hasn't started its reply yet, so a long silence "
+             "doesn't sound like a dropped line."},
+    {"key": "filler_delay_ms", "group": "Call flow", "type": "int", "default": 1000,
+     "min": 300, "max": 3000, "step": 100, "env": "FILLER_DELAY_MS", "label": "Filler delay (ms)",
+     "help": "How long after the customer stops talking the bot waits before the filler. Lower sounds "
+             "busier; the filler itself takes about 0.3 s to start."},
     {"key": "idle_timeout", "group": "Call flow", "type": "int", "default": 120,
      "min": 30, "max": 600, "step": 10, "env": "PIPELINE_IDLE_SECS", "label": "Hang up after idle (s)",
      "help": "Ends the call when no audio or activity flows in the pipeline for this long."},
