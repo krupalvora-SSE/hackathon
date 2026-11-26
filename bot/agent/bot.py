@@ -50,7 +50,7 @@ from .events import Emitter, save_result
 from .engine import make_engine
 from .prompts import HANDOVER_BROWSER_NOTE
 from .tools import Action
-from .voice import TTS_TEXT_TRANSFORMS, SarvamCloneTTSService, clone_in_use
+from .voice import TTS_TEXT_TRANSFORMS, SarvamCloneTTSService, clone_in_use, drop_stale_clone
 
 # Rough INR rates for the cost-per-call estimate; override in .env with real contract prices.
 RATE = {
@@ -219,6 +219,7 @@ async def run_bot(transport, *, call_id: str, **kwargs) -> None:
 async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, sample_rate: int,
                    call_sid: str | None = None) -> None:
     emitter = Emitter(call_id)
+    await drop_stale_clone()  # before the engine, which takes the bot's name from the picked voice
     engine = make_engine(call_id, booking, on_event=emitter.emit)  # CALL_FLOW picks YAML flow or checklist
     logger.info(f"call {call_id} booking={booking.get('id')} telephony={telephony} flow={engine.name}")
 
