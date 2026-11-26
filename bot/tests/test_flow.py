@@ -326,6 +326,109 @@ def test_junk_readiness_entities_are_ignored():
     assert call.ctx["readiness"] == {} and "ladder" in r.speak[-1].lower()  # the ladder is still asked
 
 
+def _to_recap(call, steps=("affirm", "affirm", "affirm", "affirm", "affirm")):
+    for on in steps:                               # greeting, offer, ladder, water, light
+        call.handle(on)
+    assert call.state == "RECAP"
+
+
+def test_changing_the_time_at_the_recap_keeps_the_chosen_day_and_skips_the_checklist():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("deny")
+    call.handle("affirm", {"option": 1})                         # picks Monday 30 Nov
+    for _ in range(3):
+        call.handle("affirm")                                    # ladder, water, light
+    assert call.state == "RECAP" and call.ctx["selected_slot"]["date"] == "2026-11-30"
+    call.handle("change_time")
+    r = call.handle("affirm")                                    # "that window is fine"
+    assert call.state == "RECAP" and "30 नवंबर" in r.speak[-1]
+    assert "क्या आपके पास A-type ladder" not in r.speak[-1]                  # the checklist is not asked again
+    assert call.ctx["selected_slot"]["date"] == "2026-11-30" and call.ctx["slot_source"] == "alt_day"
+    call.handle("affirm")
+    assert call.outcome == "slot_confirmed_alt_day"
+    assert call.record()["confirmed_slot"]["date"] == "2026-11-30"
+
+
+def test_changing_the_day_at_the_recap_does_not_ask_readiness_again():
+    call, _, _ = live()
+    _to_recap(call)
+    call.handle("change_date")
+    call.handle("affirm", {"option": 2})
+    assert call.state == "RECAP" and call.ctx["selected_slot"]["date"] == "2026-12-03"
+
+
+def test_no_at_the_recap_asks_what_to_change():
+    call, _, _ = live()
+    _to_recap(call)
+    r = call.handle("deny")
+    assert call.state == "RECAP_CHANGE" and "क्या बदलना है" in r.speak[0]
+    assert call.handle("repeat_request").speak == ["दिन बदलना है या time?"]
+    call.handle("change_time")
+    assert call.state == "TIME_BAND"
+
+
+def test_no_to_the_greeting_goes_to_wrong_person_and_a_plain_yes_continues():
+    call, _, _ = live()
+    r = call.handle("deny")
+    assert call.state == "WRONG_PERSON" and not r.error
+    call.handle("affirm")
+    assert call.state == "OFFER_PRIMARY" and call.ctx["spoke_to"] == "family_member"
+
+
+def test_time_requests_are_accepted_straight_at_the_offer():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("wants_other_band", {"band": "evening"})
+    assert not r.error and call.state == "ALTERNATE_DAYS"                  # evening is full in the mock data
+
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("wants_exact_time", {"exact_time": "10 baje"})
+    assert call.state == "TIME_BAND" and "guarantee" in r.speak[0]
+    call.handle("wants_exact_time", {"exact_time": "10 baje"})              # insists: escalates, as in TIME_BAND
+    assert call.state == "RM_CLOSE" and call.outcome == "rm_callback"
+
+
+@pytest.mark.parametrize("path", [
+    ("affirm", "affirm", "affirm", "deny", "deny", "affirm"),     # ladder missing -> ASK_READY_DATE
+])
+def test_dont_know_when_the_site_will_be_ready_goes_to_a_senior(path):
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")                                         # ladder question
+    call.handle("deny")                                           # no ladder -> can you arrange one?
+    call.handle("deny")                                           # no -> water
+    call.handle("affirm")                                         # water
+    call.handle("affirm")                                         # light -> ASK_READY_DATE
+    assert call.state == "ASK_READY_DATE"
+    r = call.handle("dont_know")
+    assert r.end and call.outcome == "rm_callback" and call.record()["rm_callback_reason"] == "customer_unsure"
+
+
+def test_dont_know_in_site_on_hold_and_recall_goes_to_a_senior():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("not_serviceable")
+    assert call.state == "SITE_ON_HOLD"
+    assert call.handle("dont_know").end and call.record()["rm_callback_reason"] == "customer_unsure"
+
+    call, _, _ = live()
+    call.handle("wrong_person")
+    call.handle("customer_unavailable")
+    assert call.state == "RECALL"
+    assert call.handle("dont_know").end and call.outcome == "rm_callback"
+
+
+def test_dont_know_the_time_of_day_still_records_the_requested_date():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("proposes_date", {"date": "7 december"})              # not a Beat Plan day
+    assert call.state == "ASK_BAND_FOR_DATE"
+    r = call.handle("dont_know")
+    assert r.end and call.outcome == "date_requested"
+
+
 def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")

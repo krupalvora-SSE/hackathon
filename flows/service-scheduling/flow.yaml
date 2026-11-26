@@ -22,9 +22,9 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.7.0
+version: 0.8.0
 title: Service scheduling call flow
-ticket: SSE-15539
+ticket: SSE-15551
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
 start: PRE_CALL
 
@@ -42,7 +42,7 @@ sections:
   confirm:
     title: 3. Check readiness and book
     about: Make sure the ladder, water and light are ready, repeat the details and book the visit.
-    states: [READINESS_CHECK, RECAP, BOOK, CONFIRMED_CLOSE, MANUAL_CONFIRM_CLOSE]
+    states: [READINESS_CHECK, RECAP, RECAP_CHANGE, BOOK, CONFIRMED_CLOSE, MANUAL_CONFIRM_CLOSE]
   hold:
     title: 4. Pause the site
     about: If the site isn't ready, get a date and the customer's OK to stop calls until then.
@@ -72,6 +72,7 @@ labels:
   options_remaining: {when_true: more days to offer, when_false: no more days}
   reschedule_after_ready_date: {when_true: if rebooking is on, when_false: default}
   date_is_free: {when_true: Beat Plan has that day, when_false: not in Beat Plan}
+  readiness_done: {when_true: already checked, when_false: first time}
 
 # Example values for {placeholders}, so the shareable page shows a real-sounding line.
 sample_values:
@@ -103,6 +104,7 @@ flags:
   options_remaining: "unoffered backup slots exist"
   reschedule_after_ready_date: "policies.on_missing_prereq == 'reschedule_after_ready_date'"
   date_is_free: "the date the customer suggested is the planned date or a Beat Plan backup day"
+  readiness_done: "every readiness item (ladder, water, light) was already answered in this call"
 
 # Applies to every conversation state.
 global_events:
@@ -150,11 +152,16 @@ states:
       - on: affirm
         to: OFFER_PRIMARY
         set: {spoke_to: customer}
+      - on: deny
+        to: WRONG_PERSON
 
   WRONG_PERSON:
     title: Someone else answered
     type: conversation
     transitions:
+      - on: affirm
+        to: OFFER_PRIMARY
+        set: {spoke_to: family_member}
       - on: household_member
         to: OFFER_PRIMARY
         set: {spoke_to: family_member}
@@ -172,6 +179,11 @@ states:
         set: {selected_slot: primary_slot, slot_source: primary}
       - on: ask_time
         to: TIME_BAND
+      - on: wants_exact_time
+        to: TIME_BAND
+        say: no_exact_guarantee
+      - on: wants_other_band
+        to: CHECK_BAND
       - on: deny
         to: ALTERNATE_DAYS
       - on: proposes_date
@@ -187,6 +199,9 @@ states:
     type: conversation
     collects: [preferred_exact_time]
     transitions:
+      - on: affirm
+        when: readiness_done            # changing the time from the recap: keep the chosen day
+        to: RECAP
       - on: affirm
         to: READINESS_CHECK
         set: {selected_slot: primary_slot, slot_source: primary}
@@ -209,6 +224,10 @@ states:
     actions: [check_band_availability]
     transitions:
       - on: band_available
+        when: readiness_done
+        to: RECAP
+        set: {slot_source: alt_band}
+      - on: band_available
         to: READINESS_CHECK
         set: {slot_source: alt_band}
       - on: band_full
@@ -223,17 +242,24 @@ states:
       - on: no_backup_slots
         to: NO_SLOT_CLOSE
       - on: affirm
+        when: readiness_done            # changing the day from the recap: no second checklist
+        to: RECAP
+        set: {slot_source: alt_day}
+      - on: affirm
         to: READINESS_CHECK
         set: {slot_source: alt_day}
       - on: wants_other_band
         to: CHECK_BAND
       - on: proposes_date
-        when: date_is_free
-        to: READINESS_CHECK
-        set: {slot_source: alt_day}
-      - on: proposes_date
         when: "!date_is_free"
         to: ASK_BAND_FOR_DATE
+      - on: proposes_date
+        when: readiness_done
+        to: RECAP
+        set: {slot_source: alt_day}
+      - on: proposes_date
+        to: READINESS_CHECK
+        set: {slot_source: alt_day}
       - on: deny
         when: options_remaining
         to: ALTERNATE_DAYS
@@ -263,6 +289,8 @@ states:
     transitions:
       - on: gives_band
         to: REQUEST_CLOSE
+      - on: dont_know
+        to: REQUEST_CLOSE
 
   READINESS_CHECK:
     title: "Ask: ladder, water, light ready?"
@@ -289,6 +317,9 @@ states:
       - on: date_given
         when: "!reschedule_after_ready_date"
         to: HOLD_CONSENT
+      - on: dont_know
+        to: ESCALATE_RM
+        set: {rm_callback_reason: customer_unsure}
 
   FIND_SLOT_AFTER_READY:
     title: Find a free day after that
@@ -308,10 +339,29 @@ states:
     transitions:
       - on: affirm
         to: BOOK
+      - on: deny
+        to: RECAP_CHANGE
       - on: change_date
         to: ALTERNATE_DAYS
       - on: change_time
         to: TIME_BAND
+
+  RECAP_CHANGE:
+    title: Ask what to change
+    type: conversation
+    transitions:
+      - on: change_date
+        to: ALTERNATE_DAYS
+      - on: change_time
+        to: TIME_BAND
+      - on: wants_other_band
+        to: CHECK_BAND
+      - on: proposes_date
+        when: "!date_is_free"
+        to: ASK_BAND_FOR_DATE
+      - on: proposes_date
+        to: RECAP
+        set: {slot_source: alt_day}
 
   BOOK:
     title: Book the visit
@@ -332,6 +382,9 @@ states:
     transitions:
       - on: date_given
         to: HOLD_CONSENT
+      - on: dont_know
+        to: ESCALATE_RM
+        set: {rm_callback_reason: customer_unsure}
 
   HOLD_CONSENT:
     title: Ask OK to pause calls
@@ -363,6 +416,9 @@ states:
     transitions:
       - on: time_range_given
         to: APPLY_RECALL
+      - on: dont_know
+        to: ESCALATE_RM
+        set: {rm_callback_reason: customer_unsure}
 
   APPLY_RECALL:
     title: Note the call-back time

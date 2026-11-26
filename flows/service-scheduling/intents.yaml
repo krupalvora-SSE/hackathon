@@ -198,6 +198,12 @@ local:
       hi: ["kal shaam 5 se 7", "do ghante baad", "Sunday subah"]
       en: ["tomorrow 5 to 7 pm", "in two hours"]
 
+  dont_know:
+    label: Can't say / doesn't know
+    examples:
+      hi: ["pata nahi", "abhi nahi bata sakta", "dekhna padega", "mujhe nahi pata kab tak"]
+      en: ["I don't know", "I can't say right now", "I'll have to check"]
+
   change_date:
     label: Change day
     examples:

@@ -300,6 +300,7 @@ class FlowCall:
             "options_remaining": bool(self.backup_queue),
             "reschedule_after_ready_date": self.policies["on_missing_prereq"] == "reschedule_after_ready_date",
             "date_is_free": bool(self.ctx.get("_date_is_free")),
+            "readiness_done": all(i["id"] in self.ctx["readiness"] for i in self.policies["readiness_items"]),
         }
 
     def _pick(self, state: str, on: str, flags: dict | None) -> dict | None:
@@ -432,7 +433,7 @@ class FlowCall:
             self.ctx["hold_reason"] = e.get("reason") or "not_serviceable"
             if self.ctx.get("_date"):
                 self.ctx["hold_until"] = self.ctx["_date"].isoformat()
-        if on == "wants_exact_time" and self.state == "TIME_BAND":
+        if on == "wants_exact_time" and self.state in ("TIME_BAND", "OFFER_PRIMARY"):
             self.exact_time_asks += 1
 
     def _before_transition(self, on: str, e: dict) -> Step | None:

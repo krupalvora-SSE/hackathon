@@ -116,6 +116,7 @@ flowchart LR
 | Customer says | What happens |
 |---|---|
 | Yes | Step 2: Offer the planned date |
+| No | Someone else answered |
 
 #### Step 2. Offer the planned date
 
@@ -125,6 +126,8 @@ flowchart LR
 |---|---|
 | Yes | Step 3: Ask: ladder, water, light ready? |
 | Asks the time | Find another date or time: Tell the time window |
+| Wants exact time | Find another date or time: Tell the time window |
+| Wants another time | Find another date or time: Check another time that day |
 | No | Find another date or time: Offer other days |
 | Suggests their own date (Beat Plan has that day) | Step 3: Ask: ladder, water, light ready? |
 | Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
@@ -145,6 +148,7 @@ flowchart LR
 | Customer says | What happens |
 |---|---|
 | Yes | System: Book the visit |
+| No | Check readiness and book: Ask what to change |
 | Change day | Find another date or time: Offer other days |
 | Change time | Find another date or time: Tell the time window |
 
@@ -160,6 +164,7 @@ When the planned date or time doesn't suit, or the customer pushes back, find on
 
 | Customer says | What happens |
 |---|---|
+| Yes (already checked) | Step 4: Repeat the details, get a yes |
 | Yes | Step 3: Ask: ladder, water, light ready? |
 | Wants exact time (first time) | Bot answers and asks again |
 | Wants exact time (asks again) | Call back or hand over: Ask a senior to call |
@@ -168,7 +173,7 @@ When the planned date or time doesn't suit, or the customer pushes back, find on
 
 **Check another time that day**
 
-The bot doesn't speak here. **Free** → Step 3: Ask: ladder, water, light ready?; **Full** → Offer other days.
+The bot doesn't speak here. **Free (already checked)** → Step 4: Repeat the details, get a yes; **Free** → Step 3: Ask: ladder, water, light ready?; **Full** → Offer other days.
 
 **Offer other days**
 
@@ -177,10 +182,12 @@ The bot doesn't speak here. **Free** → Step 3: Ask: ladder, water, light ready
 | Customer says | What happens |
 |---|---|
 | No other days | Call ends: No free slot |
+| Yes (already checked) | Step 4: Repeat the details, get a yes |
 | Yes | Step 3: Ask: ladder, water, light ready? |
 | Wants another time | Check another time that day |
-| Suggests their own date (Beat Plan has that day) | Step 3: Ask: ladder, water, light ready? |
 | Suggests their own date (not in Beat Plan) | Ask the time for their date |
+| Suggests their own date (already checked) | Step 4: Repeat the details, get a yes |
+| Suggests their own date | Step 3: Ask: ladder, water, light ready? |
 | No (more days to offer) | Bot answers and asks again |
 | No (no more days) | Call ends: No free slot |
 
@@ -201,6 +208,23 @@ The bot doesn't speak here. **Free** → Step 3: Ask: ladder, water, light ready
 | Customer says | What happens |
 |---|---|
 | Picks a time of day | Call ends: Date request noted |
+| Can't say / doesn't know | Call ends: Date request noted |
+
+#### Check readiness and book
+
+Make sure the ladder, water and light are ready, repeat the details and book the visit.
+
+**Ask what to change**
+
+> Okay, what would you like to change, the day or the time?
+
+| Customer says | What happens |
+|---|---|
+| Change day | Find another date or time: Offer other days |
+| Change time | Find another date or time: Tell the time window |
+| Wants another time | Find another date or time: Check another time that day |
+| Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
+| Suggests their own date | Step 4: Repeat the details, get a yes |
 
 #### Pause the site
 
@@ -214,6 +238,7 @@ If the site isn't ready, get a date and the customer's OK to stop calls until th
 |---|---|
 | Gives a date (if rebooking is on) | Find a free day after that |
 | Gives a date (default) | Ask OK to pause calls |
+| Can't say / doesn't know | Call back or hand over: Ask a senior to call |
 
 **Find a free day after that**
 
@@ -226,6 +251,7 @@ The bot doesn't speak here. **Found one** → Step 4: Repeat the details, get a 
 | Customer says | What happens |
 |---|---|
 | Gives a date | Ask OK to pause calls |
+| Can't say / doesn't know | Call back or hand over: Ask a senior to call |
 
 **Ask OK to pause calls**
 
@@ -251,6 +277,7 @@ The customer is busy or wants a person. Note when to call back, or ask a senior 
 | Customer says | What happens |
 |---|---|
 | Gives a time | Note the call-back time |
+| Can't say / doesn't know | Ask a senior to call |
 
 **Note the call-back time**
 
@@ -286,6 +313,7 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 
 | Customer says | What happens |
 |---|---|
+| Yes | Step 2: Offer the planned date |
 | Family member, can decide | Step 2: Offer the planned date |
 | Customer not home | Call back or hand over: Ask when to call back |
 | No | Call ends: Wrong number |

@@ -2,6 +2,15 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.8.0 (2026-11-26, SSE-15551)
+Fixes from an audit of the flow's transitions:
+- Changing the day or time from the recap (new flag `readiness_done`) goes back to RECAP, keeps the day the customer chose and no longer re-asks the ladder / water / light questions. Before, accepting the time window re-selected the planned slot and could book the wrong day.
+- "No" at the recap goes to a new step RECAP_CHANGE ("what would you like to change, the day or the time?").
+- "No" at the greeting goes to WRONG_PERSON; a plain "haan" in WRONG_PERSON goes to the offer (family member).
+- OFFER_PRIMARY accepts `wants_other_band` and `wants_exact_time` (counted toward the exact-time limit), as TIME_BAND does.
+- The exact-time line said "नहीं दे सकती" (feminine); it is now "सकता" like the rest of the male persona.
+- New local intent `dont_know` ("pata nahi", "abhi nahi bata sakta"): in ASK_READY_DATE, SITE_ON_HOLD and RECALL it goes to a senior callback (`rm_callback_reason: customer_unsure`); in ASK_BAND_FOR_DATE it closes the date request without a time of day.
+
 ## 0.7.0 (2026-11-26, SSE-15527 PR #4, merged in SSE-15542)
 Changes from listening to 4 real sample calls (developed as 0.3.0 on its own branch; renumbered when merged after 0.4.0-0.6.0):
 - Time windows now match service hours: morning 9–12, afternoon 12–3, evening 3–6; asking for a time outside 9 am–6 pm gets the hours and the question again (`outside_service_hours`).

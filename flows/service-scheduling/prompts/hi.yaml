@@ -33,7 +33,7 @@ OFFER_PRIMARY:
 
 TIME_BAND:
   main: "उस दिन हमारे service hero {band_spoken} के बीच आएँगे। क्या यह time आपको ठीक लगेगा?"
-  no_exact_guarantee: "Exact time की guarantee तो नहीं दे सकती, पर पूरी कोशिश करेंगे कि hero आपके बताए time पर ही आए। {band_spoken} चलेगा?"
+  no_exact_guarantee: "Exact time की guarantee तो नहीं दे सकता, पर पूरी कोशिश करेंगे कि hero आपके बताए time पर ही आए। {band_spoken} चलेगा?"
   repeat_main: "{band_spoken} के बीच hero आएँगे, चलेगा?"
   repeat_no_exact_guarantee: "{band_spoken} के बीच आना ठीक रहेगा?"
 
@@ -71,6 +71,10 @@ RECAP:
   with_time: "तो {weekday}, {date_spoken}, {band_spoken} के बीच, और ladder, पानी और light ready रहेंगे। मैं यह confirm कर दूँ?"
   repeat_main: "{weekday}, {date_spoken}। मैं यह confirm कर दूँ?"
   repeat_with_time: "{weekday}, {date_spoken}, {band_spoken}। मैं यह confirm कर दूँ?"
+
+RECAP_CHANGE:
+  main: "ठीक है, क्या बदलना है, दिन या time?"
+  repeat_main: "दिन बदलना है या time?"
 
 SITE_ON_HOLD:
   main: "समझ गया। आपकी site किस date से service के लिए ready होगी?"
