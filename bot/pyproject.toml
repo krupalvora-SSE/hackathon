@@ -15,6 +15,16 @@ dependencies = [
     "uvicorn[standard]>=0.54.0",
 ]
 
+[project.optional-dependencies]
+indic = [
+    "huggingface-hub>=2.4.0",
+    "onnx>=1.23.2",
+    "onnxruntime>=1.20.1",
+    "torch>=2.15.0",
+    "torchaudio>=2.11.1",
+    "transformers>=5.24.1",
+]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]

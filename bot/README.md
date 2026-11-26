@@ -36,6 +36,16 @@ as page (`bot/config.json`, git-ignored) > `.env` > default, and is read at the 
 there's no restart. If the bot stops mid-sentence, noise or echo is barging in: turn off *Customer can
 interrupt the bot*, or raise the Sarvam VAD threshold and min speech. Schema: `agent/config.py`.
 
+## Local STT: AI4Bharat IndicConformer 600M
+Open-source (MIT) ASR for 22 Indian languages that runs on this machine instead of Sarvam's cloud STT
+(`agent/stt_indic.py`). It is not streaming: local Silero VAD cuts each customer turn and the model
+transcribes it whole, so *Turn detection* switches to Local automatically. Hindi comes back in Devanagari.
+1. Accept the terms at https://huggingface.co/ai4bharat/indic-conformer-600m-multilingual (instant).
+2. Create a read token at https://huggingface.co/settings/tokens and add `HF_TOKEN=...` to `.env`.
+3. `uv sync --extra indic` (torch, transformers, onnxruntime; a plain `uv sync` removes them again).
+4. Try it: `uv run python -m agent.stt_indic some.wav` (first run downloads ~2.4 GB, then prints CTC and RNNT).
+5. On the /voice page set *STT engine* to IndicConformer (or `STT_PROVIDER=indic` in `.env`).
+
 ## Exotel setup (phone mode)
 1. Expose the bot over TLS: `ngrok http 7860`, giving `wss://<id>.ngrok.app/exotel`.
 2. Build the flow: **Voicebot** (URL above) → **Passthru** (`https://<app-host>/exotel/passthru`)
