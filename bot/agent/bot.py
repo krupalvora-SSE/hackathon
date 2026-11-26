@@ -277,19 +277,33 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             **({"user_turn_strategies": ts} if (ts := _turn_strategies(cfg)) else {}),
         ),
     )
-    yielded = {"at": 0.0, "n": 0, "turns": 0}
+    yielded = {"at": 0.0, "n": 0, "turns": 0, "answered": False, "task": None}
+    turn_over = asyncio.Event()
 
-    def yield_floor() -> None:
-        """Customer cut in: say a short "sorry, go ahead" like a person would (at most every 15 s)."""
-        now = time.monotonic()
-        # not during the hello exchange (first two customer turns), nor right after our own "sorry"
-        if (engine.outcome or yielded["turns"] < 2 or now - yielded["at"] < 15
-                or os.getenv("YIELD_ON_INTERRUPT", "1") == "0"):
+    async def yield_if_unanswered() -> None:
+        # Wait for the customer's turn to end. If they actually answered, the normal reply covers it
+        # (a "sorry, go ahead" on top would stack two acknowledgements). Only yield on a non-answer.
+        try:
+            await asyncio.wait_for(turn_over.wait(), timeout=5)
+        except asyncio.TimeoutError:
             return
-        yielded["at"] = now
+        if yielded["answered"] or engine.outcome:
+            return
+        yielded["at"] = time.monotonic()
         line = YIELD_LINES[yielded["n"] % len(YIELD_LINES)]
         yielded["n"] += 1
-        asyncio.create_task(worker.queue_frames([TTSSpeakFrame(line, append_to_context=False)]))
+        await worker.queue_frames([TTSSpeakFrame(line, append_to_context=False)])
+
+    def yield_floor() -> None:
+        """Customer cut in mid-sentence (at most every 15 s, never during the hello exchange)."""
+        if (engine.outcome or yielded["turns"] < 2 or time.monotonic() - yielded["at"] < 15
+                or os.getenv("YIELD_ON_INTERRUPT", "1") == "0"):
+            return
+        if yielded["task"]:
+            yielded["task"].cancel()
+        turn_over.clear()
+        yielded["answered"] = False
+        yielded["task"] = asyncio.create_task(yield_if_unanswered())
 
     metrics = CallMetrics(emitter, telephony, on_cut_in=yield_floor)
 
@@ -367,6 +381,8 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
 
     @aggregators.user().event_handler("on_user_turn_stopped")
     async def _user_said(_agg, _strategy, message):
+        yielded["answered"] = bool(getattr(message, "content", None))
+        turn_over.set()
         if getattr(message, "content", None):
             engine.heard_customer()
             yielded["turns"] += 1
