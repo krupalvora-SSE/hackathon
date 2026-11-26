@@ -1,7 +1,7 @@
 # Tunable business rules. Change values here; no code change needed.
 
 persona:
-  name: Pooja
+  name: Priya               # matches the bot's cloned voice (bot/agent/prompts.py AGENT_NAME)
   gender: female            # drives Hindi verb forms in prompts (karti hoon / karta hoon)
 
 languages: [hi, en]         # every conversation/terminal state needs a line in prompts/<lang>.yaml
@@ -20,11 +20,11 @@ backup_slot_order: closest_first
 # What the customer must have ready for the Service Hero. Asked one at a time.
 readiness_items:
   - id: ladder
-    label: A-type ladder
+    labels: {en: A-type ladder, hi: A-type ladder}
   - id: water
-    label: Water source near the panels
+    labels: {en: water source, hi: पानी का source}
   - id: light
-    label: Light / power connection
+    labels: {en: light connection, hi: light का connection}
 
 # What to do when a readiness item is missing:
 #   site_on_hold                -> ask ready-by date, put site on hold (current spec)

@@ -85,6 +85,9 @@ class Flow:
             for a in s.get("actions", []) or []:
                 if a not in self.actions:
                     self.err(f"{name}: action '{a}' is not in actions.yaml")
+            cl = s.get("checklist")
+            if cl is not None and not isinstance(self.policies.get(cl), list):
+                self.err(f"{name}: checklist '{cl}' is not a list in policies.yaml")
             for g in s.get("disable_global", []) or []:
                 if g not in self.global_intents:
                     self.err(f"{name}: disable_global '{g}' is not a global intent")
@@ -108,6 +111,7 @@ class Flow:
             if p not in self.actions:
                 self.err(f"post_call: action '{p}' is not in actions.yaml")
 
+        self._check_sections()
         self._check_intents()
         self._check_actions()
         self._check_policies()
@@ -143,11 +147,41 @@ class Flow:
                 if say not in (p.get(to) or {}):
                     self.err(f"{name} -> {to}: say '{say}' missing in prompts/{lang}.yaml under {to}")
 
+    def _check_sections(self):
+        secs = self.flow.get("sections")
+        if not secs:
+            self.warn("no sections in flow.yaml; README gets no diagrams")
+            return
+        seen = {}
+        for key, sec in secs.items():
+            if not sec.get("title"):
+                self.err(f"section {key}: needs a title")
+            for st in sec.get("states", []):
+                if st not in self.states:
+                    self.err(f"section {key}: '{st}' is not a state")
+                elif st in seen:
+                    self.err(f"state {st} is in sections {seen[st]} and {key}")
+                seen[st] = key
+        for st in self.states:
+            if st not in seen:
+                self.err(f"state {st} is not in any section")
+            if not self.states[st].get("title"):
+                self.warn(f"state {st} has no title (diagram shows its id)")
+        labels = self.flow.get("labels") or {}
+        for ev in self.events:
+            if ev not in labels:
+                self.warn(f"event '{ev}' has no label (diagram shows its id)")
+        for name, i in {**self.global_intents, **self.local_intents}.items():
+            if not (i or {}).get("label"):
+                self.warn(f"intent '{name}' has no label (diagram shows its id)")
+
     def _check_intents(self):
         for name, gi in self.global_intents.items():
             goto = gi.get("goto")
             if goto != "$stay" and goto not in self.states:
                 self.err(f"intent {name}: goto '{goto}' is not a state")
+            if gi.get("escalate_to") and gi["escalate_to"] not in self.states:
+                self.err(f"intent {name}: escalate_to '{gi['escalate_to']}' is not a state")
             if goto == "$stay" and gi.get("say"):
                 for lang, p in self.prompts.items():
                     if gi["say"] not in (p.get("_global") or {}):
@@ -335,54 +369,270 @@ class Flow:
             self.warn(f"no scenario ends in outcome '{o}'")
         return results
 
-    # ---------------------------------------------------------------- diagram
-    def mermaid(self) -> str:
-        def node(n):
-            t = self.states[n].get("type")
-            if t == "system":
-                return f'{n}[["{n}"]]'
-            if t == "terminal":
-                s = self.states[n]
-                out = s.get("outcome") or "/".join(s.get("outcome_map", {}).values())
-                return f'{n}(["{n}<br/><i>{out}</i>"])'
-            return f'{n}["{n}"]'
+    # ---------------------------------------------------------------- diagrams
+    # README gets: a 6-box overview, then one small diagram per section (flow.yaml
+    # `sections`), with plain-English titles (state `title`) and arrow labels
+    # (intent `label` in intents.yaml, `labels` in flow.yaml). Arrows that leave a
+    # section end in a "go to section N" box instead of crossing the whole chart.
 
+    def _label(self, on, when=None) -> str:
+        intent = {**self.global_intents, **self.local_intents}.get(on) or {}
+        labels = self.flow.get("labels") or {}
+        text = intent.get("label") or (labels.get(on) if isinstance(labels.get(on), str) else None) or on
+        if when is not None:
+            flag = str(when).lstrip("!")
+            fl = labels.get(flag) if isinstance(labels.get(flag), dict) else {}
+            neg = str(when).startswith("!")
+            text += f" ({fl.get('when_false' if neg else 'when_true') or ('not ' if neg else '') + flag})"
+        return text.replace('"', "'")
+
+    def _section_of(self) -> dict:
+        return {st: key for key, sec in (self.flow.get("sections") or {}).items() for st in sec.get("states", [])}
+
+    def _node(self, n) -> str:
+        s = self.states[n]
+        title = (s.get("title") or n).replace('"', "'")
+        t = s.get("type")
+        if t == "system":
+            return f'{n}[["{title}"]]:::system'
+        if t == "terminal":
+            return f'{n}(["{title}"]):::terminal'
+        return f'{n}("{title}"):::talk'
+
+    CLASSDEFS = [
+        "  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41",
+        "  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200",
+        "  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620",
+        "  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3",
+        "  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18",
+    ]
+
+    def _overview(self) -> str:
+        secs = self.flow.get("sections") or {}
+        where = self._section_of()
         lines = ["flowchart TD"]
-        for n in self.states:
-            lines.append(f"  {node(n)}")
+        for key, sec in secs.items():
+            cls = "any" if key == "anytime" else "talk"
+            lines.append(f'  {key}["{sec["title"]}"]:::{cls}')
+        edges: dict = {}
         for n, s in self.states.items():
             for tr in s.get("transitions", []) or []:
-                label = tr["on"] + (f" [{tr['when']}]" if tr.get("when") else "")
-                lines.append(f'  {n} -->|"{label}"| {tr["to"]}')
-        lines.append('  ANY{{"any conversation state"}}')
-        for gname, gi in self.global_intents.items():
-            if gi.get("goto") not in (None, "$stay"):
-                lines.append(f'  ANY -.->|"{gname}"| {gi["goto"]}')
-        for ge in self.flow.get("global_events", []) or []:
-            lines.append(f'  ANY -.->|"{ge["on"]}"| {ge["to"]}')
-        post = ", ".join((self.flow.get("post_call") or {}).get("actions", []))
-        lines.append(f'  POST_CALL[/"POST_CALL (every call): {post}"/]')
-        lines.append("  classDef system fill:#eef,stroke:#88a")
-        lines.append("  classDef terminal fill:#efe,stroke:#8a8")
-        lines.append("  classDef global fill:#fee,stroke:#a88")
-        sys_states = [n for n, s in self.states.items() if s.get("type") == "system"]
-        term_states = [n for n, s in self.states.items() if s.get("type") == "terminal"]
-        if sys_states:
-            lines.append(f"  class {','.join(sys_states)} system")
-        if term_states:
-            lines.append(f"  class {','.join(term_states)} terminal")
-        lines.append("  class ANY,POST_CALL global")
+                a, b = where.get(n), where.get(tr["to"])
+                if a and b and a != b and a != "anytime":
+                    edges.setdefault((a, b), [])
+                    lbl = self._label(tr["on"])
+                    if lbl not in edges[(a, b)]:
+                        edges[(a, b)].append(lbl)
+        for (a, b), lbls in edges.items():
+            text = lbls[0] + (" …" if len(lbls) > 1 else "")
+            lines.append(f'  {a} -->|"{text}"| {b}')
+        if "anytime" in secs:  # one dotted arrow per section a global intent can jump to
+            targets = {}
+            for g, gi in self.global_intents.items():
+                tgt = where.get(gi.get("goto"))
+                if tgt and tgt != "anytime":
+                    targets.setdefault(tgt, []).append(self._label(g))
+            for tgt, lbls in targets.items():
+                lines.append(f'  anytime -.->|"{lbls[0]}"| {tgt}')
+        lines += self.CLASSDEFS
         return "\n".join(lines)
+
+    def _section_diagram(self, key: str) -> str:
+        secs = self.flow["sections"]
+        where = self._section_of()
+        members = secs[key]["states"]
+        lines = ["flowchart TD"]
+        # entry points from other sections
+        entries = {}
+        for n, s in self.states.items():
+            if where.get(n) == key:
+                continue
+            for tr in s.get("transitions", []) or []:
+                if tr["to"] in members:
+                    entries.setdefault(tr["to"], set()).add(where.get(n))
+        if key != "anytime":
+            for g, gi in self.global_intents.items():
+                if gi.get("goto") in members:
+                    entries.setdefault(gi["goto"], set()).add("anytime")
+        for i, (target, froms) in enumerate(entries.items()):
+            nums = sorted(secs[f]["title"].split(". ", 1)[0] for f in froms if f and f != "anytime")
+            text = " · ".join(([f"From part {', '.join(nums)}"] if nums else []) +
+                              (["From any step"] if "anytime" in froms else []))
+            lines.append(f'  IN{i}(["{text}"]):::jump --> {target}')
+        for n in members:
+            lines.append(f"  {self._node(n)}")
+        exits = {}
+        for n in members:
+            for tr in self.states[n].get("transitions", []) or []:
+                lbl = self._label(tr["on"], tr.get("when"))
+                if tr["to"] in members:
+                    lines.append(f'  {n} -->|"{lbl}"| {tr["to"]}')
+                else:
+                    dest = where.get(tr["to"])
+                    ex = exits.setdefault(dest, f"OUT_{dest}")
+                    lines.append(f'  {n} -->|"{lbl}"| {ex}')
+        if key == "anytime":
+            lines.append('  ANY{{"Any step where the bot is talking"}}:::any')
+            for g, gi in self.global_intents.items():
+                goto = gi.get("goto")
+                if goto == "$stay":
+                    continue
+                if goto in members:
+                    lines.append(f'  ANY -.->|"{self._label(g)}"| {goto}')
+                else:
+                    dest = where.get(goto)
+                    ex = exits.setdefault(dest, f"OUT_{dest}")
+                    lines.append(f'  ANY -.->|"{self._label(g)}"| {ex}')
+            for ge in self.flow.get("global_events") or []:
+                lines.append(f'  ANY -.->|"{self._label(ge["on"])}"| {ge["to"]}')
+        for dest, ex in exits.items():
+            num, _, name = secs[dest]["title"].partition(". ")
+            lines.append(f'  {ex}(["Go to part {num}: {name}"]):::jump')
+        lines += self.CLASSDEFS
+        return "\n".join(lines)
+
+    def diagrams_markdown(self) -> str:
+        secs = self.flow.get("sections") or {}
+        post = ", ".join((self.flow.get("post_call") or {}).get("actions", []))
+        out = [
+            "**How to read these:** blue = the bot talks · amber = the system does something (Beat Plan / Zeus) · "
+            "green = the call ends · grey dashed = continues in another part · red = can happen any time. "
+            f"After every call the bot runs: {post}.",
+            "",
+            "### Overview",
+            "",
+            "```mermaid", self._overview(), "```",
+        ]
+        for key, sec in secs.items():
+            out += ["", f"### {sec['title']}", ""]
+            if sec.get("about"):
+                out += [sec["about"], ""]
+            out += ["```mermaid", self._section_diagram(key), "```"]
+        stay = [(g, gi) for g, gi in self.global_intents.items() if gi.get("goto") == "$stay"]
+        if stay:
+            out += ["", "Handled in place at any step (the bot answers, then repeats its question):", ""]
+            for g, gi in stay:
+                extra = ""
+                if gi.get("escalate_to"):
+                    extra = f"; after {gi.get('escalate_after')} in a row → {self.states[gi['escalate_to']].get('title', gi['escalate_to'])}"
+                out.append(f"- **{self._label(g)}** (`{g}`){extra}")
+        return "\n".join(out)
+
+    # ---------------------------------------------------------------- shareable HTML
+    TEMPLATE = Path(__file__).resolve().parent / "flow_template.html"
+
+    def _allowed(self, n) -> list:
+        s = self.states[n]
+        if s.get("type") != "conversation":
+            return []
+        disabled = set(s.get("disable_global") or [])
+        return [g for g in self.global_intents if g not in disabled]
+
+    def html_data(self) -> dict:
+        secs = self.flow.get("sections") or {}
+        where = self._section_of()
+        langs = {"hi": "Hindi", "en": "English"}
+        intents = {**self.global_intents, **self.local_intents}
+        states = {}
+        for n, s in self.states.items():
+            nxt = []
+            for tr in s.get("transitions", []) or []:
+                nxt.append({"label": self._label(tr["on"], tr.get("when")), "to": tr["to"], "section": where.get(tr["to"]),
+                            "to_title": self.states[tr["to"]].get("title", tr["to"])})
+            anytime = []
+            for g in self._allowed(n):
+                gi = intents[g] or {}
+                ex = (gi.get("examples") or {})
+                sample = ", ".join(f"“{e}”" for e in (ex.get("hi", [])[:2] + ex.get("en", [])[:1]) if not e.startswith("("))
+                anytime.append({"label": gi.get("label", g), "examples": sample})
+            acts = []
+            for a in s.get("actions", []) or []:
+                ad = self.actions.get(a) or {}
+                acts.append({"name": a, "status": ad.get("status", ""), "does": ad.get("does", ""), "fallback": ad.get("fallback")})
+            lines = {lang: {k: v for k, v in ((p or {}).get(n) or {}).items()} for lang, p in self.prompts.items()}
+            outcome = s.get("outcome") or (" / ".join(s.get("outcome_map", {}).values()) if s.get("outcome_map") else None)
+            states[n] = {"title": s.get("title", n), "type": s.get("type"), "section": where.get(n), "lines": lines,
+                         "next": nxt, "anytime": anytime, "actions": acts, "outcome": outcome}
+        outcomes = []
+        for n, s in self.states.items():
+            vals = [s["outcome"]] if s.get("outcome") else list((s.get("outcome_map") or {}).values())
+            for o in vals:
+                outcomes.append({"outcome": o, "state": n, "title": s.get("title", n), "section": where.get(n),
+                                 "section_title": secs.get(where.get(n), {}).get("title", "")})
+        stay = []
+        for g, gi in self.global_intents.items():
+            if gi.get("goto") == "$stay":
+                note = "The bot gives a short answer and repeats its question."
+                if gi.get("escalate_to"):
+                    note = (f"The bot asks again; after {gi.get('escalate_after')} in a row it goes to "
+                            f"“{self.states[gi['escalate_to']].get('title', gi['escalate_to'])}”.")
+                stay.append({"label": gi.get("label", g), "note": note})
+        samples = self.flow.get("sample_values") or {}
+
+        def fill(text, lang):
+            vals = samples.get(lang) or {}
+            return re.sub(r"\{(\w+)\}", lambda m: f"[[{vals[m.group(1)]}]]" if m.group(1) in vals else m.group(0), text)
+
+        for n, st in states.items():
+            st["say"] = {lang: {k: fill(v, lang) for k, v in keys.items()} for lang, keys in st["lines"].items()}
+        glob = {lang: {k: fill(v, lang) for k, v in ((p or {}).get("_global") or {}).items()} for lang, p in self.prompts.items()}
+
+        # the usual call: follow yes / ok answers from the start until the call ends
+        path, cur, seen = [], self.flow.get("start"), set()
+        prefer = ["context_ready", "affirm", "action_ok", "band_available"]
+        while cur and cur not in seen:
+            seen.add(cur)
+            path.append({"id": cur, "title": self.states[cur].get("title", cur), "type": self.states[cur].get("type"),
+                         "section": where.get(cur)})
+            trs = self.states[cur].get("transitions", []) or []
+            nxt = next((t["to"] for p_ in prefer for t in trs if t["on"] == p_), None)
+            cur = nxt
+
+        section_ends = {}
+        for k, v in secs.items():
+            section_ends[k] = [{"id": n, "title": self.states[n].get("title", n)} for n in v["states"]
+                               if self.states[n].get("type") == "terminal"]
+        title = (self.flow.get("title") or self.dir.name.replace("-", " ").capitalize() + " call flow")
+        return {
+            "flow": self.dir.name, "title": title, "version": str(self.flow.get("version")),
+            "ticket": self.flow.get("ticket", ""),
+            "subtitle": self.flow.get("summary", ""),
+            "languages": {k: langs.get(k, k) for k in self.prompts},
+            "counts": {"states": len(self.states), "outcomes": len(self.outcomes)},
+            "overview": self._overview(),
+            "sections": [{"key": k, "title": v["title"], "about": v.get("about", ""), "ends": section_ends[k],
+                          "steps": len(v["states"]), "mermaid": self._section_diagram(k)} for k, v in secs.items()],
+            "path": path, "global_lines": glob,
+            "states": states, "outcomes": outcomes, "stay": stay,
+        }
+
+    def html(self) -> str:
+        data = json.dumps(self.html_data(), ensure_ascii=False, indent=None).replace("</", "<\\/")
+        t = self.TEMPLATE.read_text(encoding="utf-8")
+        title = self.flow.get("title") or "Call flow"
+        return t.replace("__TITLE__", title).replace("__FLOW__", self.dir.name).replace("__DATA__", data)
+
+    def write_html(self) -> bool:
+        out = self.dir / "flow.html"
+        new = self.html()
+        if out.exists() and out.read_text(encoding="utf-8") == new:
+            return False
+        out.write_text(new, encoding="utf-8")
+        return True
+
+    def html_is_current(self) -> bool:
+        out = self.dir / "flow.html"
+        return out.exists() and out.read_text(encoding="utf-8") == self.html()
 
     def write_diagram(self) -> bool:
         readme = self.dir / "README.md"
-        block = f"{DIAGRAM_START}\n```mermaid\n{self.mermaid()}\n```\n{DIAGRAM_END}"
+        block = f"{DIAGRAM_START}\n{self.diagrams_markdown()}\n{DIAGRAM_END}"
         text = readme.read_text(encoding="utf-8") if readme.exists() else ""
         if DIAGRAM_START in text and DIAGRAM_END in text:
             new = re.sub(re.escape(DIAGRAM_START) + r".*?" + re.escape(DIAGRAM_END),
                          lambda _: block, text, flags=re.S)
         else:
-            new = text.rstrip() + "\n\n## Flow diagram\n\n" + block + "\n"
+            new = text.rstrip() + "\n\n## Flow diagrams\n\n" + block + "\n"
         if new != text:
             readme.write_text(new, encoding="utf-8")
             return True
@@ -392,7 +642,7 @@ class Flow:
         readme = self.dir / "README.md"
         if not readme.exists():
             return False
-        return f"```mermaid\n{self.mermaid()}\n```" in readme.read_text(encoding="utf-8")
+        return self.diagrams_markdown() in readme.read_text(encoding="utf-8")
 
 
 def main():
@@ -414,8 +664,13 @@ def main():
         if args.write and not fl.errors:
             if fl.write_diagram():
                 print(f"  updated diagram in {folder.name}/README.md")
-        elif not fl.diagram_is_current():
-            fl.warn("README.md diagram is out of date; run with --write")
+            if fl.TEMPLATE.exists() and fl.write_html():
+                print(f"  updated {folder.name}/flow.html")
+        else:
+            if not fl.diagram_is_current():
+                fl.warn("README.md diagram is out of date; run with --write")
+            if fl.TEMPLATE.exists() and not fl.html_is_current():
+                fl.warn("flow.html is out of date; run with --write")
 
         rel = folder.relative_to(REPO) if folder.is_relative_to(REPO) else folder
         version = fl.flow.get("version")

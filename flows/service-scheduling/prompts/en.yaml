@@ -1,7 +1,7 @@
 # English lines per state. Same keys and placeholders as prompts/hi.yaml.
 
 _global:
-  deflection: "Our team will share those details with you separately. Shall we finalise the service day for now?"
+  deflection: "Our team will share those details with you separately."
   reprompt: "Hello, can you hear me?"
   didnt_catch: "Sorry, the line broke a little. Could you say that again?"
 

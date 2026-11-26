@@ -1,8 +1,12 @@
 # Service Scheduling call flow (Beat Plan driven)
 
-Ticket: **TECH-56** (Beat-Planing AI calling Epic) · Flow version: see `flow.yaml`
+Ticket: **SSE-15527** (Beat-Planing AI calling Epic; first tracked as TECH-56) · Flow version: see `flow.yaml`
 
 Beat Plan already soft-allocates every site due in the next 15 days to a Service Hero and a tentative date, with backup dates. This bot calls the customer, turns that soft allocation into a **confirmed slot**, a **site on hold**, or an **escalation**, and writes a summary back to Beat Plan on every call.
+
+## Running it
+
+The Python bot runs this flow by default (`CALL_FLOW=service-scheduling` in `bot/.env`): `bot/agent/flow.py` executes the YAML, `bot/agent/beatplan.py` handles the actions (mocked from `app/data/bookings.json` until the Beat Plan / Zeus contracts land). `bot/tests/test_flow.py` runs every scenario below through the real engine. Text-mode try-out: `cd bot && uv run python simulate.py --booking BK-1001`.
 
 ## How this folder works
 
@@ -79,97 +83,217 @@ The checker fails if a transition points at a missing state, an intent/event/fla
 - Retry policy for no-answer, and allowed calling hours per city.
 - Who owns the recall API, and when will it exist?
 
-## Flow diagram
+## Flow diagrams
 
-Generated from `flow.yaml` by `tools/flowcheck.py --write`. Don't edit by hand. Blue = system step, green = end of call, red = applies everywhere.
+**Shareable version:** [`flow.html`](flow.html) is the same flow as one self-contained page (open it in any browser, or send the file). Click a step to see what the bot says in Hindi and English, what the customer can answer, and which Beat Plan calls it makes. It is regenerated with these diagrams.
+
+Generated from `flow.yaml` by `tools/flowcheck.py --write`; don't edit them by hand. The call is split into 6 sections (`sections` in `flow.yaml`). Step names come from each state's `title`, arrow text from `label` in `intents.yaml` and `labels` in `flow.yaml`, so renaming something there renames it here.
 
 <!-- flow-diagram:start -->
+**How to read these:** blue = the bot talks · amber = the system does something (Beat Plan / Zeus) · green = the call ends · grey dashed = continues in another part · red = can happen any time. After every call the bot runs: summarise_call, post_beatplan_comment.
+
+### Overview
+
 ```mermaid
 flowchart TD
-  PRE_CALL[["PRE_CALL"]]
-  GREET["GREET"]
-  WRONG_PERSON["WRONG_PERSON"]
-  OFFER_PRIMARY["OFFER_PRIMARY"]
-  TIME_BAND["TIME_BAND"]
-  CHECK_BAND[["CHECK_BAND"]]
-  ALTERNATE_DAYS["ALTERNATE_DAYS"]
-  READINESS_CHECK["READINESS_CHECK"]
-  ASK_READY_DATE["ASK_READY_DATE"]
-  FIND_SLOT_AFTER_READY[["FIND_SLOT_AFTER_READY"]]
-  RECAP["RECAP"]
-  BOOK[["BOOK"]]
-  SITE_ON_HOLD["SITE_ON_HOLD"]
-  HOLD_CONSENT["HOLD_CONSENT"]
-  APPLY_HOLD[["APPLY_HOLD"]]
-  RECALL["RECALL"]
-  APPLY_RECALL[["APPLY_RECALL"]]
-  ESCALATE_RM[["ESCALATE_RM"]]
-  CONFIRMED_CLOSE(["CONFIRMED_CLOSE<br/><i>slot_confirmed/slot_confirmed_alt_band/slot_confirmed_alt_day</i>"])
-  HOLD_CLOSE(["HOLD_CLOSE<br/><i>site_on_hold</i>"])
-  HOLD_DECLINED_CLOSE(["HOLD_DECLINED_CLOSE<br/><i>hold_declined</i>"])
-  NO_SLOT_CLOSE(["NO_SLOT_CLOSE<br/><i>no_slot_available</i>"])
-  RM_CLOSE(["RM_CLOSE<br/><i>rm_callback</i>"])
-  RECALL_CLOSE(["RECALL_CLOSE<br/><i>recall_requested</i>"])
-  DNC_CLOSE(["DNC_CLOSE<br/><i>do_not_call</i>"])
-  WRONG_NUMBER_CLOSE(["WRONG_NUMBER_CLOSE<br/><i>wrong_number</i>"])
-  NO_ANSWER_CLOSE(["NO_ANSWER_CLOSE<br/><i>no_answer</i>"])
-  MANUAL_CONFIRM_CLOSE(["MANUAL_CONFIRM_CLOSE<br/><i>needs_manual_confirmation</i>"])
-  NOT_DIALLED(["NOT_DIALLED<br/><i>not_dialled</i>"])
-  PRE_CALL -->|"context_ready"| GREET
-  PRE_CALL -->|"not_eligible"| NOT_DIALLED
-  GREET -->|"affirm"| OFFER_PRIMARY
-  WRONG_PERSON -->|"household_member"| OFFER_PRIMARY
-  WRONG_PERSON -->|"customer_unavailable"| RECALL
-  WRONG_PERSON -->|"deny"| WRONG_NUMBER_CLOSE
-  OFFER_PRIMARY -->|"affirm"| READINESS_CHECK
-  OFFER_PRIMARY -->|"ask_time"| TIME_BAND
-  OFFER_PRIMARY -->|"deny"| ALTERNATE_DAYS
-  TIME_BAND -->|"affirm"| READINESS_CHECK
-  TIME_BAND -->|"wants_exact_time [!exact_time_limit_reached]"| TIME_BAND
-  TIME_BAND -->|"wants_exact_time [exact_time_limit_reached]"| ESCALATE_RM
-  TIME_BAND -->|"wants_other_band"| CHECK_BAND
-  TIME_BAND -->|"deny"| ALTERNATE_DAYS
-  CHECK_BAND -->|"band_available"| READINESS_CHECK
-  CHECK_BAND -->|"band_full"| ALTERNATE_DAYS
-  ALTERNATE_DAYS -->|"no_backup_slots"| NO_SLOT_CLOSE
-  ALTERNATE_DAYS -->|"affirm"| READINESS_CHECK
-  ALTERNATE_DAYS -->|"wants_other_band"| CHECK_BAND
-  ALTERNATE_DAYS -->|"deny [options_remaining]"| ALTERNATE_DAYS
-  ALTERNATE_DAYS -->|"deny [!options_remaining]"| NO_SLOT_CLOSE
-  READINESS_CHECK -->|"affirm"| RECAP
-  READINESS_CHECK -->|"deny"| ASK_READY_DATE
-  ASK_READY_DATE -->|"date_given [reschedule_after_ready_date]"| FIND_SLOT_AFTER_READY
-  ASK_READY_DATE -->|"date_given [!reschedule_after_ready_date]"| HOLD_CONSENT
-  FIND_SLOT_AFTER_READY -->|"slot_found"| RECAP
-  FIND_SLOT_AFTER_READY -->|"none_found"| HOLD_CONSENT
-  RECAP -->|"affirm"| BOOK
-  RECAP -->|"change_date"| ALTERNATE_DAYS
-  RECAP -->|"change_time"| TIME_BAND
-  BOOK -->|"action_ok"| CONFIRMED_CLOSE
-  BOOK -->|"action_failed"| MANUAL_CONFIRM_CLOSE
-  SITE_ON_HOLD -->|"date_given"| HOLD_CONSENT
-  HOLD_CONSENT -->|"affirm"| APPLY_HOLD
-  HOLD_CONSENT -->|"deny"| HOLD_DECLINED_CLOSE
-  APPLY_HOLD -->|"action_ok"| HOLD_CLOSE
-  APPLY_HOLD -->|"action_failed"| MANUAL_CONFIRM_CLOSE
-  RECALL -->|"time_range_given"| APPLY_RECALL
-  APPLY_RECALL -->|"action_ok"| RECALL_CLOSE
-  APPLY_RECALL -->|"action_failed"| RECALL_CLOSE
-  ESCALATE_RM -->|"action_ok"| RM_CLOSE
-  ESCALATE_RM -->|"action_failed"| RM_CLOSE
-  ANY{{"any conversation state"}}
-  ANY -.->|"not_serviceable"| SITE_ON_HOLD
-  ANY -.->|"call_later"| RECALL
-  ANY -.->|"wants_human"| ESCALATE_RM
-  ANY -.->|"do_not_call"| DNC_CLOSE
-  ANY -.->|"wrong_person"| WRONG_PERSON
-  ANY -.->|"silence_timeout"| NO_ANSWER_CLOSE
-  POST_CALL[/"POST_CALL (every call): summarise_call, post_beatplan_comment"/]
-  classDef system fill:#eef,stroke:#88a
-  classDef terminal fill:#efe,stroke:#8a8
-  classDef global fill:#fee,stroke:#a88
-  class PRE_CALL,CHECK_BAND,FIND_SLOT_AFTER_READY,BOOK,APPLY_HOLD,APPLY_RECALL,ESCALATE_RM system
-  class CONFIRMED_CLOSE,HOLD_CLOSE,HOLD_DECLINED_CLOSE,NO_SLOT_CLOSE,RM_CLOSE,RECALL_CLOSE,DNC_CLOSE,WRONG_NUMBER_CLOSE,NO_ANSWER_CLOSE,MANUAL_CONFIRM_CLOSE,NOT_DIALLED terminal
-  class ANY,POST_CALL global
+  start["1. Start the call"]:::talk
+  slot["2. Fix the date and time"]:::talk
+  confirm["3. Check readiness and book"]:::talk
+  hold["4. Pause the site"]:::talk
+  later["5. Call back or hand over"]:::talk
+  anytime["6. Can happen any time"]:::any
+  start -->|"Yes"| slot
+  slot -->|"Yes …"| confirm
+  slot -->|"Wants exact time"| later
+  confirm -->|"No"| hold
+  hold -->|"Found one …"| confirm
+  confirm -->|"Change day …"| slot
+  anytime -.->|"Not available / site not ready"| hold
+  anytime -.->|"Busy, call later"| later
+  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
+  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
+  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
+  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
+  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
 ```
+
+### 1. Start the call
+
+Check the customer can be called, say hello and make sure we're talking to the right person.
+
+```mermaid
+flowchart TD
+  PRE_CALL[["Check before calling"]]:::system
+  GREET("Say hello, check it's the customer"):::talk
+  NOT_DIALLED(["Not called"]):::terminal
+  PRE_CALL -->|"OK to call"| GREET
+  PRE_CALL -->|"Can't call now"| NOT_DIALLED
+  GREET -->|"Yes"| OUT_slot
+  OUT_slot(["Go to part 2: Fix the date and time"]):::jump
+  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
+  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
+  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
+  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
+  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
+```
+
+### 2. Fix the date and time
+
+Offer the planned date. If it doesn't suit, try another time that day or another day.
+
+```mermaid
+flowchart TD
+  IN0(["From part 1 · From any step"]):::jump --> OFFER_PRIMARY
+  IN1(["From part 3"]):::jump --> ALTERNATE_DAYS
+  IN2(["From part 3"]):::jump --> TIME_BAND
+  OFFER_PRIMARY("Offer the planned date"):::talk
+  TIME_BAND("Tell the time window"):::talk
+  CHECK_BAND[["Check another time that day"]]:::system
+  ALTERNATE_DAYS("Offer other days"):::talk
+  NO_SLOT_CLOSE(["No free slot"]):::terminal
+  OFFER_PRIMARY -->|"Yes"| OUT_confirm
+  OFFER_PRIMARY -->|"Asks the time"| TIME_BAND
+  OFFER_PRIMARY -->|"No"| ALTERNATE_DAYS
+  TIME_BAND -->|"Yes"| OUT_confirm
+  TIME_BAND -->|"Wants exact time (first time)"| TIME_BAND
+  TIME_BAND -->|"Wants exact time (asks again)"| OUT_later
+  TIME_BAND -->|"Wants another time"| CHECK_BAND
+  TIME_BAND -->|"No"| ALTERNATE_DAYS
+  CHECK_BAND -->|"Free"| OUT_confirm
+  CHECK_BAND -->|"Full"| ALTERNATE_DAYS
+  ALTERNATE_DAYS -->|"No other days"| NO_SLOT_CLOSE
+  ALTERNATE_DAYS -->|"Yes"| OUT_confirm
+  ALTERNATE_DAYS -->|"Wants another time"| CHECK_BAND
+  ALTERNATE_DAYS -->|"No (more days to offer)"| ALTERNATE_DAYS
+  ALTERNATE_DAYS -->|"No (no more days)"| NO_SLOT_CLOSE
+  OUT_confirm(["Go to part 3: Check readiness and book"]):::jump
+  OUT_later(["Go to part 5: Call back or hand over"]):::jump
+  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
+  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
+  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
+  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
+  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
+```
+
+### 3. Check readiness and book
+
+Make sure the ladder, water and light are ready, repeat the details and book the visit.
+
+```mermaid
+flowchart TD
+  IN0(["From part 2"]):::jump --> READINESS_CHECK
+  IN1(["From part 4"]):::jump --> RECAP
+  IN2(["From part 4"]):::jump --> MANUAL_CONFIRM_CLOSE
+  READINESS_CHECK("Ask: ladder, water, light ready?"):::talk
+  RECAP("Repeat the details, get a yes"):::talk
+  BOOK[["Book the visit"]]:::system
+  CONFIRMED_CLOSE(["Visit booked"]):::terminal
+  MANUAL_CONFIRM_CLOSE(["Team will confirm"]):::terminal
+  READINESS_CHECK -->|"Yes"| RECAP
+  READINESS_CHECK -->|"No"| OUT_hold
+  RECAP -->|"Yes"| BOOK
+  RECAP -->|"Change day"| OUT_slot
+  RECAP -->|"Change time"| OUT_slot
+  BOOK -->|"Done"| CONFIRMED_CLOSE
+  BOOK -->|"System error"| MANUAL_CONFIRM_CLOSE
+  OUT_hold(["Go to part 4: Pause the site"]):::jump
+  OUT_slot(["Go to part 2: Fix the date and time"]):::jump
+  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
+  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
+  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
+  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
+  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
+```
+
+### 4. Pause the site
+
+If the site isn't ready, get a date and the customer's OK to stop calls until then.
+
+```mermaid
+flowchart TD
+  IN0(["From part 3"]):::jump --> ASK_READY_DATE
+  IN1(["From any step"]):::jump --> SITE_ON_HOLD
+  ASK_READY_DATE("Ask when it will be ready"):::talk
+  FIND_SLOT_AFTER_READY[["Find a free day after that"]]:::system
+  SITE_ON_HOLD("Ask when we can come"):::talk
+  HOLD_CONSENT("Ask OK to pause calls"):::talk
+  APPLY_HOLD[["Pause the site"]]:::system
+  HOLD_CLOSE(["Site paused"]):::terminal
+  HOLD_DECLINED_CLOSE(["Customer said no to pausing"]):::terminal
+  ASK_READY_DATE -->|"Gives a date (if rebooking is on)"| FIND_SLOT_AFTER_READY
+  ASK_READY_DATE -->|"Gives a date (default)"| HOLD_CONSENT
+  FIND_SLOT_AFTER_READY -->|"Found one"| OUT_confirm
+  FIND_SLOT_AFTER_READY -->|"None free"| HOLD_CONSENT
+  SITE_ON_HOLD -->|"Gives a date"| HOLD_CONSENT
+  HOLD_CONSENT -->|"Yes"| APPLY_HOLD
+  HOLD_CONSENT -->|"No"| HOLD_DECLINED_CLOSE
+  APPLY_HOLD -->|"Done"| HOLD_CLOSE
+  APPLY_HOLD -->|"System error"| OUT_confirm
+  OUT_confirm(["Go to part 3: Check readiness and book"]):::jump
+  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
+  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
+  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
+  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
+  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
+```
+
+### 5. Call back or hand over
+
+The customer is busy or wants a person. Note when to call back, or ask a senior to call.
+
+```mermaid
+flowchart TD
+  IN0(["From any step"]):::jump --> RECALL
+  IN1(["From part 2 · From any step"]):::jump --> ESCALATE_RM
+  RECALL("Ask when to call back"):::talk
+  APPLY_RECALL[["Note the call-back time"]]:::system
+  RECALL_CLOSE(["We'll call back"]):::terminal
+  ESCALATE_RM[["Ask a senior to call"]]:::system
+  RM_CLOSE(["Senior will call"]):::terminal
+  RECALL -->|"Gives a time"| APPLY_RECALL
+  APPLY_RECALL -->|"Done"| RECALL_CLOSE
+  APPLY_RECALL -->|"System error"| RECALL_CLOSE
+  ESCALATE_RM -->|"Done"| RM_CLOSE
+  ESCALATE_RM -->|"System error"| RM_CLOSE
+  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
+  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
+  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
+  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
+  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
+```
+
+### 6. Can happen any time
+
+Someone else answers, the customer asks us not to call, or nobody replies.
+
+```mermaid
+flowchart TD
+  WRONG_PERSON("Someone else answered"):::talk
+  WRONG_NUMBER_CLOSE(["Wrong number"]):::terminal
+  DNC_CLOSE(["Won't call again"]):::terminal
+  NO_ANSWER_CLOSE(["No answer"]):::terminal
+  WRONG_PERSON -->|"Family member, can decide"| OUT_slot
+  WRONG_PERSON -->|"Customer not home"| OUT_later
+  WRONG_PERSON -->|"No"| WRONG_NUMBER_CLOSE
+  ANY{{"Any step where the bot is talking"}}:::any
+  ANY -.->|"Not available / site not ready"| OUT_hold
+  ANY -.->|"Busy, call later"| OUT_later
+  ANY -.->|"Wants a person"| OUT_later
+  ANY -.->|"Don't call me"| DNC_CLOSE
+  ANY -.->|"Someone else answered"| WRONG_PERSON
+  ANY -.->|"No reply"| NO_ANSWER_CLOSE
+  OUT_slot(["Go to part 2: Fix the date and time"]):::jump
+  OUT_later(["Go to part 5: Call back or hand over"]):::jump
+  OUT_hold(["Go to part 4: Pause the site"]):::jump
+  classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
+  classDef system fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
+  classDef terminal fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
+  classDef jump fill:#F3F3F3,stroke:#999,color:#333,stroke-dasharray:4 3
+  classDef any fill:#FDECEA,stroke:#C0504D,color:#5A1A18
+```
+
+Handled in place at any step (the bot answers, then repeats its question):
+
+- **Not clear** (`unclear`); after 2 in a row → Ask a senior to call
+- **Asks price or something else** (`price_or_offtopic`)
 <!-- flow-diagram:end -->

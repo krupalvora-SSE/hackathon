@@ -118,3 +118,23 @@ def on_silence(state: CallState, max_silences: int = 3) -> Action:
     lead = SILENCE_PROMPTS[(state.silences - 1) % len(SILENCE_PROMPTS)]
     follow = state.next_question() if not state.read_back else "Kya maine jo details boli, woh sahi hain?"
     return Action(result={}, speak=[f"{lead} {follow}"], run_llm=False)
+
+
+# ------------------------------------------------------------------ YAML flow mode
+def flow_tools(spec) -> list[dict]:
+    """The one tool the LLM uses when a YAML flow runs the call."""
+    return [{
+        "name": "customer_said",
+        "description": "Report what the customer just said. Call on every customer turn. The system speaks next.",
+        "properties": {
+            "intent": {"type": "string", "enum": spec.all_intents},
+            "date": {"type": "string", "description": "Customer's words for a date, if any."},
+            "option": {"type": "integer", "description": "1 or 2: which offered day they picked."},
+            "band": {"type": "string", "description": "Preferred part of day in their words."},
+            "exact_time": {"type": "string", "description": "Exact time they asked for."},
+            "time_range": {"type": "string", "description": "When to call back, in their words."},
+            "reason": {"type": "string", "description": "Why not serviceable / why they want a person."},
+            "language": {"type": "string", "enum": spec.policies["languages"]},
+        },
+        "required": ["intent"],
+    }]

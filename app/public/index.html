@@ -33,6 +33,8 @@
     .confirmed { background: #E8F6EC; color: var(--leaf-600); }
     .rejected, .do_not_call, .wrong_number, .failed, .hung_up { background: #FBEAE4; color: var(--rust-600); }
     .handed_to_human { background: var(--blue-100); color: var(--blue-800); }
+    .slot_confirmed, .slot_confirmed_alt_band, .slot_confirmed_alt_day { background: #E8F6EC; color: var(--leaf-600); }
+    .site_on_hold, .rm_callback, .recall_requested, .needs_manual_confirmation { background: var(--blue-100); color: var(--blue-800); }
     button { display: inline-flex; align-items: center; gap: 6px; font: 500 var(--text-sm) var(--font-sans); padding: 6px 12px; border-radius: var(--radius-md); border: 0; background: var(--bg-brand); color: var(--fg-on-brand); cursor: pointer; }
     button.ghost { background: var(--bg-surface); color: var(--fg-1); border: 1px solid var(--border-2); }
     button.danger { background: var(--rust-600); color: #fff; }
@@ -121,15 +123,19 @@
     const $ = (id) => document.getElementById(id);
     const fmtDate = (d) => new Date(d + 'T00:00:00+05:30').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    const WINDOWS = { '09-12': '9am–12pm', '12-15': '12–3pm', '15-18': '3–6pm' };
+    const WINDOWS = { '09-12': '9am–12pm', '12-15': '12–3pm', '15-18': '3–6pm', morning: '8am–12pm', afternoon: '12–4pm', evening: '4–8pm' };
     const LABEL = {
       pending: 'Pending', confirmed: 'Confirmed', rejected: 'Rejected', callback: 'Callback', do_not_call: 'Do not call',
       wrong_number: 'Wrong number', no_answer: 'No answer', hung_up: 'Hung up', handed_to_human: 'Handed to human',
+      slot_confirmed: 'Confirmed', slot_confirmed_alt_band: 'Confirmed (other time)', slot_confirmed_alt_day: 'Confirmed (other day)',
+      site_on_hold: 'Site on hold', hold_declined: 'Hold declined', no_slot_available: 'No slot', rm_callback: 'RM callback',
+      recall_requested: 'Call later', needs_manual_confirmation: 'Needs manual confirm', not_dialled: 'Not dialled',
       created: 'Starting', dialing: 'Dialing', connecting: 'Connecting', in_progress: 'On call', ended: 'Ended', failed: 'Failed',
     };
     const SLOTS = [
       ['visit_date', 'Visit date'], ['visit_time_slot', 'Time slot'],
       ['ladder_available', 'Ladder available'], ['water_source_available', 'Water source available'],
+      ['light_available', 'Light connection'],
     ];
     let botUrl = 'http://localhost:7860';
     let active = null; // { callId, bookingId, mode, es, pc, mic }
@@ -236,6 +242,8 @@
           renderSlots(active.slots);
           break;
         case 'readback': say('sys', 'Agent is reading the details back'); break;
+        case 'flow_state': if (!/^(PRE_CALL|GREET)$/.test(e.state)) say('sys', `Step: ${e.state}`); break;
+        case 'beatplan': say('sys', `Beat Plan ${e.action}${e.status === 'stub' ? ' (stub)' : ''}`); break;
         case 'confirm': say('sys', e.confirmed ? 'Customer confirmed the details' : 'Customer wants to change something'); break;
         case 'latency': {
           active.latencies.push(e.ms);

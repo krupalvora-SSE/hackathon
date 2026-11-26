@@ -18,17 +18,20 @@ export function createStore(rows = seed) {
   function applyCallResult(id, record) {
     const b = bookings.get(id);
     if (!b) return { error: 'not_found' };
-    const ok = record.outcome === 'confirmed';
+    // checklist bot says 'confirmed'; the YAML flow says slot_confirmed / slot_confirmed_alt_band / _alt_day
+    const ok = record.outcome === 'confirmed' || String(record.outcome).startsWith('slot_confirmed');
     const s = record.slots ?? {};
     Object.assign(b, {
-      status: record.outcome,
+      status: ok ? 'confirmed' : record.outcome,
+      outcome: record.outcome,
       rejectReason: ok ? null : record.outcome,
       callId: record.call_id ?? null,
       updatedAt: new Date().toISOString(),
       ...(ok && {
         visitDate: s.visit_date, visitSlot: s.visit_time_slot,
-        ladder: s.ladder_available, water: s.water_source_available,
+        ladder: s.ladder_available, water: s.water_source_available, light: s.light_available ?? null,
       }),
+      hold: record.hold ?? null,
     });
     return { booking: b };
   }

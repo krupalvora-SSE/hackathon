@@ -19,8 +19,64 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.1.0
+version: 0.2.0
+title: Service scheduling call flow
+ticket: SSE-15527
+summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
 start: PRE_CALL
+
+# Sections group states by job, for the README diagrams only (the engine ignores them).
+# Every state belongs to exactly one section.
+sections:
+  start:
+    title: 1. Start the call
+    about: Check the customer can be called, say hello and make sure we're talking to the right person.
+    states: [PRE_CALL, GREET, NOT_DIALLED]
+  slot:
+    title: 2. Fix the date and time
+    about: Offer the planned date. If it doesn't suit, try another time that day or another day.
+    states: [OFFER_PRIMARY, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, NO_SLOT_CLOSE]
+  confirm:
+    title: 3. Check readiness and book
+    about: Make sure the ladder, water and light are ready, repeat the details and book the visit.
+    states: [READINESS_CHECK, RECAP, BOOK, CONFIRMED_CLOSE, MANUAL_CONFIRM_CLOSE]
+  hold:
+    title: 4. Pause the site
+    about: If the site isn't ready, get a date and the customer's OK to stop calls until then.
+    states: [ASK_READY_DATE, FIND_SLOT_AFTER_READY, SITE_ON_HOLD, HOLD_CONSENT, APPLY_HOLD, HOLD_CLOSE, HOLD_DECLINED_CLOSE]
+  later:
+    title: 5. Call back or hand over
+    about: The customer is busy or wants a person. Note when to call back, or ask a senior to call.
+    states: [RECALL, APPLY_RECALL, RECALL_CLOSE, ESCALATE_RM, RM_CLOSE]
+  anytime:
+    title: 6. Can happen any time
+    about: Someone else answers, the customer asks us not to call, or nobody replies.
+    states: [WRONG_PERSON, WRONG_NUMBER_CLOSE, DNC_CLOSE, NO_ANSWER_CLOSE]
+
+# Plain-English labels for diagram arrows (events and guard flags).
+labels:
+  context_ready: OK to call
+  not_eligible: Can't call now
+  silence_timeout: No reply
+  action_ok: Done
+  action_failed: System error
+  band_available: Free
+  band_full: Full
+  no_backup_slots: No other days
+  slot_found: Found one
+  none_found: None free
+  exact_time_limit_reached: {when_true: asks again, when_false: first time}
+  options_remaining: {when_true: more days to offer, when_false: no more days}
+  reschedule_after_ready_date: {when_true: if rebooking is on, when_false: default}
+
+# Example values for {placeholders}, so the shareable page shows a real-sounding line.
+sample_values:
+  hi: {name: राहुल, bot_name: Priya, weekday: शनिवार, date_spoken: 28 नवंबर, band_spoken: सुबह आठ से बारह बजे,
+       options_spoken: "सोमवार, 30 नवंबर, सुबह या बुधवार, 2 दिसंबर, शाम", missing_item: A-type ladder,
+       hold_until_spoken: 5 दिसंबर, recall_window_spoken: कल शाम 5 से 7 बजे}
+  en: {name: Rahul, bot_name: Priya, weekday: Saturday, date_spoken: 28 November, band_spoken: 8 am and 12 pm,
+       options_spoken: "Monday, 30 November, morning or Wednesday, 2 December, evening", missing_item: A-type ladder,
+       hold_until_spoken: 5 December, recall_window_spoken: tomorrow 5 to 7 pm}
 
 # Events raised by code (timers, action results), not by the customer.
 events:
@@ -37,7 +93,7 @@ events:
 
 # Flags code computes before choosing a guarded transition.
 flags:
-  exact_time_limit_reached: "exact_time_asks >= policies.exact_time_insist_limit"
+  exact_time_limit_reached: "exact_time_asks (including this one) > policies.exact_time_insist_limit"
   options_remaining: "unoffered backup slots exist"
   reschedule_after_ready_date: "policies.on_missing_prereq == 'reschedule_after_ready_date'"
 
@@ -68,6 +124,7 @@ post_call:
 states:
 
   PRE_CALL:
+    title: Check before calling
     type: system
     actions: [fetch_beatplan_context, check_call_eligibility]
     transitions:
@@ -77,6 +134,7 @@ states:
         to: NOT_DIALLED
 
   GREET:
+    title: Say hello, check it's the customer
     type: conversation
     collects: [identity_confirmed]
     transitions:
@@ -85,6 +143,7 @@ states:
         set: {spoke_to: customer}
 
   WRONG_PERSON:
+    title: Someone else answered
     type: conversation
     transitions:
       - on: household_member
@@ -96,6 +155,7 @@ states:
         to: WRONG_NUMBER_CLOSE
 
   OFFER_PRIMARY:
+    title: Offer the planned date
     type: conversation
     transitions:
       - on: affirm
@@ -107,6 +167,7 @@ states:
         to: ALTERNATE_DAYS
 
   TIME_BAND:
+    title: Tell the time window
     type: conversation
     collects: [preferred_exact_time]
     transitions:
@@ -127,6 +188,7 @@ states:
         to: ALTERNATE_DAYS
 
   CHECK_BAND:
+    title: Check another time that day
     type: system
     actions: [check_band_availability]
     transitions:
@@ -138,6 +200,7 @@ states:
         say: band_full
 
   ALTERNATE_DAYS:
+    title: Offer other days
     type: conversation
     actions: [get_backup_slots]          # sorted closest-first, offered max_options_per_turn at a time
     transitions:
@@ -157,8 +220,11 @@ states:
         to: NO_SLOT_CLOSE
 
   READINESS_CHECK:
+    title: "Ask: ladder, water, light ready?"
     type: conversation
-    # Asks policies.readiness_items one at a time; code tracks which are missing.
+    # Asks every policies.readiness_items entry one at a time (prompt key ask_<id>).
+    # `affirm` fires once all are yes; `deny` fires after the last answer if any was no.
+    checklist: readiness_items
     collects: [readiness]
     transitions:
       - on: affirm
@@ -168,6 +234,7 @@ states:
         set: {hold_reason: prerequisites_missing}
 
   ASK_READY_DATE:
+    title: Ask when it will be ready
     type: conversation
     collects: [hold_until]
     transitions:
@@ -179,6 +246,7 @@ states:
         to: HOLD_CONSENT
 
   FIND_SLOT_AFTER_READY:
+    title: Find a free day after that
     type: system
     actions: [get_backup_slots]          # filtered to dates after hold_until
     transitions:
@@ -189,6 +257,7 @@ states:
         to: HOLD_CONSENT
 
   RECAP:
+    title: Repeat the details, get a yes
     type: conversation
     transitions:
       - on: affirm
@@ -199,6 +268,7 @@ states:
         to: TIME_BAND
 
   BOOK:
+    title: Book the visit
     type: system
     actions: [confirm_slot]
     transitions:
@@ -208,6 +278,7 @@ states:
         to: MANUAL_CONFIRM_CLOSE
 
   SITE_ON_HOLD:
+    title: Ask when we can come
     type: conversation
     # Entered from the global not_serviceable intent (out of town, roof repair...).
     collects: [hold_reason, hold_until]
@@ -217,6 +288,7 @@ states:
         to: HOLD_CONSENT
 
   HOLD_CONSENT:
+    title: Ask OK to pause calls
     type: conversation
     disable_global: [not_serviceable]
     transitions:
@@ -228,6 +300,7 @@ states:
         set: {hold_consent: false}
 
   APPLY_HOLD:
+    title: Pause the site
     type: system
     actions: [site_on_hold]
     transitions:
@@ -237,6 +310,7 @@ states:
         to: MANUAL_CONFIRM_CLOSE
 
   RECALL:
+    title: Ask when to call back
     type: conversation
     collects: [recall_window]
     disable_global: [call_later]
@@ -245,6 +319,7 @@ states:
         to: APPLY_RECALL
 
   APPLY_RECALL:
+    title: Note the call-back time
     type: system
     actions: [schedule_recall]
     transitions:
@@ -254,6 +329,7 @@ states:
         to: RECALL_CLOSE
 
   ESCALATE_RM:
+    title: Ask a senior to call
     type: system
     actions: [create_rm_callback]
     transitions:
@@ -265,6 +341,7 @@ states:
   # ---------- terminal states (each ends the call with one outcome) ----------
 
   CONFIRMED_CLOSE:
+    title: Visit booked
     type: terminal
     outcome_from: slot_source
     outcome_map:
@@ -273,44 +350,54 @@ states:
       alt_day: slot_confirmed_alt_day
 
   HOLD_CLOSE:
+    title: Site paused
     type: terminal
     outcome: site_on_hold
 
   HOLD_DECLINED_CLOSE:
+    title: Customer said no to pausing
     type: terminal
     outcome: hold_declined
 
   NO_SLOT_CLOSE:
+    title: No free slot
     type: terminal
     outcome: no_slot_available
 
   RM_CLOSE:
+    title: Senior will call
     type: terminal
     outcome: rm_callback
 
   RECALL_CLOSE:
+    title: We'll call back
     type: terminal
     outcome: recall_requested
 
   DNC_CLOSE:
+    title: Won't call again
     type: terminal
     actions: [mark_dnc]
     outcome: do_not_call
 
   WRONG_NUMBER_CLOSE:
+    title: Wrong number
     type: terminal
     outcome: wrong_number
 
   NO_ANSWER_CLOSE:
+    title: No answer
     type: terminal
     outcome: no_answer
 
   MANUAL_CONFIRM_CLOSE:
+    title: Team will confirm
     type: terminal
     actions: [create_rm_callback]
     outcome: needs_manual_confirmation
 
   NOT_DIALLED:
+    title: Not called
     type: terminal
     silent: true                         # call never placed; still logged to Beat Plan
     outcome: not_dialled
