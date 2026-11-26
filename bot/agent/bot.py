@@ -155,6 +155,30 @@ def _llm(cfg: dict):
     )
 
 
+def make_sarvam_stt(cfg: dict, sample_rate: int | None = None) -> SarvamRealtimeSTTService:
+    """Sarvam realtime STT for a call config. Also used by eval/stt_bench.py, so the bench tests
+    exactly the connection parameters a real call sends."""
+    stt_vad = {}
+    if cfg["endpointing"] == "sarvam":  # server-side VAD tuning; Sarvam rejects it in manual mode
+        stt_vad = {k: v for k, v in {"threshold": cfg["stt_threshold"],
+                                     "min_speech_duration_ms": cfg["stt_min_speech_ms"],
+                                     "silence_duration_ms": cfg["stt_silence_ms"]}.items() if v is not None}
+    return SarvamRealtimeSTTService(
+        api_key=os.environ["SARVAM_API_KEY"],
+        keyterms=KEYTERMS,
+        endpointing="vad" if cfg["endpointing"] == "sarvam" else "manual",
+        should_interrupt=cfg["barge_in"],
+        sample_rate=sample_rate,
+        settings=SarvamRealtimeSTTService.Settings(
+            model=cfg["stt_model"],
+            language=Language.HI_IN,
+            stream_type=cfg["stt_stream_type"],
+            mode="codemix",
+            **stt_vad,
+        ),
+    )
+
+
 def _turn_strategies(cfg: dict) -> UserTurnStrategies | None:
     """None keeps Sarvam's recommended strategies (its server VAD owns turns and barge-in)."""
     if cfg["endpointing"] == "sarvam":
@@ -198,29 +222,12 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             logger.warning(f"call {call_id} IndicConformer unavailable, using Sarvam STT: {e}")
             cfg["stt_provider"] = "sarvam"
     logger.info(f"call {call_id} config {cfg}")
-    stt_vad = {}
-    if cfg["endpointing"] == "sarvam":  # server-side VAD tuning; Sarvam rejects it in manual mode
-        stt_vad = {k: v for k, v in {"threshold": cfg["stt_threshold"],
-                                     "min_speech_duration_ms": cfg["stt_min_speech_ms"],
-                                     "silence_duration_ms": cfg["stt_silence_ms"]}.items() if v is not None}
     if cfg["stt_provider"] == "indic":
         from .stt_indic import IndicConformerSTTService
 
         stt = IndicConformerSTTService(lang=cfg["indic_language"], decoding=cfg["indic_decoding"])
     else:
-        stt = SarvamRealtimeSTTService(
-            api_key=os.environ["SARVAM_API_KEY"],
-            keyterms=KEYTERMS,
-            endpointing="vad" if cfg["endpointing"] == "sarvam" else "manual",
-            should_interrupt=cfg["barge_in"],
-            settings=SarvamRealtimeSTTService.Settings(
-                model=cfg["stt_model"],
-                language=Language.HI_IN,
-                stream_type=cfg["stt_stream_type"],
-                mode="codemix",
-                **stt_vad,
-            ),
-        )
+        stt = make_sarvam_stt(cfg)
     tts_extra = {k: cfg[f"tts_{k}"] for k in ("pace", "pitch", "loudness") if cfg[f"tts_{k}"] is not None}
     tts_settings = SarvamTTSService.Settings(
         model=cfg["tts_model"],
