@@ -16,7 +16,9 @@ from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import (
     BotStartedSpeakingFrame,
+    BotStoppedSpeakingFrame,
     EndFrame,
+    InterruptionFrame,
     Frame,
     FunctionCallResultProperties,
     LLMContextFrame,
@@ -48,7 +50,7 @@ from .events import Emitter, save_result
 from .engine import make_engine
 from .prompts import HANDOVER_BROWSER_NOTE
 from .tools import Action
-from .voice import TTS_TEXT_TRANSFORMS, SarvamCloneTTSService, active_voice_id
+from .voice import TTS_TEXT_TRANSFORMS, SarvamCloneTTSService, clone_in_use
 
 # Rough INR rates for the cost-per-call estimate; override in .env with real contract prices.
 RATE = {
@@ -58,6 +60,7 @@ RATE = {
     "llm_per_m_out": float(os.getenv("COST_LLM_INR_PER_M_OUT", "51")),
     "tel_per_min": float(os.getenv("COST_TELEPHONY_INR_PER_MIN", "0.6")),
 }
+YIELD_LINES = ["जी, sorry, आप बोलिए।", "ओह sorry जी, please go ahead।", "जी जी, बोलिए।"]
 KEYTERMS = ["SolarSquare", "seedhi", "ladder", "light", "paani", "nal", "subah", "dopahar", "shaam", "tarikh",
             "Somvar", "Mangalvar", "Budhvar", "Guruvar", "Shukravar", "Shanivar", "haan", "nahi"]
 
@@ -69,12 +72,12 @@ class GreetingGate(FrameProcessor):
     def __init__(self, on_first_reply):
         super().__init__()
         self._on_first_reply = on_first_reply
-        self._greeted = False
+        self.greeted = False
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
-        if isinstance(frame, LLMContextFrame) and not self._greeted:
-            self._greeted = True
+        if isinstance(frame, LLMContextFrame) and not self.greeted:
+            self.greeted = True
             await self._on_first_reply()
             return
         await self.push_frame(frame, direction)
@@ -83,10 +86,12 @@ class GreetingGate(FrameProcessor):
 class CallMetrics(FrameProcessor):
     """Sits at the end of the pipeline: per-turn voice-to-voice latency + usage for cost."""
 
-    def __init__(self, emitter: Emitter, telephony: bool):
+    def __init__(self, emitter: Emitter, telephony: bool, on_cut_in=None):
         super().__init__()
         self.emitter = emitter
         self.telephony = telephony
+        self._on_cut_in = on_cut_in
+        self._bot_speaking = False
         self.started = time.monotonic()
         self.latencies: list[int] = []
         self._user_stopped_at: float | None = None
@@ -94,6 +99,14 @@ class CallMetrics(FrameProcessor):
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
+        if isinstance(frame, BotStartedSpeakingFrame):
+            self._bot_speaking = True
+            self._speaking_since = time.monotonic()
+        elif isinstance(frame, BotStoppedSpeakingFrame):
+            self._bot_speaking = False
+        elif (isinstance(frame, InterruptionFrame) and self._bot_speaking and self._on_cut_in
+              and time.monotonic() - self._speaking_since >= 1.0):  # not a clipped first word
+            self._on_cut_in()  # the customer cut the bot off mid-sentence
         if isinstance(frame, (VADUserStoppedSpeakingFrame, UserStoppedSpeakingFrame)):
             self._user_stopped_at = self._user_stopped_at or time.monotonic()
         elif isinstance(frame, BotStartedSpeakingFrame) and self._user_stopped_at:
@@ -155,6 +168,30 @@ def _llm(cfg: dict):
     )
 
 
+def make_sarvam_stt(cfg: dict, sample_rate: int | None = None) -> SarvamRealtimeSTTService:
+    """Sarvam realtime STT for a call config. Also used by eval/stt_bench.py, so the bench tests
+    exactly the connection parameters a real call sends."""
+    stt_vad = {}
+    if cfg["endpointing"] == "sarvam":  # server-side VAD tuning; Sarvam rejects it in manual mode
+        stt_vad = {k: v for k, v in {"threshold": cfg["stt_threshold"],
+                                     "min_speech_duration_ms": cfg["stt_min_speech_ms"],
+                                     "silence_duration_ms": cfg["stt_silence_ms"]}.items() if v is not None}
+    return SarvamRealtimeSTTService(
+        api_key=os.environ["SARVAM_API_KEY"],
+        keyterms=KEYTERMS,
+        endpointing="vad" if cfg["endpointing"] == "sarvam" else "manual",
+        should_interrupt=cfg["barge_in"],
+        sample_rate=sample_rate,
+        settings=SarvamRealtimeSTTService.Settings(
+            model=cfg["stt_model"],
+            language=Language.HI_IN,
+            stream_type=cfg["stt_stream_type"],
+            mode="codemix",
+            **stt_vad,
+        ),
+    )
+
+
 def _turn_strategies(cfg: dict) -> UserTurnStrategies | None:
     """None keeps Sarvam's recommended strategies (its server VAD owns turns and barge-in)."""
     if cfg["endpointing"] == "sarvam":
@@ -186,25 +223,24 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     logger.info(f"call {call_id} booking={booking.get('id')} telephony={telephony} flow={engine.name}")
 
     cfg = call_config.load()  # read per call: /voice page edits apply from the next call
+    if cfg["stt_provider"] == "indic":
+        from .stt_indic import load_model, status
+
+        try:
+            if not status()["ready"]:
+                raise RuntimeError(status()["message"])
+            await asyncio.to_thread(load_model)  # no-op once loaded; first call waits for the download
+            cfg["endpointing"] = "local"  # IndicConformer is not streaming: local VAD cuts the segments
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"call {call_id} IndicConformer unavailable, using Sarvam STT: {e}")
+            cfg["stt_provider"] = "sarvam"
     logger.info(f"call {call_id} config {cfg}")
-    stt_vad = {}
-    if cfg["endpointing"] == "sarvam":  # server-side VAD tuning; Sarvam rejects it in manual mode
-        stt_vad = {k: v for k, v in {"threshold": cfg["stt_threshold"],
-                                     "min_speech_duration_ms": cfg["stt_min_speech_ms"],
-                                     "silence_duration_ms": cfg["stt_silence_ms"]}.items() if v is not None}
-    stt = SarvamRealtimeSTTService(
-        api_key=os.environ["SARVAM_API_KEY"],
-        keyterms=KEYTERMS,
-        endpointing="vad" if cfg["endpointing"] == "sarvam" else "manual",
-        should_interrupt=cfg["barge_in"],
-        settings=SarvamRealtimeSTTService.Settings(
-            model=cfg["stt_model"],
-            language=Language.HI_IN,
-            stream_type=cfg["stt_stream_type"],
-            mode="codemix",
-            **stt_vad,
-        ),
-    )
+    if cfg["stt_provider"] == "indic":
+        from .stt_indic import IndicConformerSTTService
+
+        stt = IndicConformerSTTService(lang=cfg["indic_language"], decoding=cfg["indic_decoding"])
+    else:
+        stt = make_sarvam_stt(cfg)
     tts_extra = {k: cfg[f"tts_{k}"] for k in ("pace", "pitch", "loudness") if cfg[f"tts_{k}"] is not None}
     tts_settings = SarvamTTSService.Settings(
         model=cfg["tts_model"],
@@ -214,7 +250,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         max_chunk_length=cfg["tts_max_chunk"],
         **tts_extra,
     )
-    if clone_id := active_voice_id():  # team member's cloned voice (see /voice page)
+    if clone_id := clone_in_use(cfg):  # team member's cloned voice, unless the source is Bulbul (/voice page)
         logger.info(f"call {call_id} TTS voice: cloned {clone_id}")
         tts = SarvamCloneTTSService(api_key=os.environ["SARVAM_API_KEY"], sample_rate=sample_rate,
                                     clone_voice_id=clone_id, settings=tts_settings,
@@ -222,6 +258,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     else:
         tts = SarvamTTSService(api_key=os.environ["SARVAM_API_KEY"], sample_rate=sample_rate,
                                settings=tts_settings, text_transforms=TTS_TEXT_TRANSFORMS)
+        logger.info(f"call {call_id} TTS voice: Bulbul {cfg['tts_model']} speaker {cfg['tts_voice'] or 'default'}")
     llm = _llm(cfg)
 
     tools = ToolsSchema(standard_tools=[
@@ -240,13 +277,42 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             **({"user_turn_strategies": ts} if (ts := _turn_strategies(cfg)) else {}),
         ),
     )
-    metrics = CallMetrics(emitter, telephony)
+    yielded = {"at": 0.0, "n": 0, "turns": 0, "answered": False, "task": None}
+    turn_over = asyncio.Event()
+
+    async def yield_if_unanswered() -> None:
+        # Wait for the customer's turn to end. If they actually answered, the normal reply covers it
+        # (a "sorry, go ahead" on top would stack two acknowledgements). Only yield on a non-answer.
+        try:
+            await asyncio.wait_for(turn_over.wait(), timeout=5)
+        except asyncio.TimeoutError:
+            return
+        if yielded["answered"] or engine.outcome:
+            return
+        yielded["at"] = time.monotonic()
+        line = YIELD_LINES[yielded["n"] % len(YIELD_LINES)]
+        yielded["n"] += 1
+        await worker.queue_frames([TTSSpeakFrame(line, append_to_context=False)])
+
+    def yield_floor() -> None:
+        """Customer cut in mid-sentence (at most every 15 s, never during the hello exchange)."""
+        if (engine.outcome or yielded["turns"] < 2 or time.monotonic() - yielded["at"] < 15
+                or os.getenv("YIELD_ON_INTERRUPT", "1") == "0"):
+            return
+        if yielded["task"]:
+            yielded["task"].cancel()
+        turn_over.clear()
+        yielded["answered"] = False
+        yielded["task"] = asyncio.create_task(yield_if_unanswered())
+
+    metrics = CallMetrics(emitter, telephony, on_cut_in=yield_floor)
 
     async def speak_opening() -> None:
         await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
 
+    gate = GreetingGate(speak_opening)
     pipeline = Pipeline([
-        transport.input(), stt, aggregators.user(), GreetingGate(speak_opening), llm, tts,
+        transport.input(), stt, aggregators.user(), gate, llm, tts,
         transport.output(),
         aggregators.assistant(), metrics,
     ])
@@ -315,13 +381,20 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
 
     @aggregators.user().event_handler("on_user_turn_stopped")
     async def _user_said(_agg, _strategy, message):
+        yielded["answered"] = bool(getattr(message, "content", None))
+        turn_over.set()
         if getattr(message, "content", None):
             engine.heard_customer()
+            yielded["turns"] += 1
             emitter.emit({"type": "transcript", "role": "customer", "text": message.content})
 
     @aggregators.user().event_handler("on_user_turn_idle")
     async def _silence(_agg):
         if engine.outcome:
+            return
+        if not gate.greeted:  # no reply to "Hello?": give the greeting itself, not a second "Hello?"
+            gate.greeted = True
+            await speak_opening()
             return
         await perform(engine.on_silence())
 

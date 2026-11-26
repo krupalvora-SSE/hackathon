@@ -1,0 +1,35 @@
+# Customer lines for the STT and turn-detection benches.
+# text   : what the customer says (Devanagari; English words as customers say them). "|" marks a
+#          mid-sentence thinking pause; the corpus builder inserts silence there (turn-split test).
+# expect : entities that must survive transcription (see eval/textnorm.py ENTITIES, or num:<day>).
+# forbid : entities that must NOT appear (catches "nahi" heard as "haan").
+# Add a line whenever a real call shows a mishearing; real recordings go in eval/corpus/real/.
+
+- {id: yes_plain, text: "हाँ जी, ठीक है", expect: [yes], forbid: [no]}
+- {id: yes_short, text: "हाँ", expect: [yes], forbid: [no]}
+- {id: no_plain, text: "नहीं, उस दिन नहीं हो पाएगा", expect: [no], forbid: [yes]}
+- {id: no_short, text: "नहीं जी", expect: [no], forbid: [yes]}
+- {id: yes_chalega, text: "हाँ चलेगा, आ जाइए", expect: [yes]}
+- {id: date_sat_morning, text: "शनिवार सुबह आ जाओ", expect: [saturday, morning]}
+- {id: date_mon_evening, text: "सोमवार को शाम में रखो", expect: [monday, evening]}
+- {id: date_parso, text: "कल नहीं, परसों शाम को आना", expect: [no, day_after, evening]}
+- {id: date_num, text: "अट्ठाईस तारीख को सुबह", expect: ["num:28", morning]}
+- {id: date_num_digits, text: "तीस तारीख चलेगी", expect: ["num:30"]}
+- {id: date_sunday_pause, text: "मैं सोचता हूँ | रविवार को दोपहर में", expect: [sunday, afternoon]}
+- {id: time_afternoon, text: "दोपहर के बाद ही कोई घर पे होगा", expect: [afternoon]}
+- {id: ladder_yes, text: "हाँ सीढ़ी है छत पे जाने के लिए", expect: [yes, ladder]}
+- {id: ladder_no, text: "सीढ़ी नहीं है हमारे पास", expect: [ladder, no], forbid: [yes]}
+- {id: water_yes, text: "पानी का नल छत पे ही है", expect: [water]}
+- {id: water_no, text: "छत पे पानी नहीं आता", expect: [water, no]}
+- {id: son, text: "मेरे बेटे से पूछना पड़ेगा | वो शाम को आएगा", expect: [son, evening]}
+- {id: busy_callback, text: "अभी मैं busy हूँ, बाद में call करो", expect: [busy, callback]}
+- {id: human, text: "मुझे किसी इंसान से बात करनी है, manager से बात कराओ", expect: [human]}
+- {id: dnc, text: "दोबारा call मत करना", expect: [no]}
+- {id: wrong_number, text: "गलत नंबर है भाई", expect: [wrong_number]}
+- {id: price, text: "इसका कितना charge लगेगा", expect: []}
+- {id: robot, text: "आप robot हो क्या", expect: []}
+- {id: hinglish_en, text: "Saturday morning is fine, please come", expect: [saturday, morning]}
+- {id: mixed_hedge, text: "हम्म | देखो मंगलवार हो सकता है शायद", expect: [tuesday]}
+- {id: thursday, text: "गुरुवार को सुबह दस बजे के आसपास", expect: [thursday, morning]}
+- {id: friday_no, text: "शुक्रवार को तो बिल्कुल नहीं", expect: [friday, no]}
+- {id: wednesday, text: "बुधवार ठीक रहेगा", expect: [wednesday, yes]}

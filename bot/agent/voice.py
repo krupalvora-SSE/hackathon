@@ -1,7 +1,8 @@
 """Cloned voice: which Sarvam voice the bot speaks with, and a TTS service that streams it.
 
 The active clone is `SARVAM_CLONE_VOICE_ID` in .env, else the one picked on the /voice page
-(stored in bot/voice.json, git-ignored). With neither set the bot uses the stock Bulbul speaker.
+(stored in bot/voice.json, git-ignored). With neither set, or the voice source
+set to Bulbul on the /voice page, the bot uses the stock Bulbul speaker.
 """
 from __future__ import annotations
 
@@ -46,8 +47,19 @@ def active_voice_id() -> str | None:
         return None
 
 
+def clone_in_use(cfg: dict | None = None) -> str | None:
+    """Clone id the call speaks with, or None when the voice source is Bulbul (or no clone is picked)."""
+    if cfg is None:
+        from .config import load
+        cfg = load()
+    return active_voice_id() if cfg.get("tts_source", "clone") == "clone" else None
+
+
 def active_voice_name() -> str | None:
-    """Name the bot introduces itself with: the picked voice's name, up to " - " ("Krupal - AMC bot" -> "Krupal")."""
+    """Name the bot introduces itself with: the picked clone's name, up to " - " ("Krupal - AMC bot" -> "Krupal").
+    None on the Bulbul voice source: the stock speaker isn't that person."""
+    if not clone_in_use():
+        return None
     try:
         name = json.loads(VOICE_FILE.read_text()).get("name") or ""
     except (OSError, ValueError):

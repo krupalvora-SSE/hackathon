@@ -46,12 +46,29 @@ from pipecat.transports.websocket.fastapi import (  # noqa: E402
 from agent import config as call_config  # noqa: E402
 from agent.bot import run_bot  # noqa: E402
 from agent.events import fetch_call  # noqa: E402
+from agent.stt_indic import status as indic_status  # noqa: E402
 from agent.voice import active_voice_id, fix_spoken_text, set_active_voice  # noqa: E402
 
 PHONE_RATE = 8000
 BROWSER_RATE = 16000
 
 app = FastAPI(title="visit-bot")
+
+
+def _preload_indic() -> None:
+    """Load IndicConformer in the background at startup when it is the selected STT engine."""
+    try:
+        from agent.stt_indic import load_model
+
+        load_model()
+    except Exception:  # noqa: BLE001
+        logger.exception("IndicConformer preload failed (check HF_TOKEN and `uv sync --extra indic`)")
+
+
+if call_config.load()["stt_provider"] == "indic" and indic_status()["ready"]:
+    import threading
+
+    threading.Thread(target=_preload_indic, daemon=True).start()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")],
@@ -159,7 +176,7 @@ async def delete_voice(voice_id: str):
 def _config_payload() -> dict:
     values, sources = call_config.resolve()
     return {"fields": call_config.public_schema(), "values": values, "sources": sources,
-            "rnnoise_available": RNNoiseFilter is not None}
+            "rnnoise_available": RNNoiseFilter is not None, "indic_status": indic_status()}
 
 
 @app.get("/api/config")

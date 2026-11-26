@@ -320,25 +320,35 @@ function errText(j) {
 }
 
 // ---------------------------------------------------------------- list / preview / choose
-let state = { voices: [], active: null, pinned: false };
+let state = null;  // {voices, active, pinned}
+// Voice source setting (clone / bulbul): the saved value, so the list shows what the next call uses.
+const onBulbul = () => cfg?.values?.tts_source === "bulbul";
 
 async function loadVoices() {
   const r = await fetch("/api/voices"); const j = await r.json();
   if (!r.ok) { $("voices").innerHTML = `<span class="msg bad">Could not load voices: ${errText(j)}</span>`; return; }
   state = { voices: j.voices, active: j.active, pinned: j.pinned_by_env };
+  if (cfg) renderConfig(); else renderVoices();  // renderConfig redraws the list too
+}
+
+function renderVoices() {
+  if (!state) return;
+  const bulbul = onBulbul() || !state.active;
+  const j = { voices: state.voices, active: state.active, pinned_by_env: state.pinned };
   const rows = j.voices.map((v) => `
     <div class="voice">
-      <div><strong>${esc(v.name)}</strong>${v.id === j.active ? '<span class="badge">bot uses this</span>' : ""}
+      <div><strong>${esc(v.name)}</strong>${v.id === j.active ? (bulbul ? '<span class="badge" style="opacity:.55">picked clone</span>' : '<span class="badge">bot uses this</span>') : ""}
         <div class="muted">${v.language} · ${v.sample_duration_seconds ? v.sample_duration_seconds.toFixed(0) + "s sample · " : ""}${new Date(v.created_at).toLocaleString()}</div></div>
       <div class="row">
         <button data-act="preview" data-id="${v.id}">▶ Preview</button>
-        <button data-act="use" data-id="${v.id}" data-name="${esc(v.name)}" ${v.id === j.active || j.pinned_by_env ? "disabled" : ""}>Use for bot</button>
+        <button data-act="use" data-id="${v.id}" data-name="${esc(v.name)}" ${(v.id === j.active && !bulbul) || (j.pinned_by_env && v.id !== j.active) ? "disabled" : ""}>Use for bot</button>
         <button class="danger" data-act="delete" data-id="${v.id}" data-name="${esc(v.name)}">Delete</button>
       </div>
     </div>`).join("");
-  const stock = `<div class="voice"><div><strong>Stock Sarvam voice</strong>${!j.active ? '<span class="badge">bot uses this</span>' : ""}
-      <div class="muted">Default Bulbul speaker, no cloning</div></div>
-      <div class="row"><button data-act="use" data-id="" ${!j.active || j.pinned_by_env ? "disabled" : ""}>Use for bot</button></div></div>`;
+  const spk = cfg ? `${cfg.values.tts_model} · ${cfg.values.tts_voice || "default speaker"}` : "Bulbul";
+  const stock = `<div class="voice"><div><strong>Sarvam Bulbul stock voice</strong>${bulbul ? '<span class="badge">bot uses this</span>' : ""}
+      <div class="muted">${esc(spk)} · no cloning. Model and speaker are under Call settings → Bot voice.</div></div>
+      <div class="row"><button data-act="use" data-id="" ${bulbul ? "disabled" : ""}>Use for bot</button></div></div>`;
   $("voices").innerHTML = (rows || '<span class="muted">No cloned voices yet.</span>') + stock +
     (j.pinned_by_env ? '<div class="msg muted">SARVAM_CLONE_VOICE_ID is set in bot/.env, so it overrides the choice here.</div>' : "");
 }
@@ -358,9 +368,14 @@ $("voices").onclick = async (e) => {
   const { act, id, name } = b.dataset;
   if (act === "preview") return preview(id);
   if (act === "use") {
-    await fetch("/api/voices/active", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ voice_id: id || null, name }) });
-    msg("voiceMsg", id ? `Bot will speak as "${name}" from the next call.` : "Bot is back on the stock voice.", "ok");
+    // Bulbul keeps the picked clone and flips the voice source; a clone sets itself active and flips it back.
+    if (id && id !== state.active)
+      await fetch("/api/voices/active", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voice_id: id, name }) });
+    const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ values: { tts_source: id ? "clone" : "bulbul" } }) });
+    if (r.ok) { const pending = draft; cfg = await r.json(); delete pending.tts_source; draft = pending; renderConfig(); }
+    msg("voiceMsg", id ? `Bot will speak as "${name}" from the next call.` : "Bot will use the Bulbul stock voice from the next call.", "ok");
     return loadVoices();
   }
   if (act === "delete") {
@@ -378,6 +393,9 @@ let draft = {};        // key -> raw input value, only for edited fields
 const SRC = { page: "saved here", env: ".env", default: "default" };
 const SARVAM_ONLY = ["stt_threshold", "stt_min_speech_ms", "stt_silence_ms"];
 const LOCAL_ONLY = ["vad_confidence", "vad_start_secs", "vad_stop_secs", "vad_min_volume"];
+const SARVAM_STT_ONLY = ["stt_model", "stt_stream_type"];
+const INDIC_ONLY = ["indic_decoding", "indic_language"];
+const BULBUL_ONLY = ["tts_model", "tts_voice", "tts_pitch", "tts_loudness"];
 
 async function loadConfig() {
   const r = await fetch("/api/config"); const j = await r.json();
@@ -396,7 +414,9 @@ function control(f) {
       `<option value="${esc(val)}" ${val === v ? "selected" : ""}>${esc(lab)}</option>`).join("")}</select>`;
   const ph = f.nullable ? "provider default" : "";
   if (f.type === "text")
-    return `<input class="txt" type="text" id="${id}" data-k="${f.key}" value="${esc(v ?? "")}" placeholder="${ph}">`;
+    return `<input class="txt" type="text" id="${id}" data-k="${f.key}" value="${esc(v ?? "")}" placeholder="${ph}"
+              ${f.suggest ? `list="dl_${f.key}"` : ""}>` +
+      (f.suggest ? `<datalist id="dl_${f.key}">${f.suggest.map((o) => `<option value="${esc(o)}">`).join("")}</datalist>` : "");
   return `<input type="number" id="${id}" data-k="${f.key}" value="${v ?? ""}" placeholder="${ph}"
             ${f.min !== undefined ? `min="${f.min}"` : ""} ${f.max !== undefined ? `max="${f.max}"` : ""}
             step="${f.step ?? (f.type === "int" ? 1 : 0.1)}">`;
@@ -405,13 +425,22 @@ function control(f) {
 function renderConfig() {
   const groups = {};
   cfg.fields.forEach((f) => (groups[f.group] ||= []).push(f));
-  const mode = current("endpointing");
+  const indic = current("stt_provider") === "indic";
+  const mode = indic ? "local" : current("endpointing");
+  const ist = cfg.indic_status || {};
+  const cloneVoice = current("tts_source") === "clone" && !!state?.active;
   $("cfg").innerHTML = Object.entries(groups).map(([g, fs]) => `
     <div class="group"><h3>${esc(g)}</h3>${fs.map((f) => {
       const src = cfg.sources[f.key];
       const na = (mode === "sarvam" && LOCAL_ONLY.includes(f.key)) || (mode === "local" && SARVAM_ONLY.includes(f.key))
-              || (f.key === "rnnoise" && !cfg.rnnoise_available);
-      const extra = f.key === "rnnoise" && !cfg.rnnoise_available ? " RNNoise isn't installed on this machine." : "";
+              || (f.key === "rnnoise" && !cfg.rnnoise_available)
+              || (indic && (SARVAM_STT_ONLY.includes(f.key) || f.key === "endpointing"))
+              || (!indic && INDIC_ONLY.includes(f.key))
+              || (cloneVoice && BULBUL_ONLY.includes(f.key));
+      let extra = f.key === "rnnoise" && !cfg.rnnoise_available ? " RNNoise isn't installed on this machine." : "";
+      if (f.key === "endpointing" && indic) extra = " IndicConformer always uses Local Silero.";
+      if (f.key === "stt_provider") extra = ` AI4Bharat status: ${ist.message || "unknown"}`;
+      if (f.key === "tts_source" && !state?.active) extra = " No clone is picked, so calls use Bulbul now.";
       return `<div class="field ${na ? "na" : ""}">
         <div><label for="cf_${f.key}" class="name" style="display:inline;margin:0">${esc(f.label)}</label>
           <span class="src ${src}">${SRC[src]}</span>
@@ -420,6 +449,7 @@ function renderConfig() {
         ${f.help || extra ? `<div class="help">${esc(f.help || "")}${extra}</div>` : ""}
       </div>`; }).join("")}</div>`).join("");
   markDirty();
+  renderVoices();
 }
 
 function readInput(el) { return el.type === "checkbox" ? el.checked : el.value; }
@@ -447,7 +477,7 @@ function markDirty() {
 $("cfg").addEventListener("input", (e) => {
   const k = e.target.dataset.k; if (!k) return;
   draft[k] = readInput(e.target);
-  if (k === "endpointing") renderConfig(); else markDirty();
+  if (["endpointing", "stt_provider", "tts_source"].includes(k)) renderConfig(); else markDirty();
   msg("cfgMsg", "");
 });
 

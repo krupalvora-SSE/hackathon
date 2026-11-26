@@ -15,6 +15,28 @@ CONFIG_FILE = Path(__file__).resolve().parent.parent / "config.json"
 
 # type: bool | int | float | select | text. `nullable` fields can be left blank (provider default).
 FIELDS: list[dict[str, Any]] = [
+    # ---- Speech to text
+    {"key": "stt_provider", "group": "Speech to text", "type": "select", "default": "sarvam",
+     "env": "STT_PROVIDER", "label": "STT engine (switch Sarvam / AI4Bharat)",
+     "options": [["sarvam", "Sarvam (cloud, streaming)"], ["indic", "AI4Bharat IndicConformer 600M (local)"]],
+     "help": "Applies from the next call. IndicConformer is open source and runs on this machine; it is not "
+             "streaming, so turn detection switches to Local Silero. If it isn't ready, calls fall back to Sarvam."},
+    {"key": "indic_decoding", "group": "Speech to text", "type": "select", "default": "ctc",
+     "env": "INDIC_DECODING", "label": "IndicConformer decoding",
+     "options": [["ctc", "CTC (faster)"], ["rnnt", "RNNT (often more accurate)"]],
+     "help": "IndicConformer only."},
+    {"key": "indic_language", "group": "Speech to text", "type": "select", "default": "hi",
+     "env": "INDIC_LANGUAGE", "label": "IndicConformer language",
+     "options": [["hi", "Hindi"], ["mr", "Marathi"]],
+     "help": "IndicConformer only. The model has no English; English words come back in Devanagari."},
+    {"key": "stt_model", "group": "Speech to text", "type": "select", "default": "saaras:v4",
+     "env": "SARVAM_STT_MODEL", "label": "STT model",
+     "options": [["saaras:v4", "saaras:v4"], ["saaras:v3-realtime", "saaras:v3-realtime"]]},
+    {"key": "stt_stream_type", "group": "Speech to text", "type": "select", "default": "fast",
+     "env": "SARVAM_STT_STREAM", "label": "Stream type",
+     "options": [["fast", "fast"], ["balanced", "balanced"], ["simulated", "simulated"]],
+     "help": "fast gives the lowest latency; balanced is a little slower and more accurate."},
+
     # ---- Interruptions: the usual cause of the bot going quiet mid-sentence
     {"key": "barge_in", "group": "Interruptions", "type": "bool", "default": True,
      "env": "BARGE_IN", "label": "Customer can interrupt the bot",
@@ -56,13 +78,23 @@ FIELDS: list[dict[str, Any]] = [
      "help": "Noise suppression on the Exotel input. Phone calls only; ignored where RNNoise isn't installed."},
 
     # ---- Bot voice
+    {"key": "tts_source", "group": "Bot voice", "type": "select", "default": "clone",
+     "env": "SARVAM_TTS_SOURCE", "label": "Voice source (switch clone / Bulbul)",
+     "options": [["clone", "Cloned voice (picked in the list above)"], ["bulbul", "Sarvam Bulbul stock speaker"]],
+     "help": "Applies from the next call. Bulbul keeps your picked clone, so switching back is one click. "
+             "With no clone picked, calls use Bulbul either way. On Bulbul the bot introduces itself without a name."},
     {"key": "tts_model", "group": "Bot voice", "type": "select", "default": "bulbul:v4-flash",
-     "env": "SARVAM_TTS_MODEL", "label": "TTS model",
+     "env": "SARVAM_TTS_MODEL", "label": "Bulbul model",
      "options": [["bulbul:v4-flash", "bulbul:v4-flash"], ["bulbul:v3", "bulbul:v3"]],
-     "help": "Ignored when a cloned voice is active (see the voice list above)."},
+     "help": "Bulbul voice source only."},
     {"key": "tts_voice", "group": "Bot voice", "type": "text", "default": None, "nullable": True,
-     "env": "SARVAM_TTS_VOICE", "label": "Stock speaker",
-     "help": "Sarvam speaker name for the stock voice. Blank uses the model's default speaker."},
+     "env": "SARVAM_TTS_VOICE", "label": "Bulbul speaker",
+     "suggest": ["aditya", "ritu", "priya", "neha", "rahul", "pooja", "rohan", "simran", "kavya", "amit", "dev",
+                 "ishita", "shreya", "ratan", "varun", "manan", "sumit", "roopa", "kabir", "aayan", "shubh",
+                 "ashutosh", "advait", "amelia", "sophia"],
+     "help": "Bulbul voice source only. Blank uses the model's default speaker. The suggestions are bulbul:v3 "
+             "speakers; bulbul:v4-flash has its own names (see Sarvam's docs). The prompt is written for a "
+             "male caller, so pick a male speaker."},
     {"key": "tts_pace", "group": "Bot voice", "type": "float", "default": None, "nullable": True,
      "min": 0.5, "max": 2, "step": 0.05, "env": "SARVAM_TTS_PACE", "label": "Pace",
      "help": "0.5-2.0. Clones copy the sample's pace; about 1.1-1.2 keeps calls snappy."},
@@ -79,15 +111,6 @@ FIELDS: list[dict[str, Any]] = [
     {"key": "tts_max_chunk", "group": "Bot voice", "type": "int", "default": 300,
      "min": 50, "max": 500, "step": 10, "env": "SARVAM_TTS_MAX_CHUNK", "label": "Max chunk (chars)",
      "help": "Longest piece Sarvam synthesises at once. Raise it if long sentences break up."},
-
-    # ---- Speech to text
-    {"key": "stt_model", "group": "Speech to text", "type": "select", "default": "saaras:v4",
-     "env": "SARVAM_STT_MODEL", "label": "STT model",
-     "options": [["saaras:v4", "saaras:v4"], ["saaras:v3-realtime", "saaras:v3-realtime"]]},
-    {"key": "stt_stream_type", "group": "Speech to text", "type": "select", "default": "fast",
-     "env": "SARVAM_STT_STREAM", "label": "Stream type",
-     "options": [["fast", "fast"], ["balanced", "balanced"], ["simulated", "simulated"]],
-     "help": "fast gives the lowest latency; balanced is a little slower and more accurate."},
 
     # ---- LLM
     {"key": "llm_provider", "group": "LLM", "type": "select", "default": "google",
