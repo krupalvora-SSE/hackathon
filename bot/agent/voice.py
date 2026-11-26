@@ -25,6 +25,15 @@ def active_voice_id() -> str | None:
         return None
 
 
+def active_voice_name() -> str | None:
+    """Name the bot introduces itself with: the picked voice's name, up to " - " ("Krupal - AMC bot" -> "Krupal")."""
+    try:
+        name = json.loads(VOICE_FILE.read_text()).get("name") or ""
+    except (OSError, ValueError):
+        return None
+    return name.split(" - ")[0].strip() or None
+
+
 def set_active_voice(voice_id: str | None, name: str | None = None) -> None:
     if voice_id:
         VOICE_FILE.write_text(json.dumps({"voice_id": voice_id, "name": name}))

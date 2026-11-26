@@ -5,8 +5,7 @@ from datetime import date
 
 from . import normalize as N
 from .slots import SLOTS
-
-AGENT_NAME = "Krupal"
+from .voice import active_voice_name
 
 GOODBYES = {
     "confirmed": "Bahut dhanyavaad! Aapka visit confirm ho gaya hai, visit se ek din pehle aapko SMS aa jayega. Aapka din shubh ho!",
@@ -27,8 +26,10 @@ SILENCE_PROMPTS = [
 def greeting(booking: dict) -> str:
     name = (booking.get("customerName") or "").split(" ")[0]
     who = f"{name} ji" if name else "ji"
+    agent = active_voice_name()
+    me = f"SolarSquare se {agent}" if agent else "SolarSquare se"
     return (
-        f"Namaste {who}, main SolarSquare se {AGENT_NAME} bol raha hoon. "
+        f"Namaste {who}, main {me} bol raha hoon. "
         "Yeh call quality ke liye record ho rahi hai. "
         "Aapke solar panel cleaning visit ke baare mein ek minute baat kar sakte hain?"
     )
@@ -48,7 +49,9 @@ def system_prompt(booking: dict, today: date) -> str:
         except ValueError:
             pass
     questions = "\n".join(f"- {s.key}: \"{s.question}\"" for s in SLOTS)
-    return f"""You are {AGENT_NAME}, a warm, polite male caller (use masculine first-person Hindi: "raha hoon", "karta hoon", "leta hoon") from SolarSquare (a rooftop solar company in India).
+    agent = active_voice_name()
+    you = f"You are {agent}, a" if agent else "You are a"
+    return f"""{you} warm, polite male caller (use masculine first-person Hindi: "raha hoon", "karta hoon", "leta hoon") from SolarSquare (a rooftop solar company in India).
 You are on a PHONE call with an existing customer to confirm their solar panel cleaning visit.
 
 Customer: {booking.get('customerName', 'unknown')} | Booking: {booking.get('id', '-')} | {booking.get('sseId', '')}
