@@ -48,6 +48,7 @@ from pipecat.turns.user_turn_strategies import UserTurnStrategies, default_user_
 from . import config as call_config
 from .events import Emitter, save_result
 from .engine import make_engine
+from .filler import Filler
 from .prompts import HANDOVER_BROWSER_NOTE
 from .tools import Action
 from .voice import TTS_TEXT_TRANSFORMS, SarvamCloneTTSService, clone_in_use, drop_stale_clone
@@ -86,11 +87,12 @@ class GreetingGate(FrameProcessor):
 class CallMetrics(FrameProcessor):
     """Sits at the end of the pipeline: per-turn voice-to-voice latency + usage for cost."""
 
-    def __init__(self, emitter: Emitter, telephony: bool, on_cut_in=None):
+    def __init__(self, emitter: Emitter, telephony: bool, on_cut_in=None, on_bot_started=None):
         super().__init__()
         self.emitter = emitter
         self.telephony = telephony
         self._on_cut_in = on_cut_in
+        self._on_bot_started = on_bot_started
         self._bot_speaking = False
         self.started = time.monotonic()
         self.latencies: list[int] = []
@@ -101,6 +103,8 @@ class CallMetrics(FrameProcessor):
         await super().process_frame(frame, direction)
         if isinstance(frame, BotStartedSpeakingFrame):
             self._bot_speaking = True
+            if self._on_bot_started:
+                self._on_bot_started()
             self._speaking_since = time.monotonic()
         elif isinstance(frame, BotStoppedSpeakingFrame):
             self._bot_speaking = False
@@ -306,7 +310,12 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         yielded["answered"] = False
         yielded["task"] = asyncio.create_task(yield_if_unanswered())
 
-    metrics = CallMetrics(emitter, telephony, on_cut_in=yield_floor)
+    async def say_filler(line: str) -> None:
+        await worker.queue_frames([TTSSpeakFrame(line, append_to_context=False)])
+
+    filler = Filler(say_filler, cfg["filler_delay_ms"] / 1000, enabled=cfg["filler"],
+                    active=lambda: not engine.outcome)
+    metrics = CallMetrics(emitter, telephony, on_cut_in=yield_floor, on_bot_started=filler.cancel)
 
     async def speak_opening() -> None:
         await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
@@ -380,12 +389,17 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     for t in engine.tools:
         llm.register_function(t["name"], handle_tool, cancel_on_interruption=True)
 
+    @aggregators.user().event_handler("on_user_turn_started")
+    async def _user_started(_agg, _strategy):
+        filler.cancel()
+
     @aggregators.user().event_handler("on_user_turn_stopped")
     async def _user_said(_agg, _strategy, message):
         yielded["answered"] = bool(getattr(message, "content", None))
         turn_over.set()
         if getattr(message, "content", None):
             engine.heard_customer()
+            filler.customer_stopped()
             yielded["turns"] += 1
             emitter.emit({"type": "transcript", "role": "customer", "text": message.content})
 
