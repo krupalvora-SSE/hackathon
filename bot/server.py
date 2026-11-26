@@ -84,6 +84,21 @@ async def health():
     return {"ok": True}
 
 
+@app.get("/api/flow")
+async def flow_outline():
+    """The call flow for the dashboard: sections of steps with plain-English titles."""
+    mode = os.getenv("CALL_FLOW", "service-scheduling")
+    if mode == "checklist":
+        return {"title": "Checklist call", "version": None, "sections": [], "states": {}}
+    from agent.flow import FlowSpec
+
+    spec = FlowSpec.load(mode)
+    sections = [{"title": v["title"], "about": v.get("about", ""), "states": v["states"]}
+                for v in (spec.flow.get("sections") or {}).values()]
+    return {"title": spec.flow.get("title"), "version": str(spec.flow.get("version")), "sections": sections,
+            "states": {n: {"title": st.get("title") or n, "type": st.get("type")} for n, st in spec.states.items()}}
+
+
 # ------------------------------------------------------------------ Voice cloning (/voice page)
 SARVAM = "https://api.sarvam.ai"
 VOICE_PAGE = Path(__file__).resolve().parent / "static" / "voice.html"
