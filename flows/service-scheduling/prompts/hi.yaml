@@ -13,6 +13,9 @@ _global:
   didnt_catch: "माफ़ कीजिए, ठीक से सुनाई नहीं दिया।"
   repeat_lead: "जी, फिर से बता देता हूँ।"
   hold_ack: "जी, मैं line पर हूँ, आप देख लीजिए।"
+  identity_who: "मैं {bot_name} बोल रहा हूँ, SolarSquare से, आपके solar system के maintenance के बारे में।"
+  identity_source: "आपका number SolarSquare के पास आपके solar system की service के records में है।"
+  identity_robot: "जी, मैं SolarSquare का AI voice assistant हूँ।"
 
 GREET:
   main: "नमस्ते, क्या मेरी बात {name} जी से हो रही है? मैं {bot_name}, SolarSquare से बोल रहा हूँ। यह कॉल रिकॉर्ड की जा रही है।"

@@ -236,6 +236,28 @@ def test_hold_on_reaches_the_engine_action():
     assert a.idle_timeout == 25.0 and a.speak == ["जी, मैं line पर हूँ, आप देख लीजिए।"]
 
 
+@pytest.mark.parametrize("intent,lang,said", [
+    ("who_are_you", "hi", "SolarSquare"), ("who_are_you", "en", "SolarSquare"),
+    ("number_source", "hi", "records"), ("number_source", "en", "records"),
+    ("is_robot", "hi", "AI"), ("is_robot", "en", "AI"),
+])
+def test_identity_questions_get_an_honest_answer_then_the_question_again(intent, lang, said):
+    call, _, _ = live(lang=lang)
+    call.handle("affirm")
+    question = call.last_line
+    r = call.handle(intent)
+    assert call.state == "OFFER_PRIMARY" and said in r.speak[0] and r.speak[0].endswith(question)
+    assert "₹" not in r.speak[0] and "rupee" not in r.speak[0].lower()
+
+
+def test_identity_questions_never_count_as_unclear():
+    call, _, _ = live()
+    call.handle("affirm")
+    for intent in ("who_are_you", "number_source", "is_robot", "who_are_you"):
+        r = call.handle(intent)
+    assert not r.end
+
+
 def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")
