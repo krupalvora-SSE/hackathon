@@ -33,7 +33,7 @@ FIELDS: list[dict[str, Any]] = [
      "env": "RECORD_CALL", "label": "Record the whole call (both sides)",
      "help": "Saves the conversation as one stereo WAV, customer on the left and bot on the right, to "
              "bot/recordings/<call>/call.wav (git-ignored, stays on this machine). The dashboard plays it "
-             "after the call. The bot already tells the customer the call is recorded."},
+             "after the call. The bot does not announce the recording."},
 
     # ---- Interruptions: the usual cause of the bot going quiet mid-sentence
     {"key": "barge_in", "group": "Interruptions", "type": "bool", "default": True,

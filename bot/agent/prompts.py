@@ -30,7 +30,6 @@ def greeting(booking: dict) -> str:
     me = f"SolarSquare se {agent}" if agent else "SolarSquare se"
     return (
         f"Namaste {who}, mai {me} bol raha hoon. "
-        "Yeh call quality ke liye record ho rahi hai. "
         "Aapke solar panel cleaning visit ke baare mai ek minute baat kar sakte hain?"
     )
 
