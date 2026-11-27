@@ -4,7 +4,14 @@
 # Add a scenario whenever you add or change a branch.
 
 - name: yes, everything ready
-  steps: [context_ready, affirm, affirm, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: asks time, accepts the 4-hour band
@@ -15,6 +22,7 @@
     - {on: affirm, flags: {readiness_done: false}}
     - affirm
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed
 
@@ -37,6 +45,7 @@
     - {on: band_available, flags: {readiness_done: false}}
     - affirm
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed_alt_band
 
@@ -50,6 +59,7 @@
     - {on: affirm, flags: {readiness_done: false}}
     - affirm
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed_alt_day
 
@@ -86,6 +96,7 @@
     - {on: date_given, flags: {reschedule_after_ready_date: true}}
     - slot_found
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed_alt_day
 
@@ -102,23 +113,67 @@
   expect: rm_callback
 
 - name: asks to repeat a question, then confirms
-  steps: [context_ready, repeat_request, affirm, repeat_request, affirm, repeat_request, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - repeat_request
+    - affirm
+    - repeat_request
+    - affirm
+    - repeat_request
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: asks to hold on, comes back and confirms
-  steps: [context_ready, affirm, wait_a_moment, affirm, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - affirm
+    - wait_a_moment
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: asks who is calling, where the number came from and if it is a robot, then confirms
-  steps: [context_ready, who_are_you, number_source, is_robot, affirm, affirm, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - who_are_you
+    - number_source
+    - is_robot
+    - affirm
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: price question, then confirms
-  steps: [context_ready, affirm, price_or_offtopic, affirm, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - affirm
+    - price_or_offtopic
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: family member picks up and confirms
-  steps: [context_ready, wrong_person, household_member, affirm, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - wrong_person
+    - household_member
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: wrong number
@@ -138,11 +193,26 @@
   expect: not_dialled
 
 - name: confirm API fails
-  steps: [context_ready, affirm, affirm, affirm, affirm, action_failed]
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_failed
   expect: needs_manual_confirmation
 
 - name: 'not needed yet, explained, then agrees'
-  steps: [context_ready, affirm, not_needed_now, affirm, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - affirm
+    - not_needed_now
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: 'not needed yet, still says no'
@@ -158,6 +228,7 @@
     - {on: affirm, flags: {readiness_done: false}}
     - affirm
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed
 
@@ -168,6 +239,7 @@
     - {on: proposes_date, flags: {date_is_free: true}}
     - affirm
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed_alt_day
 
@@ -189,6 +261,7 @@
     - change_time
     - {on: affirm, flags: {readiness_done: true}}
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed
 
@@ -201,6 +274,7 @@
     - deny
     - {on: proposes_date, flags: {date_is_free: true}}
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed_alt_day
 
@@ -213,6 +287,7 @@
     - change_date
     - {on: affirm, flags: {readiness_done: true}}
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed_alt_day
 
@@ -226,11 +301,20 @@
     - wants_other_band
     - {on: band_available, flags: {readiness_done: true}}
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed_alt_band
 
 - name: says no to the greeting, someone else answers and says yes
-  steps: [context_ready, deny, affirm, affirm, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - deny
+    - affirm
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: asks for another time of day straight at the offer
@@ -241,6 +325,7 @@
     - {on: band_available, flags: {readiness_done: false}}
     - affirm
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed_alt_band
 
@@ -252,6 +337,7 @@
     - {on: affirm, flags: {readiness_done: false}}
     - affirm
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed
 
@@ -284,15 +370,32 @@
     - {on: affirm, flags: {readiness_done: false}}
     - affirm
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed_alt_day
 
 - name: asks the time at the readiness question, then confirms
-  steps: [context_ready, affirm, affirm, ask_time, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - ask_time
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: asks the time at the recap, then confirms
-  steps: [context_ready, affirm, affirm, affirm, ask_time, affirm, action_ok]
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - affirm
+    - ask_time
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: call-back time could not be saved -> team will confirm
@@ -328,27 +431,75 @@
   expect: rm_callback
 
 - name: speaks another language, then Hindi, and confirms
-  steps: [context_ready, other_language, affirm, affirm, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - other_language
+    - affirm
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: small talk, then confirms
-  steps: [context_ready, affirm, small_talk, affirm, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - affirm
+    - small_talk
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: family member says go ahead at the greeting, then confirms
-  steps: [context_ready, household_member, affirm, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - household_member
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: says maybe to a readiness question, then confirms
-  steps: [context_ready, affirm, affirm, unsure, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - unsure
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: asks what an item means, then confirms
-  steps: [context_ready, affirm, affirm, asks_meaning, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - asks_meaning
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: corrects a readiness answer at the recap, then confirms
-  steps: [context_ready, affirm, affirm, affirm, corrects_readiness, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - affirm
+    - corrects_readiness
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: death in the family -> condolence, call ends, calls paused
@@ -364,7 +515,15 @@
   expect: site_on_hold
 
 - name: asks if it costs anything, hears it is free, then confirms
-  steps: [context_ready, affirm, asks_price, affirm, affirm, affirm, action_ok]
+  steps:
+    - context_ready
+    - affirm
+    - asks_price
+    - affirm
+    - affirm
+    - affirm
+    - deny
+    - action_ok
   expect: slot_confirmed
 
 - name: asks for another slot right after the planned date, then confirms
@@ -375,6 +534,7 @@
     - {on: affirm, flags: {readiness_done: false}}
     - affirm
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed_alt_day
 
@@ -387,6 +547,7 @@
     - {on: affirm, flags: {readiness_done: false}}
     - affirm
     - affirm
+    - deny
     - action_ok
   expect: slot_confirmed_alt_day
 
@@ -398,3 +559,26 @@
     - {on: asks_other_slots, flags: {options_remaining: true}}
     - {on: asks_other_slots, flags: {options_remaining: false}}
   expect: no_slot_available
+
+- name: tells us about rusting before the booking, then confirms
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - affirm
+    - affirm
+    - reports_issue
+    - action_ok
+  expect: slot_confirmed
+
+- name: says yes there is a problem, then names it
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - affirm
+    - affirm
+    - affirm
+    - reports_issue
+    - action_ok
+  expect: slot_confirmed

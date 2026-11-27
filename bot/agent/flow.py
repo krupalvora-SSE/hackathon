@@ -536,6 +536,11 @@ class FlowCall:
         if e.get("band"):
             self.ctx["preferred_band"] = parse_band(e["band"], self.policies)
             self.ctx["_band_outside_hours"] = band_outside_hours(e["band"], self.policies)
+        if e.get("site_issue"):
+            issues = self.ctx.setdefault("site_issues", [])
+            note = str(e["site_issue"]).strip()[:300]
+            if note and note not in issues and len(issues) < 5:
+                issues.append(note)
         if e.get("reason"):
             self.ctx["hold_reason"] = self.ctx.get("hold_reason") or e["reason"]
             if on == "wants_human":
@@ -826,6 +831,8 @@ class FlowCall:
             parts.append(f"Call back: {c['recall_window']}.")
         if c.get("will_arrange"):
             parts.append(f"Customer will arrange: {', '.join(c['will_arrange'])}.")
+        if c.get("site_issues"):
+            parts.append(f"Site issues reported: {'; '.join(c['site_issues'])}.")
         if o == "date_requested":
             parts.append(f"Requested {c.get('requested_date')} {c.get('requested_band')}; team to confirm.")
         if c.get("rm_callback_reason"):
@@ -861,6 +868,7 @@ class FlowCall:
             "requested_slot": ({"date": c.get("requested_date"), "band": c.get("requested_band")}
                                if self.outcome == "date_requested" else None),
             "will_arrange": c.get("will_arrange", []),
+            "site_issues": c.get("site_issues", []),
             "summary": self.summary(),
             "path": self.path,
             "slots": {
@@ -869,6 +877,7 @@ class FlowCall:
                 "ladder_available": readiness.get("ladder"),
                 "water_source_available": readiness.get("water"),
                 "light_available": readiness.get("light"),
+                "site_issues": "; ".join(c.get("site_issues", [])) or None,
             },
             "started_at": self.started_at.isoformat(),
             "ended_at": ended.isoformat(),

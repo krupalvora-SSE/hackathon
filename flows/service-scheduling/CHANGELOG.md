@@ -2,6 +2,10 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.19.0 (2026-11-27, SSE-15551)
+- New last question before booking: after the customer says yes to the recap, `SITE_ISSUES` asks "is there any problem on your site, like rusting?". A "yes" without detail goes to `ISSUE_DETAILS` ("which problem?"); a "no" or "don't know" books straight away.
+- New local intent `reports_issue` with entity `site_issue`. What they say is kept as `site_issues` in the call record, in the Beat Plan comment summary, in the dashboard `slots`, and sent with `confirm_slot`.
+
 ## 0.18.0 (2026-11-27, SSE-15551)
 From a call where the customer answered the planned-date question with "कोई और alternate slot है?" twice and the bot said "ठीक से सुनाई नहीं दिया" both times:
 - New intent `asks_other_slots` ("koi aur slot hai?", "any other dates"). At the planned-date offer and at the time-window step it goes straight to `ALTERNATE_DAYS`, which reads out the real days. While other days are being offered it gives the next options, or ends with no slot when none are left.
