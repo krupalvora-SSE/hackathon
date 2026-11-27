@@ -293,12 +293,22 @@ class WhisperHiEnSTTService(SegmentedSTTService):
         super().__init__(**kwargs)
         self.turn_unsure = False
         self.turn_heard: list[dict] = []
+        self.turn_consumed = True
         self._dir = RECORDINGS / call_id if (record and call_id) else None
         self._n = 0
 
     def start_turn(self) -> None:
-        self.turn_unsure = False
-        self.turn_heard = []
+        """A new customer turn. What was heard is kept until the LLM has acted on it (turn_consumed): when the
+        customer goes on talking before the reply, the LLM reads all of it, so every segment's doubt must count
+        (CALL-2c3e81bb: three unsure segments were wiped here and their text was read as do-not-call)."""
+        if self.turn_consumed:
+            self.turn_unsure = False
+            self.turn_heard = []
+            self.turn_consumed = False
+
+    def consume_turn(self) -> None:
+        """The LLM has acted on what was heard; the next turn starts clean."""
+        self.turn_consumed = True
 
     @property
     def wants_wav_segments(self) -> bool:

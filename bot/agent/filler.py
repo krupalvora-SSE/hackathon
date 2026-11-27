@@ -4,7 +4,9 @@ from __future__ import annotations
 import asyncio
 from typing import Awaitable, Callable
 
-FILLERS = ["जी, एक second।", "हाँ जी…", "जी, देखता हूँ।"]
+# "एक second" became "एक सेकंड", a word the Hindi voice never trained on: it came out Hindi-accented.
+# Neutral on purpose: "हाँ जी…" sounded like agreement right before "माफ़ कीजिए, ठीक से सुनाई नहीं दिया".
+FILLERS = ["जी, एक मिनट।", "जी…", "जी, देखता हूँ।"]
 
 
 class Filler:
@@ -18,11 +20,13 @@ class Filler:
         self._n = 0
         self._task: asyncio.Task | None = None
 
-    def customer_stopped(self) -> None:
+    def customer_stopped(self, unsure: bool = False) -> None:
+        """unsure: Whisper doubted what it heard, so the reply will be "माफ़ कीजिए, ठीक से सुनाई नहीं दिया".
+        A filler first sounds like the bot understood (CALL-392c194e: heard as "बढ़िया" before the sorry)."""
         self.cancel()
         if self._skip > 0:
             self._skip -= 1
-        elif self._enabled:
+        elif self._enabled and not unsure:
             self._task = asyncio.create_task(self._after_delay())
 
     def cancel(self) -> None:

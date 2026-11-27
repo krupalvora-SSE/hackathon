@@ -2,6 +2,16 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.20.0 — bot follow-up 3 (2026-11-27)
+From test call CALL-2c3e81bb (ended as do-not-call) and an LLM benchmark:
+- Bot: Whisper's doubt about a turn is kept until the LLM has acted on it. When the customer went on talking before the reply, the doubt of three garbled segments ("प्रवाइब नियुक्त …") was wiped and the LLM read them as `do_not_call`; that turn is now asked again.
+- "बार से ती" / "बाराई से ती" are read as the offered 12-3 window.
+- `will_arrange` only counts for the item the customer lacks (the LLM repeats it on later turns; water and light they have stay "ready"), and not when they name a date after the visit ("2 weeks mein" for a visit tomorrow is missing -> site on hold).
+- Latency: the "जी, एक second" filler is injected between the LLM and the voice, so it plays while Gemini is thinking (it used to wait behind the LLM and come out glued to the reply); filler delay 1.0 s -> 0.5 s; "हाँ जी…" filler replaced by a neutral "जी…".
+- No filler when Whisper is unsure of the turn (CALL-392c194e): the reply is "माफ़ कीजिए, ठीक से सुनाई नहीं दिया", and a filler before it sounded like the bot had understood.
+- Filler "जी, एक second" -> "जी, एक मिनट": "सेकंड" is not in the Hindi voice's training lines and came out Hindi-accented.
+- LLM benchmark (real prompt and tools, 14 simulated customers x 2): gemini-3.6-flash ~1.5 s, no wrong outcomes; gemini-3.5-flash-lite ~0.72 s but 4/28 wrong (read "date perfect hai par ladder nahi hai" as wrong person, booked a no-ladder site); gemini-3.1-flash-lite 6/28 wrong; gemini-3.7/3.8-flash ~3 s. Kept gemini-3.6-flash.
+
 ## 0.20.0 — bot follow-up 2 (2026-11-27)
 From test call CALL-daa8ba9d (booked): "पानी का source है तो नहीं पर मिल जाएगा" was taken as a plain yes and the recap said "पानी ready है".
 - New entity `will_arrange` on the ladder / water / light questions: "not there now, but I'll have it by the visit" is recorded as an item the customer will arrange (`will_arrange` in the call record, `arranging` on the Beat Plan readiness event), and the recap says "पानी का इंतज़ाम आप visit से पहले कर लेंगे".

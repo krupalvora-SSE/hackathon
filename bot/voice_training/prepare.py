@@ -170,7 +170,7 @@ def tidy(clip: np.ndarray) -> np.ndarray:
 
 
 def main():
-    global MATCH
+    global MATCH, SHORT_PAUSE, LONG_PIECE
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("audio", nargs="+", type=Path, help="recordings, in the order they were read")
     ap.add_argument("--name", required=True, help="speaker name, used for the output folder")
@@ -179,13 +179,20 @@ def main():
                          "share a template (only the name/date differs), so a clip can't take a sibling line's text")
     ap.add_argument("--script", type=Path, default=HERE / "script_hinglish.txt",
                     help="script that was read (default: the Hinglish one; script_hi.txt for the older pure-Hindi set)")
+    ap.add_argument("--out-dir", type=Path, default=HERE / "data",
+                    help="where <name>/ and <name>.zip are written (default voice_training/data)")
+    ap.add_argument("--long-piece", type=float, default=LONG_PIECE,
+                    help=f"pieces longer than this many seconds are re-cut at short pauses (default {LONG_PIECE}). "
+                         "Lower it (~5) when lines were read back to back without a clear pause")
+    ap.add_argument("--short-pause", type=float, default=SHORT_PAUSE,
+                    help=f"pause that splits a long piece (default {SHORT_PAUSE})")
     a = ap.parse_args()
-    MATCH = a.min_match
+    MATCH, LONG_PIECE, SHORT_PAUSE = a.min_match, a.long_piece, a.short_pause
 
     from dotenv import load_dotenv
     load_dotenv(HERE.parent / ".env")
 
-    out = HERE / "data" / a.name
+    out = a.out_dir / a.name
     (out / "wavs").mkdir(parents=True, exist_ok=True)
     for old in (out / "wavs").glob("*.wav"):
         old.unlink()
@@ -220,7 +227,7 @@ def main():
         secs += len(clip) / SR
     (out / "metadata.csv").write_text("\n".join(meta) + "\n")
 
-    with zipfile.ZipFile(HERE / "data" / f"{a.name}.zip", "w", zipfile.ZIP_DEFLATED) as z:
+    with zipfile.ZipFile(a.out_dir / f"{a.name}.zip", "w", zipfile.ZIP_DEFLATED) as z:
         z.write(out / "metadata.csv", "metadata.csv")
         for w in sorted((out / "wavs").glob("*.wav")):
             z.write(w, f"wavs/{w.name}")
@@ -239,7 +246,7 @@ def main():
            *[f"- {f} @ {t // 60:.0f}:{t % 60:04.1f}: {why}: {txt}" for f, t, why, txt in dropped_log]]
     (out / "report.md").write_text("\n".join(rep) + "\n")
     print("\n".join(rep[:6]))
-    print(f"\nDataset: {out}\nZip for Colab: {HERE / 'data' / (a.name + '.zip')}\nReport: {out / 'report.md'}")
+    print(f"\nDataset: {out}\nZip for Colab: {a.out_dir / (a.name + '.zip')}\nReport: {out / 'report.md'}")
 
 
 if __name__ == "__main__":

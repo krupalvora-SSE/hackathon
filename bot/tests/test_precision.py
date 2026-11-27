@@ -69,6 +69,9 @@ def test_whisper_service_flags_unsure_turns_and_records(tmp_path, monkeypatch):
     assert svc.turn_unsure and [h["text"] for h in svc.turn_heard][0] == "हाँ जी"
     rows = [json.loads(line) for line in (tmp_path / "CALL-T" / "segments.jsonl").read_text().splitlines()]
     assert [r["unsure"] for r in rows] == [False, True] and (tmp_path / "CALL-T" / "002.wav").exists()
+    svc.start_turn()                                  # still talking before the LLM acted: keep the doubt
+    assert svc.turn_unsure and len(svc.turn_heard) == 2
+    svc.consume_turn()                                # the LLM acted on it
     svc.start_turn()
     assert not svc.turn_unsure and svc.turn_heard == []
 

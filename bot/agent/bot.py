@@ -68,6 +68,18 @@ RATE = {
 YIELD_LINES = ["जी, sorry, आप बोलिए।", "ओह sorry जी, please go ahead।", "जी जी, बोलिए।"]
 
 
+class FillerTap(FrameProcessor):
+    """Sits between the LLM and TTS so a filler reaches the voice while the LLM is still thinking. Queued at the
+    pipeline's start it waited behind the busy LLM and was spoken glued to the real reply (CALL-2c3e81bb)."""
+
+    async def say(self, text: str) -> None:
+        await self.queue_frame(TTSSpeakFrame(text, append_to_context=False))
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        await self.push_frame(frame, direction)
+
+
 class GreetingGate(FrameProcessor):
     """The bot opens with "Hello?". The customer's first reply is held back from the LLM and the
     real greeting is spoken instead (on_first_reply)."""
@@ -378,8 +390,10 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         yielded["answered"] = False
         yielded["task"] = asyncio.create_task(yield_if_unanswered())
 
+    filler_tap = FillerTap()
+
     async def say_filler(line: str) -> None:
-        await worker.queue_frames([TTSSpeakFrame(line, append_to_context=False)])
+        await filler_tap.say(line)
 
     filler = Filler(say_filler, cfg["filler_delay_ms"] / 1000, enabled=cfg["filler"],
                     active=lambda: not engine.outcome)
@@ -391,7 +405,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     gate = GreetingGate(speak_opening)
     recorder = CallRecorder(call_id, sample_rate) if cfg["record_call"] else None
     pipeline = Pipeline([
-        transport.input(), stt, aggregators.user(), gate, llm, tts,
+        transport.input(), stt, aggregators.user(), gate, llm, filler_tap, tts,
         transport.output(),
         *([recorder.processor] if recorder else []),  # after output: hears the customer and the bot
         aggregators.assistant(), metrics,
@@ -469,6 +483,8 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             # switch the re-ask to English
             args = {"intent": "unclear", "language": getattr(getattr(engine, "call", None), "lang", None)
                     or args.get("language", "hi")}
+        if params.function_name == "customer_said" and hasattr(stt, "consume_turn"):
+            stt.consume_turn()
         action = engine.dispatch(params.function_name, args)
         logger.info(f"tool {params.function_name}({args}) -> {action.result}")
         if action.ask_next:
@@ -497,7 +513,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if getattr(message, "content", None):
             engine.heard_customer()
             await end_hold()
-            filler.customer_stopped()
+            filler.customer_stopped(unsure=getattr(stt, "turn_unsure", False))
             yielded["turns"] += 1
             emitter.emit({"type": "transcript", "role": "customer", "text": message.content})
 

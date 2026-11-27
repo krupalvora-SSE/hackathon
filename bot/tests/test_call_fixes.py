@@ -126,3 +126,10 @@ def test_a_clear_turn_forgets_the_last_unsure_reading():
     _ask_again(args, _STT("हाम में जाइबा"), engine)
     _ask_again(args, _STT("हाँ जी", unsure=False), engine)
     assert _ask_again(args, _STT("हाम में जाइबा"), engine)
+
+
+# CALL-2c3e81bb: "बारह से तीन" heard as "बार से ती" / "बाराई से ती"
+@pytest.mark.parametrize("heard", ["बार से ती", "बाराई से ती?"])
+def test_garbled_twelve_to_three(heard):
+    from agent.flow import FlowSpec, band_from_range
+    assert band_from_range(heard, FlowSpec.load().policies) == "afternoon"

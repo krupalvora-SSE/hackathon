@@ -20,3 +20,4 @@ bot/clone_tts/cache/
 
 # voice recordings / training datasets (personal audio)
 bot/voice_training/data/
+bot/voice_training/months/data/

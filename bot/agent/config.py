@@ -122,9 +122,9 @@ FIELDS: list[dict[str, Any]] = [
      "help": "Closes a customer turn that never got an end-of-speech signal."},
     {"key": "filler", "group": "Call flow", "type": "bool", "default": True,
      "env": "FILLER", "label": "Spoken filler when the reply is slow",
-     "help": "Plays a short 'जी, एक second' if the bot hasn't started its reply yet, so a long silence "
+     "help": "Plays a short 'जी, एक मिनट' if the bot hasn't started its reply yet, so a long silence "
              "doesn't sound like a dropped line."},
-    {"key": "filler_delay_ms", "group": "Call flow", "type": "int", "default": 1000,
+    {"key": "filler_delay_ms", "group": "Call flow", "type": "int", "default": 500,
      "min": 300, "max": 3000, "step": 100, "env": "FILLER_DELAY_MS", "label": "Filler delay (ms)",
      "help": "How long after the customer stops talking the bot waits before the filler. Lower sounds "
              "busier; the filler itself takes about 0.3 s to start."},

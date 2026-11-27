@@ -279,7 +279,9 @@ def _part_and_hour(text: str) -> tuple[str | None, int | None]:
 
 # How Whisper writes the hours of the offered windows when the customer repeats them ("नौ से बारह" came back
 # as "नो से बारा"). Only used for a "<start> से <end>" pair, never for single words: "नो" alone is also "no".
-_SPOKEN_HOUR = {"नो": 9, "नव": 9, "बारा": 12, "बार": 12, "ग्यारा": 11, "तिन": 3, "छे": 6, "छः": 6, "छह": 6}
+_SPOKEN_HOUR = {"नो": 9, "नव": 9, "नौं": 9, "बारा": 12, "बार": 12, "बाराई": 12, "बारे": 12, "बाराह": 12, "ग्यारा": 11,
+                "तिन": 3, "ती": 3, "तीं": 3, "तीना": 3, "थ्री": 3, "छे": 6, "छः": 6, "छह": 6, "छै": 6}
+# (a range needs both ends to match one band exactly, so short spellings like "ती" are safe here: CALL-2c3e81bb)
 _RANGE_JOIN = re.compile(r"^(से|सें|se|to|till|tak|-)$|से$")   # "से", or a garbled word ending in it ("अवसे")
 
 
@@ -680,15 +682,19 @@ class FlowCall:
         if st.get("checklist") and on in ("affirm", "deny", "unsure", "dont_know"):
             items = self.policies[st["checklist"]]
             item = items[self.readiness_idx]
+            said = (e.get("readiness") or {}).get(item["id"])     # what they said about THIS item, if anything
             if self.arranging == item["id"]:          # answer to "can you arrange it before the visit?"
                 self.arranging = None
-                if on == "affirm":
+                ok = on == "affirm" and not self._ready_after_visit(e)
+                if ok:
                     self.ctx["will_arrange"].append(item["id"])
-                ok = on == "affirm"
-            elif e.get("will_arrange") is True and on in ("affirm", "deny", "unsure"):
-                # "abhi nahi hai, par mil jayega": not there now, they will have it by the visit (CALL-daa8ba9d)
-                self.ctx["will_arrange"].append(item["id"])
-                ok = True
+            elif e.get("will_arrange") is True and said is not True and on in ("affirm", "deny", "unsure"):
+                # "abhi nahi hai, par mil jayega": not there now, they will have it by the visit (CALL-daa8ba9d).
+                # The LLM repeats will_arrange on later turns, so an item they say they HAVE is just ready; and
+                # "in 2 weeks" for a visit tomorrow is not ready by the visit (eval persona no_ladder).
+                ok = not self._ready_after_visit(e)
+                if ok:
+                    self.ctx["will_arrange"].append(item["id"])
             elif on in ("unsure", "dont_know") or (on == "deny" and item.get("ask_if_can_arrange")):
                 # "maybe" is never booked as ready: ask once whether they will have it by the visit
                 self.arranging = item["id"]
@@ -772,6 +778,12 @@ class FlowCall:
         if on == "wants_other_band" and not self.ctx.get("preferred_band"):
             return self._not_understood()
         return None
+
+    def _ready_after_visit(self, e: dict) -> bool:
+        """They named when they'll have it ("2 weeks mein") and that is after the visit day."""
+        slot = self.ctx.get("selected_slot") or self.context.get("primary_slot") or {}
+        when = N.parse_date(str(e["date"]), self.today) if e.get("date") else None
+        return bool(when and slot.get("date") and when > date.fromisoformat(slot["date"]))
 
     def _requeue_unpicked(self, chosen: dict) -> None:
         """Days offered alongside the one they picked go back to the front of the queue, so a "no" to its

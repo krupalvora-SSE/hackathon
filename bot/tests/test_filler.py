@@ -64,7 +64,7 @@ def test_disabled_and_ended_calls_stay_silent():
 
 def test_settings_have_defaults():
     cfg = config.load()
-    assert cfg["filler"] is True and cfg["filler_delay_ms"] == 1000
+    assert cfg["filler"] is True and cfg["filler_delay_ms"] == 500
 
 
 def test_filler_is_cancelled_when_the_llm_starts_replying():
@@ -80,3 +80,17 @@ def test_filler_is_cancelled_when_the_llm_starts_replying():
     metrics = CallMetrics(Quiet(), False, on_bot_started=lambda: cancelled.append(1))
     asyncio.run(run_test(metrics, frames_to_send=[LLMFullResponseStartFrame()]))
     assert cancelled
+
+
+def test_unsure_turn_gets_no_filler():
+    # CALL-392c194e: a filler before "माफ़ कीजिए, ठीक से सुनाई नहीं दिया" sounded like the bot understood
+    async def s(f): f.customer_stopped(unsure=True)
+    assert run(s) == []
+
+
+def test_filler_returns_after_an_unsure_turn():
+    async def s(f):
+        f.customer_stopped(unsure=True)
+        await asyncio.sleep(0.1)
+        f.customer_stopped()
+    assert run(s) == [FILLERS[0]]

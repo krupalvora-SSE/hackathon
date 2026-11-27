@@ -1373,3 +1373,37 @@ def test_not_there_now_but_will_arrange_is_recorded_as_arranging():
     assert call.ctx["will_arrange"] == ["water"] and call.ctx["readiness"]["water"] is True
     r = call.handle("affirm")                                    # light yes
     assert call.state == "RECAP" and "पानी का इंतज़ाम आप visit से पहले कर लेंगे" in r.speak[0]
+
+
+def test_will_arrange_only_for_the_item_they_lack_and_only_by_the_visit():
+    """Eval persona no_ladder: "ladder 2 weeks mein arrange kar dunga" for a visit on the 28th was booked, and the
+    LLM's repeated will_arrange marked water and light (which they have) as "you will arrange"."""
+    call, _, _ = live()
+    for _ in range(3):
+        call.handle("affirm")                                    # person, day, any time
+    late = {"will_arrange": True, "date": "2 weeks", "readiness": {"ladder": False}}
+    call.handle("deny", late)                                    # no ladder, "2 weeks mein": after the visit
+    assert call.arranging is None and call.ctx["readiness"]["ladder"] is False and "ladder" in call.ctx["missing_items"]
+    assert call.ctx["will_arrange"] == []
+    call.handle("affirm", {**late, "readiness": {"ladder": False, "water": True}})   # water: they have it
+    assert call.ctx["readiness"]["water"] is True and call.ctx["will_arrange"] == []
+    call.handle("affirm", {**late, "readiness": {"light": True}})
+    assert call.state == "ASK_READY_DATE"                        # missing ladder: not booked
+
+
+def test_can_you_arrange_yes_but_after_the_visit_is_missing():
+    call, _, _ = live()
+    for _ in range(3):
+        call.handle("affirm")
+    call.handle("deny")                                          # no ladder
+    assert call.arranging == "ladder"
+    call.handle("affirm", {"date": "2 weeks"})                   # "yes, in 2 weeks"
+    assert call.ctx["readiness"]["ladder"] is False and call.ctx["will_arrange"] == []
+
+
+def test_will_arrange_by_the_visit_still_counts():
+    call, _, _ = live()
+    for _ in range(4):
+        call.handle("affirm")                                    # person, day, time, ladder
+    call.handle("deny", {"will_arrange": True, "date": "kal"})   # water: "kal tak mil jayega", visit is the 28th
+    assert call.ctx["will_arrange"] == ["water"]
