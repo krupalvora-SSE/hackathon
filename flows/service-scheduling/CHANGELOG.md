@@ -2,6 +2,11 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.20.0 (2026-11-27)
+From test call CALL-418d20ee, where the customer picked "सोमवार, 30 नवंबर" and Whisper heard "सुमार थीस लंड", so the bot said "ठीक से सुनाई नहीं दिया" twice:
+- Bot: at ALTERNATE_DAYS, a turn that would be asked again is matched by sound against the days just offered (weekday names and day of the month, with aspirates and vowels ignored: "सुमार थीस" -> Monday 30th). Only when exactly one offered day fits and the turn has no "no"; number words below 11 ("दो" in "कर दो") never count.
+- ASK_SLOT names the day it asks about ("सोमवार, 30 नवंबर को आपको कौन सा time ठीक रहेगा?"), so a wrong guess is heard and can be corrected with the right day.
+
 ## 0.19.1 (2026-11-27)
 From test call CALL-fc2f980f (booked correctly, but RECAP took three tries):
 - English time lines say "between": the RECAP re-ask was "Saturday, 28 November, 12 pm and 3 pm. Shall I confirm?"; TIME_BAND's exact-time lines read "Does 9 am and 12 pm work?".

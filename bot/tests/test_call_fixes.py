@@ -62,3 +62,33 @@ def test_recap_english_line_says_between():
     from agent.flow import FlowSpec
     line = FlowSpec.load().prompts["en"]["RECAP"]["repeat_with_time"]
     assert "between {band_spoken}" in line
+
+
+# CALL-418d20ee: "सोमवार, 30 नवंबर" heard as "सुमार थीस लंड"
+OFFERED = [date(2026, 11, 30), date(2026, 12, 2)]  # Monday, Wednesday
+
+
+@pytest.mark.parametrize("heard,want", [
+    ("सुमार थीस लंड", "2026-11-30"), ("सोमार", "2026-11-30"), ("बुधवर", "2026-12-02"),
+    ("30", "2026-11-30"), ("2 वाला", "2026-12-02"), ("monday", "2026-11-30"),
+    ("बुआ तो गजो जो", None), ("समय नहीं है", None), ("शनिवार", None),
+    ("सोमवार या बुधवार", None),                 # two days: no guess
+    ("सोमवार कर दो", "2026-11-30"),             # "दो" is not the 2nd
+])
+def test_match_offered_day(heard, want):
+    from agent.normalize import match_offered_day
+    d = match_offered_day(heard, OFFERED)
+    assert (d.isoformat() if d else None) == want
+
+
+class _Offering:
+    def __init__(self):
+        self.call = type("C", (), {"state": "ALTERNATE_DAYS", "lang": "hi",
+                                   "offered": [{"date": "2026-11-30"}, {"date": "2026-12-02"}]})()
+
+
+def test_garbled_day_choice_becomes_that_day():
+    from agent.bot import _offered_day_heard
+    assert _offered_day_heard({"intent": "unclear"}, _STT("सुमार थीस लंड"), _Offering()) == "2026-11-30"
+    assert _offered_day_heard({"intent": "unclear"}, _STT("नहीं, सुमार नहीं"), _Offering()) is None
+    assert _offered_day_heard({"intent": "deny"}, _STT("सुमार थीस"), _Offering()) is None

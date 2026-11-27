@@ -136,7 +136,7 @@ flowchart LR
 
 #### Step 3. Ask which time suits
 
-> Which time suits you that day: the morning (9 am to 12 pm) or the evening (3 pm to 6 pm)?
+> Which time suits you on Saturday, 28 November: the morning (9 am to 12 pm) or the evening (3 pm to 6 pm)?
 
 | Customer says | What happens |
 |---|---|

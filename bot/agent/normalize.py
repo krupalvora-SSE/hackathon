@@ -215,6 +215,47 @@ def weekday_dates(text: str, today: date | None = None) -> list[date]:
     return out
 
 
+# ---------------------------------------------------------------- sound-alike match to offered days
+# Whisper often mangles a day the customer picks ("सोमवार तीस नवंबर" -> "सुमार थीस लंड"). These compare
+# consonant skeletons: vowels and nasals dropped, aspirated letters folded into plain ones.
+_FOLD = str.maketrans({"थ": "त", "ध": "द", "भ": "ब", "फ": "प", "घ": "ग", "छ": "च", "झ": "ज", "ठ": "ट",
+                       "ढ": "ड", "ख": "क", "ष": "श", "ण": "न", "ञ": "न", "ङ": "न", "ऱ": "र"})
+_DEV_VOWELS = re.compile(r"[\u0900-\u0903\u093a-\u094d\u0955-\u0957\u0962\u0963\u0904-\u0914\u093c]")
+_NUM_WORD = {v: k for k, v in NUMBER_WORDS.items() if v >= 11 and re.search(r"[\u0900-\u097f]", k)}
+
+
+def _skeleton(word: str) -> str:
+    return _DEV_VOWELS.sub("", word.translate(_FOLD)).replace("ँ", "").replace("ं", "")
+
+
+def _sounds_like(heard: str, target: str, min_ratio: float = 0.8) -> bool:
+    from difflib import SequenceMatcher
+    a, b = _skeleton(heard), _skeleton(target)
+    return len(a) >= 2 and SequenceMatcher(None, a, b).ratio() >= min_ratio
+
+
+def match_offered_day(text: str, offered: list[date]) -> date | None:
+    """The one offered day a garbled answer points to, by sound ("सुमार थीस" -> Monday the 30th), or None.
+    A weekday that sounds alike, or the day of the month (digits, or a Hindi number word from 11 up, so
+    "दो" in "कर दो" is never read as the 2nd). None when the clues point to different days or to none."""
+    toks = _clean(text).translate(DEVANAGARI_DIGITS).split()
+    hits: set[date] = set()
+    for d in offered:
+        names = [w for w in WEEKDAYS[d.weekday()] if re.search(r"[\u0900-\u097f]", w)]
+        for t in toks:
+            if t.isdigit():
+                if int(t) == d.day:
+                    hits.add(d)
+            elif re.search(r"[\u0900-\u097f]", t):
+                if any(_sounds_like(t, n) for n in names):
+                    hits.add(d)
+                elif d.day in _NUM_WORD and _skeleton(t) == _skeleton(_NUM_WORD[d.day]):
+                    hits.add(d)
+            elif t in WEEKDAYS[d.weekday()]:
+                hits.add(d)
+    return hits.pop() if len(hits) == 1 else None
+
+
 def speak_date(d: date) -> str:
     return f"{WEEKDAY_HINGLISH[d.weekday()]}, {d.day} {MONTH_NAME[d.month]}"
 

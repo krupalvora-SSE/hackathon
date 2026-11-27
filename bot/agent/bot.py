@@ -10,6 +10,7 @@ import asyncio
 import os
 import statistics
 import time
+from datetime import date
 
 from loguru import logger
 from pipecat.adapters.llm.schemas.function_schema import FunctionSchema
@@ -186,6 +187,24 @@ def _llm(cfg: dict):
 # Steps where a "yes" writes to Beat Plan (books the slot / pauses the site): it must be a clear yes.
 COMMIT_STATES = {"RECAP", "HOLD_CONSENT"}
 KEEP_ON_UNSURE = {"unclear", "other_language", "repeat_request"}  # already the safe reading
+
+
+def _offered_day_heard(args: dict, stt, engine) -> str | None:
+    """At the day question, a turn we would otherwise ask again ("सुमार थीस लंड", CALL-418d20ee) that sounds
+    like exactly one of the days just offered: that day (ISO). Never on a "no"; ASK_SLOT then names the
+    day, so a wrong guess is heard and corrected."""
+    call = getattr(engine, "call", None)
+    if getattr(call, "state", None) != "ALTERNATE_DAYS" or not getattr(call, "offered", None):
+        return None
+    if args.get("intent") not in ("unclear", "affirm") or args.get("option") or args.get("date"):
+        return None
+    if args.get("intent") == "affirm" and not getattr(stt, "turn_unsure", False):
+        return None
+    heard = " ".join(h["text"] for h in getattr(stt, "turn_heard", []))
+    if not heard or N.parse_bool(heard) is False:
+        return None
+    d = N.match_offered_day(heard, [date.fromisoformat(s["date"]) for s in call.offered])
+    return d.isoformat() if d else None
 
 
 def _yes_and_confirm(heard: str) -> bool:
@@ -421,7 +440,10 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     async def handle_tool(params: FunctionCallParams) -> None:
         filler.cancel()  # the LLM has answered; the real line follows in a moment
         args = dict(params.arguments or {})
-        if params.function_name == "customer_said" and (why := _ask_again(args, stt, engine)):
+        if params.function_name == "customer_said" and (guess := _offered_day_heard(args, stt, engine)):
+            logger.info(f"call {call_id} day matched by sound: heard {stt.turn_heard}, LLM said {args} -> {guess}")
+            args = {"intent": "proposes_date", "date": guess, "language": args.get("language", "hi")}
+        elif params.function_name == "customer_said" and (why := _ask_again(args, stt, engine)):
             logger.info(f"call {call_id} asking again ({why}): heard {stt.turn_heard}, LLM said {args}")
             # keep the call's language: a garbled turn read as English ("Yes, I'm from India.") must not
             # switch the re-ask to English

@@ -1291,7 +1291,7 @@ def test_the_time_question_in_english_lists_the_free_bands():
     call, _, _ = live(lang="en")
     call.handle("affirm")
     r = call.handle("affirm")
-    assert r.speak[0] == "Which time suits you that day: the morning (9 am to 12 pm) or the afternoon (12 pm to 3 pm)?"
+    assert r.speak[0] == "Which time suits you on Saturday, 28 November: the morning (9 am to 12 pm) or the afternoon (12 pm to 3 pm)?"
 
 
 def test_asking_the_time_shares_it_in_recap_and_close():
