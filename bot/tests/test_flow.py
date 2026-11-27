@@ -1294,3 +1294,36 @@ def test_a_yes_to_the_site_question_asks_which_issue_and_none_is_recorded_as_emp
         call2.handle("affirm")
     call2.handle("deny")
     assert call2.outcome == "slot_confirmed" and call2.record()["site_issues"] == [] and call2.record()["slots"]["site_issues"] is None
+
+
+def test_a_bare_yes_in_english_does_not_switch_a_hindi_call_but_a_fuller_answer_does():
+    call, _, _ = live()
+    for _ in range(5):
+        call.handle("affirm")                                           # ... to the recap, in Hindi
+    r = call.handle("affirm", {"language": "en"})                       # "Yes." heard as English
+    assert call.lang == "hi" and call.state == "SITE_ISSUES" and "problem" not in r.speak[0].lower().split()[:3]
+    assert "आख़िरी बात" in r.speak[0]
+    r = call.handle("reports_issue", {"site_issue": "थोड़ी rusting", "language": "hi"})
+    assert call.outcome == "slot_confirmed" and "note कर ली" in r.speak[-1]
+
+
+def test_the_close_does_not_mention_a_problem_when_none_was_reported():
+    call, _, _ = live()
+    for _ in range(6):
+        call.handle("affirm")
+    r = call.handle("deny")
+    assert call.outcome == "slot_confirmed" and "note कर ली" not in r.speak[-1]
+
+
+def test_site_issue_shows_live_on_the_dashboard_and_none_is_shown_too():
+    call, _, events = live()
+    for _ in range(6):
+        call.handle("affirm")
+    call.handle("reports_issue", {"site_issue": "rusting on the frame"})
+    shown = [e for e in events if e.get("type") == "slot" and e.get("key") == "site_issues"]
+    assert shown and shown[-1]["display"] == "rusting on the frame"
+    call2, _, events2 = live()
+    for _ in range(6):
+        call2.handle("affirm")
+    call2.handle("deny")
+    assert [e["display"] for e in events2 if e.get("key") == "site_issues"] == ["None reported"]

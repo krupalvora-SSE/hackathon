@@ -6,6 +6,7 @@ _global:
   unknown_handover: "I don't have this information right now."
   reprompt: "Hello, can you hear me?"
   sms_reminder: "You'll also get a reminder SMS before the visit."
+  issue_noted: "I have noted the problem you told me about on your site, and our Service Hero will check it."
   service_hours: "Our visits happen only between 9 am and 6 pm."
   time_window: "Our service hero will come between {band_spoken} that day."
   didnt_catch: "Sorry, I didn't catch that."
@@ -110,10 +111,10 @@ ISSUE_DETAILS:
   repeat_main: "Please tell me, what is the problem on the site?"
 
 CONFIRMED_CLOSE:
-  main: "Your visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
-  with_time: "Your visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{sms_line} Thank you, have a great day!"
-  main_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
-  with_time_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{sms_line} Thank you, have a great day!"
+  main: "Your visit is confirmed for {weekday}, {date_spoken}.{issue_line}{sms_line} Thank you, have a great day!"
+  with_time: "Your visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{issue_line}{sms_line} Thank you, have a great day!"
+  main_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}.{issue_line}{sms_line} Thank you, have a great day!"
+  with_time_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{issue_line}{sms_line} Thank you, have a great day!"
 
 SENSITIVE_CLOSE:
   main: "I'm so sorry to hear that. Our thoughts are with you and your family. We won't trouble you now. Please take care of yourselves."

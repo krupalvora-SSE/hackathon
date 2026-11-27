@@ -22,7 +22,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.19.0
+version: 0.20.0
 title: Service scheduling call flow
 ticket: SSE-15559
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -79,11 +79,11 @@ sample_values:
   hi: {name: राहुल, bot_name: Krupal, weekday: शनिवार, date_spoken: 28 नवंबर, band_spoken: सुबह आठ से बारह बजे,
        options_spoken: "सोमवार, 30 नवंबर, सुबह या बुधवार, 2 दिसंबर, शाम", missing_item: A-type ladder,
        hold_until_spoken: 5 दिसंबर, recall_window_spoken: कल शाम 5 से 7 बजे,
-       requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह, sms_line: ""}
+       requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह, sms_line: "", issue_line: ""}
   en: {name: Rahul, bot_name: Krupal, weekday: Saturday, date_spoken: 28 November, band_spoken: 8 am and 12 pm,
        options_spoken: "Monday, 30 November, morning or Wednesday, 2 December, evening", missing_item: A-type ladder,
        hold_until_spoken: 5 December, recall_window_spoken: tomorrow 5 to 7 pm,
-       requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning, sms_line: ""}
+       requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning, sms_line: "", issue_line: ""}
 
 # Events raised by code (timers, action results), not by the customer.
 events:
