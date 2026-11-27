@@ -231,6 +231,11 @@
           </div>
           <div class="lat" id="lat"></div>
           <div class="wait" id="record-wait" role="status" hidden><span class="spin"></span><span id="record-wait-text"></span></div>
+          <div id="recording-wrap" hidden>
+            <h4>Call recording</h4>
+            <audio id="recording" controls preload="metadata" style="width:100%"></audio>
+            <small style="color:var(--fg-2)">Stereo: customer on the left, bot on the right. <a id="recording-dl" download>Download WAV</a></small>
+          </div>
           <div id="record-wrap" hidden><h4>Final record</h4><pre id="record"></pre></div>
         </div>
         <div>
@@ -358,6 +363,8 @@
       $('transcript').innerHTML = '';
       $('lat').innerHTML = '';
       $('record-wrap').hidden = true;
+      $('recording-wrap').hidden = true;
+      $('recording').removeAttribute('src');
       stopWaiting();
       $('p50').textContent = '–'; $('turns').textContent = '0'; $('cost').textContent = '–';
       banner('live-banner', '');
@@ -452,6 +459,12 @@
           say('sys end', `Call ended${e.record?.duration_s != null ? ` · ${fmtDuration(e.record.duration_s)}` : ''}`);
           $('record').textContent = JSON.stringify(e.record, null, 2);
           $('record-wrap').hidden = false;
+          if (e.record?.recording?.url) {
+            const src = `${botUrl}${e.record.recording.url}`;
+            $('recording').src = src;
+            $('recording-dl').href = src;
+            $('recording-wrap').hidden = false;
+          }
           if (e.record?.cost_inr != null) $('cost').textContent = `₹${Number(e.record.cost_inr).toFixed(2)}`;
           if (e.record?.outcome === 'handed_to_human') {
             banner('live-banner', 'The customer asked for a person. Hand this call to a human agent.', 'info');

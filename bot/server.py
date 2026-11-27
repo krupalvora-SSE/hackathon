@@ -90,6 +90,17 @@ async def flow_outline():
             "states": {n: {"title": st.get("title") or n, "type": st.get("type")} for n, st in spec.states.items()}}
 
 
+# ------------------------------------------------------------------ Call recordings (both sides, stereo WAV)
+@app.get("/api/recordings/{call_id}.wav")
+async def call_recording(call_id: str):
+    from agent.recording import call_wav
+
+    path = call_wav(call_id)
+    if not (path and path.exists()):
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    return FileResponse(path, media_type="audio/wav", filename=f"{call_id}.wav")
+
+
 # ------------------------------------------------------------------ Voice + call settings page
 VOICE_PAGE = Path(__file__).resolve().parent / "static" / "voice.html"
 
