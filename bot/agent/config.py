@@ -120,6 +120,10 @@ FIELDS: list[dict[str, Any]] = [
     {"key": "turn_stop_timeout", "group": "Call flow", "type": "float", "default": 5,
      "min": 1, "max": 20, "step": 0.5, "env": "USER_TURN_STOP_TIMEOUT", "label": "Turn stop fallback (s)",
      "help": "Closes a customer turn that never got an end-of-speech signal."},
+    {"key": "fast_path", "group": "Call flow", "type": "bool", "default": True,
+     "env": "FAST_PATH", "label": "Answer plain yes / no / time without the LLM",
+     "help": "A clear 'हाँ जी', 'नहीं' or one offered time window ('सुबह 9 से 12') is read by code and the "
+             "next line is spoken at once, skipping the LLM's ~1.5 s. Anything else still goes to the LLM."},
     {"key": "filler", "group": "Call flow", "type": "bool", "default": True,
      "env": "FILLER", "label": "Spoken filler when the reply is slow",
      "help": "Plays a short 'जी, एक मिनट' if the bot hasn't started its reply yet, so a long silence "

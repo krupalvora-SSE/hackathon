@@ -7,6 +7,7 @@ run_bot() serves SmallWebRTC browser calls (telephony=True models an 8 kHz phone
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import statistics
 import time
@@ -111,6 +112,44 @@ class GreetingGate(FrameProcessor):
             return
         if isinstance(frame, LLMContextFrame) and not self.greeted:
             await self.greet()
+            return
+        await self.push_frame(frame, direction)
+
+
+class FastPath(FrameProcessor):
+    """Sits after the GreetingGate, before the LLM. A plain turn (agent/fastpath.py: "हाँ जी", "नहीं",
+    "सुबह 9 से 12") is acted on here and never reaches the LLM, saving its ~1.5 s; everything else passes on."""
+
+    def __init__(self, engine, stt, act, enabled: bool = True):
+        super().__init__()
+        self._engine, self._stt, self._act, self.enabled = engine, stt, act, enabled
+
+    def _args(self, context) -> dict | None:
+        call = getattr(self._engine, "call", None)
+        if not self.enabled or call is None:
+            return None
+        from .fastpath import fast_intent
+
+        heard = " ".join(h["text"] for h in getattr(self._stt, "turn_heard", []))
+        if not heard:
+            last = context.get_messages()[-1] if context.get_messages() else {}
+            heard = last.get("content", "") if isinstance(last, dict) and last.get("role") == "user" else ""
+        return fast_intent(call, heard if isinstance(heard, str) else "", getattr(self._stt, "turn_unsure", False))
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, LLMContextFrame) and (args := self._args(frame.context)):
+            action = await self._act("customer_said", args, fast=True)
+            # Keep the LLM's history as if it had made this call: it learns the step from the tool result.
+            call_id = f"fast-{time.monotonic_ns()}"
+            frame.context.add_messages([
+                {"role": "assistant", "content": None, "tool_calls": [{
+                    "id": call_id, "type": "function",
+                    "function": {"name": "customer_said", "arguments": json.dumps(args, ensure_ascii=False)}}]},
+                {"role": "tool", "tool_call_id": call_id, "content": json.dumps(action.result, ensure_ascii=False)},
+            ])
+            if action.run_llm:   # e.g. an error result: let the LLM handle it as it would its own call
+                await self.push_frame(frame, direction)
             return
         await self.push_frame(frame, direction)
 
@@ -440,9 +479,10 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
 
     gate = GreetingGate(speak_opening, stt)
+    fast_path = FastPath(engine, stt, act, enabled=cfg["fast_path"])
     recorder = CallRecorder(call_id, sample_rate) if cfg["record_call"] else None
     pipeline = Pipeline([
-        transport.input(), stt, aggregators.user(), gate, llm, filler_tap, tts,
+        transport.input(), stt, aggregators.user(), gate, fast_path, llm, filler_tap, tts,
         transport.output(),
         *([recorder.processor] if recorder else []),  # after output: hears the customer and the bot
         aggregators.assistant(), metrics,
@@ -523,10 +563,19 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             # switch the re-ask to English
             args = {"intent": "unclear", "language": getattr(getattr(engine, "call", None), "lang", None)
                     or args.get("language", "hi")}
-        if params.function_name == "customer_said" and hasattr(stt, "consume_turn"):
+        action = await act(params.function_name, args)
+        await params.result_callback(
+            action.result, properties=FunctionCallResultProperties(run_llm=action.run_llm))
+
+    async def act(name: str, args: dict, fast: bool = False) -> Action:
+        """Apply one customer_said reading (from the LLM, or from FastPath without it) and speak the result."""
+        filler.cancel()
+        if fast:
+            engine._last_unsure_reading = None
+        if name == "customer_said" and hasattr(stt, "consume_turn"):
             stt.consume_turn()
-        action = engine.dispatch(params.function_name, args)
-        logger.info(f"tool {params.function_name}({args}) -> {action.result}")
+        action = engine.dispatch(name, args)
+        logger.info(f"tool {name}({args}){' [fast path, no LLM]' if fast else ''} -> {action.result}")
         if action.ask_next:
             pending_ask["text"] = action.ask_next
             if not pending_ask["task"]:
@@ -535,8 +584,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             pending_ask["task"].cancel()
             pending_ask["text"] = pending_ask["task"] = None
         await perform(action)
-        await params.result_callback(
-            action.result, properties=FunctionCallResultProperties(run_llm=action.run_llm))
+        return action
 
     for t in engine.tools:
         llm.register_function(t["name"], handle_tool, cancel_on_interruption=True)

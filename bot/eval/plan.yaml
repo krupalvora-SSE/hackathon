@@ -61,6 +61,7 @@ pinned:
   tts_provider: {reason: "Needs ears: listening A/B of Piper vs Piper + my voice on real calls, not a metric yet."}
   filler: {reason: "Needs ears on live calls: does a short filler on slow replies sound natural."}
   filler_delay_ms: {reason: "Tune with filler on live calls (CallMetrics latency)."}
+  fast_path: {reason: "On by default; covered by tests/test_fastpath.py replaying real call turns. The text bench always runs the LLM."}
   record_stt_audio: {reason: "Diagnostics only: no effect on the call."}
   record_call: {reason: "Recording only: no effect on the call."}
   piper_noise_scale: {reason: "Measured once by intelligibility (Whisper CER on Jasir lines): 0.33/0.5 best; re-check after retraining."}
