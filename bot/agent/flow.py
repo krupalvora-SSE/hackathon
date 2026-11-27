@@ -277,11 +277,35 @@ def _part_and_hour(text: str) -> tuple[str | None, int | None]:
     return part, h
 
 
+# How Whisper writes the hours of the offered windows when the customer repeats them ("नौ से बारह" came back
+# as "नो से बारा"). Only used for a "<start> से <end>" pair, never for single words: "नो" alone is also "no".
+_SPOKEN_HOUR = {"नो": 9, "नव": 9, "बारा": 12, "बार": 12, "ग्यारा": 11, "तिन": 3, "छे": 6, "छः": 6, "छह": 6}
+_RANGE_JOIN = re.compile(r"^(से|सें|se|to|till|tak|-)$|से$")   # "से", or a garbled word ending in it ("अवसे")
+
+
+def band_from_range(text: str, policies: dict) -> str | None:
+    """"नौ से बारह" / "नो से बारा" / "9 se 12" -> the band with exactly those start and end hours, else None.
+    Both ends must match one band, so it is safe to trust even on an unsure transcript."""
+    toks = _WORD.findall((text or "").lower().translate(N.DEVANAGARI_DIGITS))
+    hour = lambda w: _SPOKEN_HOUR.get(w) or N._num(w)  # noqa: E731
+    found = set()
+    for i in range(1, len(toks) - 1):
+        a, b = hour(toks[i - 1]), hour(toks[i + 1])
+        if a and b and _RANGE_JOIN.search(toks[i]):
+            for band, bh in policies["time_bands"].items():
+                s, e = _hour(bh["start"]), _hour(bh["end"])
+                if a % 12 == s % 12 and b % 12 == e % 12:            # 12-hour clock: "बारह से तीन" = 12-15
+                    found.add(band)
+    return found.pop() if len(found) == 1 else None
+
+
 def parse_band(text: str, policies: dict) -> str | None:
     """Customer's words -> morning/afternoon/evening, using the policy's band hours."""
     t = (text or "").strip().lower()
     if t in policies["time_bands"]:
         return t
+    if (b := band_from_range(t, policies)):
+        return b
     part, h = _part_and_hour(t)
     if h is not None:
         for band, b in policies["time_bands"].items():

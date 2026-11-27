@@ -50,6 +50,7 @@ from . import normalize as N
 from .barge_in import PatientBargeInStrategy
 from .events import Emitter, save_result
 from .engine import make_engine
+from .flow import band_from_range, parse_band
 from .filler import Filler
 from .prompts import HANDOVER_BROWSER_NOTE
 from .recording import CallRecorder
@@ -187,6 +188,16 @@ COMMIT_STATES = {"RECAP", "HOLD_CONSENT"}
 KEEP_ON_UNSURE = {"unclear", "other_language", "repeat_request"}  # already the safe reading
 
 
+def _offered_band_heard(args: dict, heard: str, call) -> bool:
+    """An unsure transcript that is still safe to act on: at ASK_SLOT the customer repeated one of the windows
+    just offered ("नौ से बारह" heard as "नो से बारा"). Code, not the LLM, must find both ends of exactly one
+    offered window in what Whisper heard, and the LLM's band must say the same."""
+    if args.get("intent") != "gives_band" or getattr(call, "state", None) != "ASK_SLOT":
+        return False
+    band = band_from_range(heard, call.policies)
+    return bool(band) and band in call._free_bands() and parse_band(str(args.get("band") or heard), call.policies) == band
+
+
 def _ask_again(args: dict, stt, engine) -> str | None:
     """Why the customer should be asked again instead of acting on the LLM's reading, or None.
 
@@ -195,10 +206,11 @@ def _ask_again(args: dict, stt, engine) -> str | None:
     intent = args.get("intent")
     if intent in KEEP_ON_UNSURE:
         return None
-    if getattr(stt, "turn_unsure", False):
-        return "Whisper unsure of the transcript"
-    state = getattr(getattr(engine, "call", None), "state", None)
+    call = getattr(engine, "call", None)
+    state = getattr(call, "state", None)
     heard = " ".join(h["text"] for h in getattr(stt, "turn_heard", []))
+    if getattr(stt, "turn_unsure", False) and not _offered_band_heard(args, heard, call):
+        return "Whisper unsure of the transcript"
     if state in COMMIT_STATES and intent == "affirm" and heard and not N.clear_yes(heard):
         return f"no clear yes at {state}"
     return None

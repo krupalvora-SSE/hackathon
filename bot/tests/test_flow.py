@@ -1310,3 +1310,17 @@ def test_backup_days_offered_without_time_of_day_unless_asked():
     call.handle("affirm")
     r = call.handle("deny")
     assert "सोमवार" in r.speak[0] and "सुबह" not in r.speak[0] and "शाम" not in r.speak[0]
+
+
+@pytest.mark.parametrize("words,band", [
+    ("नौ से बारह", "morning"), ("नो से बारा", "morning"), ("नो अवसे बारा", "morning"), ("subah 9 se 12", "morning"),
+    ("बारह से तीन", "afternoon"), ("बारा से तिन", "afternoon"), ("तीन से छह", "evening"), ("3 to 6", "evening"),
+])
+def test_band_said_as_its_window(words, band):
+    assert parse_band(words, SPEC.policies) == band
+
+
+@pytest.mark.parametrize("words", ["नो", "नो से", "नो नहीं बारा", "नहीं"])
+def test_band_from_range_needs_both_ends_of_one_window(words):
+    from agent.flow import band_from_range
+    assert band_from_range(words, SPEC.policies) is None

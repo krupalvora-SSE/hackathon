@@ -71,3 +71,38 @@ def test_whisper_service_flags_unsure_turns_and_records(tmp_path, monkeypatch):
     assert [r["unsure"] for r in rows] == [False, True] and (tmp_path / "CALL-T" / "002.wav").exists()
     svc.start_turn()
     assert not svc.turn_unsure and svc.turn_heard == []
+
+
+def _at_ask_slot(availability=("morning", "afternoon")):
+    from datetime import date
+    from agent.flow import FlowCall, FlowSpec
+    booking = {"id": "BK-1", "customerName": "Rahul Joshi", "beatPlan": {
+        "primary_slot": {"date": "2026-11-28", "band": "morning", "hero_id": "SH-7"}, "backup_slots": [],
+        "availability": {"2026-11-28": list(availability)}}}
+    call = FlowCall(call_id="P", booking=booking, spec=FlowSpec.load(), today=date(2026, 11, 26))
+    call.start()
+    call.handle("affirm")
+    call.handle("affirm")
+    assert call.state == "ASK_SLOT"
+    return SimpleNamespace(call=call)
+
+
+def test_unsure_repeat_of_an_offered_window_is_taken():
+    # 2026-11-27 browser call: "नौ से बारह" came back unsure as "नो अवसे बारा", then "नो से बारा", three times,
+    # and the call went to a senior.
+    eng = _at_ask_slot()
+    for heard, band in (("नो अवसे बारा", "नो अवसे बारा"), ("नो से बारा", "नो से बारा"), ("नो से बारा", "subah 9 se 12")):
+        assert _ask_again({"intent": "gives_band", "band": band}, _stt([heard], unsure=True), eng) is None, heard
+    assert _ask_again({"intent": "gives_band", "band": "बारा से तिन"}, _stt(["बारा से तिन"], unsure=True), eng) is None
+
+
+def test_unsure_band_is_still_asked_again_unless_code_matches_an_offered_window():
+    eng = _at_ask_slot()
+    unsure = lambda t: _stt([t], unsure=True)  # noqa: E731
+    assert _ask_again({"intent": "gives_band", "band": "नो"}, unsure("नो"), eng)                   # one word: "no"?
+    assert _ask_again({"intent": "gives_band", "band": "subah"}, unsure("सुबा"), eng)              # not a window
+    assert _ask_again({"intent": "gives_band", "band": "shaam 3 se 6"}, unsure("तीन से छह"), eng)  # not offered
+    assert _ask_again({"intent": "gives_band", "band": "dopahar"}, unsure("नो से बारा"), eng)      # LLM disagrees
+    assert _ask_again({"intent": "affirm"}, unsure("नो से बारा"), eng)                             # not a band answer
+    assert _ask_again({"intent": "gives_band", "band": "नो से बारा"}, unsure("नो से बारा"),
+                      _at_ask_slot(("afternoon",)))                                                 # morning is full
