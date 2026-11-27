@@ -211,7 +211,7 @@ def test_repeat_request_without_short_form_falls_back_to_lead_in_plus_full_line(
     call.handle("affirm")
     call.last_ref = ("OFFER_PRIMARY", "no_such_key")
     r = call.handle("repeat_request")
-    assert r.speak[0].startswith("जी, फिर से बता देता हूँ।") and r.speak[0].endswith(call.last_line)
+    assert r.speak[0].startswith("जी, फिर से बता देती हूँ।") and r.speak[0].endswith(call.last_line)
 
 
 def test_hold_on_acknowledges_alone_and_asks_for_a_longer_silence_timeout():
