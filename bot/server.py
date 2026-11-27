@@ -18,7 +18,7 @@ load_dotenv()
 
 import httpx  # noqa: E402
 from fastapi import FastAPI, Form, Request, UploadFile, WebSocket  # noqa: E402
-from fastapi.responses import FileResponse, JSONResponse, Response  # noqa: E402
+from fastapi.responses import HTMLResponse, JSONResponse, Response  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from loguru import logger  # noqa: E402
 try:  # pyrnnoise has no wheel for some platforms (e.g. macOS < 26); run without it there
@@ -123,7 +123,9 @@ def _sarvam_error(r: httpx.Response) -> JSONResponse:
 
 @app.get("/voice")
 async def voice_page():
-    return FileResponse(VOICE_PAGE)
+    # The page's top navigation links back to the dashboard.
+    html = VOICE_PAGE.read_text(encoding="utf-8").replace("__APP_URL__", os.getenv("APP_URL", "http://localhost:3000").rstrip("/"))
+    return HTMLResponse(html)
 
 
 @app.get("/api/voices")
