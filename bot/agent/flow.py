@@ -280,15 +280,17 @@ def _part_and_hour(text: str) -> tuple[str | None, int | None]:
 # How Whisper writes the hours of the offered windows when the customer repeats them ("नौ से बारह" came back
 # as "नो से बारा"). Only used for a "<start> से <end>" pair, never for single words: "नो" alone is also "no".
 _SPOKEN_HOUR = {"नो": 9, "नव": 9, "नौं": 9, "बारा": 12, "बार": 12, "बाराई": 12, "बारे": 12, "बाराह": 12, "ग्यारा": 11,
-                "तिन": 3, "ती": 3, "तीं": 3, "तीना": 3, "थ्री": 3, "छे": 6, "छः": 6, "छह": 6, "छै": 6}
+                "तिन": 3, "ती": 3, "एतीन": 3, "तीं": 3, "तीना": 3, "थ्री": 3, "छे": 6, "छः": 6, "छह": 6, "छै": 6}
 # (a range needs both ends to match one band exactly, so short spellings like "ती" are safe here: CALL-2c3e81bb)
+_DASH = re.compile(r"\s*[-–—]\s*")                     # a dash between two hours is "से": "12-3", "9 – 12"
 _RANGE_JOIN = re.compile(r"^(से|सें|se|to|till|tak|-)$|से$")   # "से", or a garbled word ending in it ("अवसे")
 
 
 def band_from_range(text: str, policies: dict) -> str | None:
     """"नौ से बारह" / "नो से बारा" / "9 se 12" -> the band with exactly those start and end hours, else None.
     Both ends must match one band, so it is safe to trust even on an unsure transcript."""
-    toks = _WORD.findall((text or "").lower().translate(N.DEVANAGARI_DIGITS))
+    text = _DASH.sub(" से ", (text or "").lower().translate(N.DEVANAGARI_DIGITS))  # "12-3" (CALL-f7139d1d)
+    toks = _WORD.findall(text)
     hour = lambda w: _SPOKEN_HOUR.get(w) or N._num(w)  # noqa: E731
     found = set()
     for i in range(1, len(toks) - 1):

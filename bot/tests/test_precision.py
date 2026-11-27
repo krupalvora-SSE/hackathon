@@ -109,3 +109,12 @@ def test_unsure_band_is_still_asked_again_unless_code_matches_an_offered_window(
     assert _ask_again({"intent": "affirm"}, unsure("नो से बारा"), eng)                             # not a band answer
     assert _ask_again({"intent": "gives_band", "band": "नो से बारा"}, unsure("नो से बारा"),
                       _at_ask_slot(("afternoon",)))                                                 # morning is full
+
+
+def test_dash_range_and_eteen_are_the_offered_window():
+    # CALL-f7139d1d: "बार से एतीन" (clear) and "12-3" (unsure) at ASK_SLOT were both asked again; the third miss
+    # sent the call to a senior
+    eng = _at_ask_slot()
+    assert _ask_again({"intent": "gives_band", "band": "12-3"}, _stt(["12-3"], unsure=True), eng) is None
+    eng.call.handle("gives_band", {"band": "बार से एतीन"})
+    assert eng.call.state != "ASK_SLOT" and eng.call.ctx["selected_slot"]["band"] == "afternoon"
