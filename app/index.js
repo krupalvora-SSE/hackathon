@@ -4,6 +4,7 @@ import { extname, join, normalize } from 'node:path';
 import { createStore } from './src/bookings.js';
 import { createCalls } from './src/calls.js';
 import { createOffguard } from './src/offguard.js';
+import { createCalculator } from './src/calculator.js';
 import { connectCall } from './src/exotel.js';
 
 try { process.loadEnvFile(); } catch {} // .env is optional (git-ignored)
@@ -11,13 +12,14 @@ try { process.loadEnvFile(); } catch {} // .env is optional (git-ignored)
 const port = process.env.PORT || 3000;
 const store = createStore();
 const offguard = createOffguard({ file: process.env.OFFGUARD_FILE || join(import.meta.dirname, 'data', 'offguard.json') });
+const calculator = createCalculator({ file: process.env.CALCULATOR_FILE || join(import.meta.dirname, 'data', 'calculator.json') });
 const calls = createCalls(store, {
   onOffguard: (x) => offguard.capture(x),
   file: process.env.CALLS_FILE || join(import.meta.dirname, 'data', 'calls.json'),
 });
 const PUBLIC = join(import.meta.dirname, 'public');
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.ttf': 'font/ttf' };
-const STATUS = { empty_text: 400, invalid_question: 400, invalid_answer: 400, invalid_intent: 400, intent_not_teachable: 400, invalid_update: 400, not_found: 404, already_decided: 409, invalid_mode: 400, invalid_event: 400, exotel_not_configured: 503, exotel_failed: 502, number_not_allowed: 403 };
+const STATUS = { empty_text: 400, invalid_question: 400, invalid_answer: 400, invalid_intent: 400, invalid_settings: 400, intent_not_teachable: 400, invalid_update: 400, not_found: 404, already_decided: 409, invalid_mode: 400, invalid_event: 400, exotel_not_configured: 503, exotel_failed: 502, number_not_allowed: 403 };
 
 const json = (res, code, body) => {
   res.writeHead(code, { 'content-type': 'application/json' });
@@ -57,6 +59,16 @@ createServer(async (req, res) => {
     res.writeHead(human ? 200 : 302, { 'content-type': 'text/plain' });
     return res.end(human ? 'handover' : 'hangup');
   }
+
+  // Settings of the channel cost calculator.
+  if (pathname === '/api/calculator' && req.method === 'GET') return json(res, 200, calculator.get());
+  if (pathname === '/api/calculator' && req.method === 'PUT') {
+    let body;
+    try { body = await readJson(req); } catch { return json(res, 400, { error: 'invalid_json' }); }
+    const r = calculator.put(body);
+    return r.error ? json(res, STATUS[r.error], r) : json(res, 200, r.settings);
+  }
+  if (req.method === 'GET' && pathname === '/calculator') return res.writeHead(302, { location: '/calculator.html' }).end();
 
   // Questions the bot could not handle, and what an admin taught it (the "Questions" view).
   if (req.method === 'GET' && pathname === '/api/offguard') return json(res, 200, offguard.list());
