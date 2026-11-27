@@ -479,7 +479,8 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
 
     gate = GreetingGate(speak_opening, stt)
-    fast_path = FastPath(engine, stt, act, enabled=cfg["fast_path"])
+    # `act` is defined further down (it needs `perform` and the pending-ask state): look it up when called
+    fast_path = FastPath(engine, stt, lambda *a, **k: act(*a, **k), enabled=cfg["fast_path"])
     recorder = CallRecorder(call_id, sample_rate) if cfg["record_call"] else None
     pipeline = Pipeline([
         transport.input(), stt, aggregators.user(), gate, fast_path, llm, filler_tap, tts,

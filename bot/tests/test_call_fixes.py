@@ -166,3 +166,30 @@ def test_greeting_clears_the_misheard_first_reply():
     asyncio.run(GreetingGate(speak, stt).greet())
     stt.start_turn()                                   # the customer answers the greeting
     assert greeted and not stt.turn_unsure and stt.turn_heard == []
+
+
+def test_run_bot_never_uses_a_local_function_before_it_is_defined():
+    """CALL-e4fdafd8 failed at start: FastPath(engine, stt, act) ran before `async def act` further down
+    (UnboundLocalError). No test builds the live pipeline, so check _run_bot's body statically."""
+    import ast
+    import inspect
+    import textwrap
+
+    from agent import bot
+
+    fn = ast.parse(textwrap.dedent(inspect.getsource(bot._run_bot))).body[0]
+    defs = {s.name: s.lineno for s in fn.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+    def eager_names(node):  # names evaluated right away: skip nested function bodies and lambdas
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            for d in getattr(node, "decorator_list", []):
+                yield from eager_names(d)
+            return
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            yield node
+        for child in ast.iter_child_nodes(node):
+            yield from eager_names(child)
+
+    early = [(n.id, n.lineno) for stmt in fn.body for n in eager_names(stmt)
+             if n.id in defs and n.lineno < defs[n.id]]
+    assert not early, early
