@@ -73,7 +73,7 @@ READINESS_CHECK:
   repeat_arrange_water: "Can you arrange water before the visit?"
   repeat_arrange_light: "Can you arrange a light connection?"
   explain_ladder: "An A-type ladder is a folding ladder shaped like the letter A that stands on its own; our hero uses it to reach the roof."
-  explain_water: "We need water to clean the panels."
+  explain_water: "A water source means a tap or tank near the panels, so our hero can get water to clean them."
   explain_light: "We need a power connection for the work."
 
 ASK_READY_DATE:

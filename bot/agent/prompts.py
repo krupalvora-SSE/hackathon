@@ -106,7 +106,9 @@ def flow_system_prompt(call) -> str:
     approved = ""
     if faqs:
         approved = ("\nApproved answers: when the customer asks one of these, even in other words, use the intent "
-                    "known_question with that faq_id (the system speaks the answer):\n"
+                    "known_question with that faq_id (the system speaks the answer). Only when the customer asks about exactly the "
+                    "same thing: sharing a word with an entry is not enough, and a question about what ladder / water / light "
+                    "means or why it is needed is asks_meaning, never an approved answer about something else:\n"
                     + "\n".join(f'- faq_id={f["id"]}: "{f["question"]}"' for f in faqs[:40]) + "\n")
     c = call.context
     primary = c.get("primary_slot") or {}

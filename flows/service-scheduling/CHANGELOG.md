@@ -2,6 +2,11 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.22.0 (2026-11-27, SSE-15551)
+From a call where "पानी का source क्या होता है?" was answered with an approved answer about the socket distance ("30 ft ke andar ... socket chahiye"):
+- The model prompt now says an approved answer is only for exactly the same question; what ladder / water / light means or why it is needed is always `asks_meaning`.
+- `explain_water` now says what a water source is (a tap or tank near the panels), not only why water is needed.
+
 ## 0.21.0 (2026-11-27, SSE-15551)
 From a call where the offer named only the day, and "जी क्या slot है?" was taken as a yes and the bot went straight on to the readiness questions:
 - The planned-day offer now also says the time window ("बुधवार, 2 दिसंबर को शाम तीन से छह बजे के बीच...").
