@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cost calculator</title>
   <link rel="stylesheet" href="/tokens.css">
+  <script src="/nav.js" defer></script>
   <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
   <style>
     [hidden] { display: none !important; }
@@ -62,18 +63,22 @@
     .empty { padding:36px 12px; text-align:center; color:var(--fg-3); font-size:var(--text-sm); }
     @media (max-width: 900px) { .layout { grid-template-columns:1fr; } .brand-name { display:none; } .row { grid-template-columns:1fr 100px; } .row .track { grid-column:1 / -1; order:3; } }
   </style>
+  <link rel="stylesheet" href="/theme.css">
 </head>
 <body>
   <header>
-    <div class="brand">
+    <a class="brand" href="/" style="text-decoration:none">
       <img src="https://cdn.solarsquare.in/blog/wp-content/uploads/2025/11/05101757/logo.webp" alt="SolarSquare">
       <span class="brand-divider"></span>
       <span class="brand-name">AMC operations</span>
-    </div>
+    </a>
     <div class="header-actions">
-      <a class="header-link" href="/"><i data-lucide="layout-dashboard"></i>Dashboard</a>
+      <a class="header-link" id="voice-link" href="http://localhost:7860/voice"><i data-lucide="audio-lines"></i>Voice studio</a>
+      <a class="header-link" href="/flow"><i data-lucide="git-branch"></i>Call flow</a>
       <a class="header-link" href="/logs.html"><i data-lucide="scroll-text"></i>Call logs</a>
-      <a class="header-link" href="/questions.html"><i data-lucide="message-circle-question"></i>Questions</a>
+      <a class="header-link" aria-current="page" href="/calculator.html"><i data-lucide="calculator"></i>Cost calculator</a>
+      <a class="header-link" href="/questions.html"><i data-lucide="message-circle-question"></i>Questions<span class="q-badge" id="q-badge" hidden></span></a>
+      <span class="live-pill"><i class="live-dot"></i><span id="service-status">Service online</span></span>
     </div>
   </header>
   <main>
