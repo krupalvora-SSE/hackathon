@@ -52,13 +52,14 @@ def run_call(engine, client: OpenAI, model: str, *, persona: str | None = None, 
     log(f"AGENT: {msgs[-1]['content']}")
 
     for _ in range(max_turns):
+        heard = next((t for r, t in reversed(transcript) if r == "agent"), "")  # last thing the bot said
         if persona:
-            customer_msgs.append({"role": "user", "content": msgs[-1]["content"] or ""})
+            customer_msgs.append({"role": "user", "content": heard or ""})
             said = cust_client.chat.completions.create(model=cust_model, messages=customer_msgs).choices[0].message.content
             customer_msgs.append({"role": "assistant", "content": said})
             log(f"CUSTOMER: {said}")
         else:
-            said = ask(msgs[-1]["content"])
+            said = ask(heard)
         transcript.append(("customer", said))
         msgs.append({"role": "user", "content": said})
         engine.heard_customer()

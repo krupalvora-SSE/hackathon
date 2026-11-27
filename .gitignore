@@ -14,3 +14,11 @@ bot/voice.json
 bot/config.json
 app/data/offguard.json
 app/data/calls.json
+bot/eval/corpus/
+bot/eval/runs/
+bot/local_voice.wav
+bot/local_voice.json
+bot/clone_tts/cache/
+
+# voice recordings / training datasets (personal audio)
+bot/voice_training/data/

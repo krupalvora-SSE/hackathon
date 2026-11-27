@@ -1,0 +1,22 @@
+[project]
+name = "clone-tts"
+version = "0.1.0"
+description = "Local open-source voice cloning for the bot: OpenVoice V2 converter over Piper (see server.py)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "huggingface-hub>=0.30",
+    "librosa==0.11.0",
+    "loguru>=0.7",
+    "myshell-openvoice @ git+https://github.com/myshell-ai/OpenVoice.git@74a1d147b17a8c3092dd5430504bd83ef6c7eb23",
+    "numpy<2",
+    "torch==2.6.0",  # tested on the M4 (MPS)
+    "uvicorn>=0.30",
+]
+
+# Only OpenVoice's converter model is used; its declared deps (whisper, gradio, old numpy...) are not needed
+# and clash with the torch pin, so its metadata is replaced with an empty dependency list.
+[[tool.uv.dependency-metadata]]
+name = "myshell-openvoice"
+version = "0.0.0"
+requires-dist = []

@@ -1,6 +1,8 @@
-"""Pipecat pipeline: transport in -> Sarvam STT -> LLM (tools) -> Sarvam TTS -> transport out.
+"""Pipecat pipeline: transport in -> local STT -> LLM (tools) -> local Piper TTS -> transport out.
 
-The same run_bot() serves Exotel (8 kHz phone) and SmallWebRTC (browser fallback).
+Speech recognition (Whisper) and the voice (Piper) run on this machine from local model files.
+
+run_bot() serves SmallWebRTC browser calls (telephony=True models an 8 kHz phone leg for evals).
 """
 from __future__ import annotations
 
@@ -41,32 +43,28 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.llm_service import FunctionCallParams
 from pipecat.services.openai.llm import OpenAILLMService
-from pipecat.services.sarvam.stt import SarvamRealtimeSTTService
-from pipecat.services.sarvam.tts import SarvamTTSService
-from pipecat.transcriptions.language import Language
-from pipecat.turns.user_start import TranscriptionUserTurnStartStrategy, VADUserTurnStartStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies, default_user_turn_stop_strategies
 
 from . import config as call_config
+from . import normalize as N
+from .barge_in import PatientBargeInStrategy
 from .events import Emitter, save_result
 from .engine import make_engine
 from .filler import Filler
 from .knowledge import fetch_knowledge
 from .prompts import HANDOVER_BROWSER_NOTE
+from .recording import CallRecorder
 from .tools import Action
-from .voice import TTS_TEXT_TRANSFORMS, SarvamCloneTTSService, clone_in_use, drop_stale_clone
 
 # Rough INR rates for the cost-per-call estimate; override in .env with real contract prices.
 RATE = {
-    "stt_per_min": float(os.getenv("COST_STT_INR_PER_MIN", "0.5")),
-    "tts_per_1k_chars": float(os.getenv("COST_TTS_INR_PER_1K_CHARS", "1.5")),
+    "stt_per_min": float(os.getenv("COST_STT_INR_PER_MIN", "0")),  # local STT
+    "tts_per_1k_chars": float(os.getenv("COST_TTS_INR_PER_1K_CHARS", "0")),  # local Piper
     "llm_per_m_in": float(os.getenv("COST_LLM_INR_PER_M_IN", "13")),
     "llm_per_m_out": float(os.getenv("COST_LLM_INR_PER_M_OUT", "51")),
     "tel_per_min": float(os.getenv("COST_TELEPHONY_INR_PER_MIN", "0.6")),
 }
 YIELD_LINES = ["जी, sorry, आप बोलिए।", "ओह sorry जी, please go ahead।", "जी जी, बोलिए।"]
-KEYTERMS = ["SolarSquare", "seedhi", "ladder", "light", "paani", "nal", "subah", "dopahar", "shaam", "tarikh",
-            "Somvar", "Mangalvar", "Budhvar", "Guruvar", "Shukravar", "Shanivar", "haan", "nahi"]
 
 
 class GreetingGate(FrameProcessor):
@@ -185,38 +183,33 @@ def _llm(cfg: dict):
     )
 
 
-def make_sarvam_stt(cfg: dict, sample_rate: int | None = None) -> SarvamRealtimeSTTService:
-    """Sarvam realtime STT for a call config. Also used by eval/stt_bench.py, so the bench tests
-    exactly the connection parameters a real call sends."""
-    stt_vad = {}
-    if cfg["endpointing"] == "sarvam":  # server-side VAD tuning; Sarvam rejects it in manual mode
-        stt_vad = {k: v for k, v in {"threshold": cfg["stt_threshold"],
-                                     "min_speech_duration_ms": cfg["stt_min_speech_ms"],
-                                     "silence_duration_ms": cfg["stt_silence_ms"]}.items() if v is not None}
-    return SarvamRealtimeSTTService(
-        api_key=os.environ["SARVAM_API_KEY"],
-        keyterms=KEYTERMS,
-        endpointing="vad" if cfg["endpointing"] == "sarvam" else "manual",
-        should_interrupt=cfg["barge_in"],
-        sample_rate=sample_rate,
-        settings=SarvamRealtimeSTTService.Settings(
-            model=cfg["stt_model"],
-            language=Language.HI_IN,
-            stream_type=cfg["stt_stream_type"],
-            mode="codemix",
-            **stt_vad,
-        ),
-    )
+# Steps where a "yes" writes to Beat Plan (books the slot / pauses the site): it must be a clear yes.
+COMMIT_STATES = {"RECAP", "HOLD_CONSENT"}
+KEEP_ON_UNSURE = {"unclear", "other_language", "repeat_request"}  # already the safe reading
 
 
-def _turn_strategies(cfg: dict) -> UserTurnStrategies | None:
-    """None keeps Sarvam's recommended strategies (its server VAD owns turns and barge-in)."""
-    if cfg["endpointing"] == "sarvam":
+def _ask_again(args: dict, stt, engine) -> str | None:
+    """Why the customer should be asked again instead of acting on the LLM's reading, or None.
+
+    Precision over speed: a misheard answer that books the wrong slot costs more than one re-ask.
+    """
+    intent = args.get("intent")
+    if intent in KEEP_ON_UNSURE:
         return None
-    interrupt = cfg["barge_in"]
+    if getattr(stt, "turn_unsure", False):
+        return "Whisper unsure of the transcript"
+    state = getattr(getattr(engine, "call", None), "state", None)
+    heard = " ".join(h["text"] for h in getattr(stt, "turn_heard", []))
+    if state in COMMIT_STATES and intent == "affirm" and heard and not N.clear_yes(heard):
+        return f"no clear yes at {state}"
+    return None
+
+
+def _turn_strategies(cfg: dict) -> UserTurnStrategies:
+    """Local Silero VAD + Smart Turn decide when the customer starts and stops (Whisper doesn't stream);
+    talking over the bot needs barge_in_secs of speech (agent/barge_in.py)."""
     return UserTurnStrategies(
-        start=[VADUserTurnStartStrategy(enable_interruptions=interrupt),
-               TranscriptionUserTurnStartStrategy(enable_interruptions=interrupt)],
+        start=[PatientBargeInStrategy(barge_in_secs=cfg["barge_in_secs"], enable_interruptions=cfg["barge_in"])],
         stop=default_user_turn_stop_strategies(),
     )
 
@@ -233,51 +226,52 @@ async def run_bot(transport, *, call_id: str, **kwargs) -> None:
         await emitter.close()
 
 
+def _piper_tts(cfg: dict, call_id: str, sample_rate: int | None = None):
+    """Local open-source TTS (Piper, male Hindi + English voices), optionally re-voiced as the local sample
+    ("piper_clone", agent/voice_local.py). Raises if Piper can't load: there is no other voice."""
+    from pipecat.services.piper.tts import PiperTTSService
+
+    from .devanagari import DEVANAGARI_TEXT_TRANSFORMS
+
+    from .voice_local import BilingualPiperTTSService
+
+    from pipecat.services.piper.tts import PIPER_CACHE_DIR
+
+    for voice in filter(None, (cfg["piper_voice"], cfg.get("piper_voice_en"))):  # local files only: never download
+        if not (PIPER_CACHE_DIR / f"{voice}.onnx").exists():
+            raise RuntimeError(f"Piper voice {voice} is not on this machine: copy {voice}.onnx and "
+                               f"{voice}.onnx.json into {PIPER_CACHE_DIR}")
+    pace = cfg["tts_pace"]
+    settings = PiperTTSService.Settings(voice=cfg["piper_voice"], length_scale=round(1 / pace, 3) if pace else None,
+                                        noise_scale=cfg["piper_noise_scale"], noise_w_scale=cfg["piper_noise_w"])
+    try:
+        tts = BilingualPiperTTSService(en_voice=cfg.get("piper_voice_en") or None,
+                                       clone=cfg["tts_provider"] == "piper_clone", tau=cfg.get("clone_tau", 0.3),
+                                       settings=settings, sample_rate=sample_rate,
+                                       text_transforms=DEVANAGARI_TEXT_TRANSFORMS)
+    except Exception as e:  # missing package, voice download failed
+        raise RuntimeError(f"Piper voice {cfg['piper_voice']} unavailable: {e}") from e
+    mine = " + my voice (local converter)" if cfg["tts_provider"] == "piper_clone" else ""
+    logger.info(f"call {call_id} TTS voice: Piper {cfg['piper_voice']} / {cfg.get('piper_voice_en')}{mine}")
+    return tts
+
+
 async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, sample_rate: int,
                    call_sid: str | None = None) -> None:
     emitter = Emitter(call_id)
-    await drop_stale_clone()  # before the engine, which takes the bot's name from the picked voice
     knowledge = await fetch_knowledge()      # answers and phrases an admin taught on the Questions view
     engine = make_engine(call_id, booking, on_event=emitter.emit, knowledge=knowledge)  # CALL_FLOW picks YAML flow or checklist
     logger.info(f"call {call_id} booking={booking.get('id')} telephony={telephony} flow={engine.name}")
 
     cfg = call_config.load()  # read per call: /voice page edits apply from the next call
-    if cfg["stt_provider"] == "indic":
-        from .stt_indic import load_model, status
+    from .stt_whisper import make_whisper_stt, status as whisper_status, warm_up
 
-        try:
-            if not status()["ready"]:
-                raise RuntimeError(status()["message"])
-            await asyncio.to_thread(load_model)  # no-op once loaded; first call waits for the download
-            cfg["endpointing"] = "local"  # IndicConformer is not streaming: local VAD cuts the segments
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"call {call_id} IndicConformer unavailable, using Sarvam STT: {e}")
-            cfg["stt_provider"] = "sarvam"
+    if not whisper_status()["ready"]:
+        raise RuntimeError(f"no local STT available: {whisper_status()['message']}")
+    await asyncio.to_thread(warm_up)  # no-op once loaded
     logger.info(f"call {call_id} config {cfg}")
-    if cfg["stt_provider"] == "indic":
-        from .stt_indic import IndicConformerSTTService
-
-        stt = IndicConformerSTTService(lang=cfg["indic_language"], decoding=cfg["indic_decoding"])
-    else:
-        stt = make_sarvam_stt(cfg)
-    tts_extra = {k: cfg[f"tts_{k}"] for k in ("pace", "pitch", "loudness") if cfg[f"tts_{k}"] is not None}
-    tts_settings = SarvamTTSService.Settings(
-        model=cfg["tts_model"],
-        voice=cfg["tts_voice"] or None,
-        language=Language.HI_IN,
-        min_buffer_size=cfg["tts_min_buffer"],
-        max_chunk_length=cfg["tts_max_chunk"],
-        **tts_extra,
-    )
-    if clone_id := clone_in_use(cfg):  # team member's cloned voice, unless the source is Bulbul (/voice page)
-        logger.info(f"call {call_id} TTS voice: cloned {clone_id}")
-        tts = SarvamCloneTTSService(api_key=os.environ["SARVAM_API_KEY"], sample_rate=sample_rate,
-                                    clone_voice_id=clone_id, settings=tts_settings,
-                                    text_transforms=TTS_TEXT_TRANSFORMS)
-    else:
-        tts = SarvamTTSService(api_key=os.environ["SARVAM_API_KEY"], sample_rate=sample_rate,
-                               settings=tts_settings, text_transforms=TTS_TEXT_TRANSFORMS)
-        logger.info(f"call {call_id} TTS voice: Bulbul {cfg['tts_model']} speaker {cfg['tts_voice'] or 'default'}")
+    stt = make_whisper_stt(call_id, record=cfg["record_stt_audio"])
+    tts = _piper_tts(cfg, call_id, sample_rate)
     llm = _llm(cfg)
 
     tools = ToolsSchema(standard_tools=[
@@ -293,7 +287,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
                 stop_secs=cfg["vad_stop_secs"], min_volume=cfg["vad_min_volume"])),
             user_idle_timeout=cfg["silence_secs"],
             user_turn_stop_timeout=cfg["turn_stop_timeout"],
-            **({"user_turn_strategies": ts} if (ts := _turn_strategies(cfg)) else {}),
+            user_turn_strategies=_turn_strategies(cfg),
         ),
     )
     yielded = {"at": 0.0, "n": 0, "turns": 0, "answered": False, "task": None}
@@ -335,9 +329,11 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
 
     gate = GreetingGate(speak_opening)
+    recorder = CallRecorder(call_id, sample_rate) if cfg["record_call"] else None
     pipeline = Pipeline([
         transport.input(), stt, aggregators.user(), gate, llm, tts,
         transport.output(),
+        *([recorder.processor] if recorder else []),  # after output: hears the customer and the bot
         aggregators.assistant(), metrics,
     ])
     worker = PipelineWorker(
@@ -358,6 +354,11 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
                   "cost_inr": metrics.metrics()["cost_inr"], "mode": "phone" if telephony else "browser"}
         if call_sid:
             record["call_sid"] = call_sid
+        if recorder:
+            await recorder.stop()  # writes the WAV now, so the record can point at it
+            if recorder.saved():
+                record["recording"] = {"url": f"/api/recordings/{call_id}.wav", "seconds": recorder.seconds,
+                                       "channels": "left: customer, right: bot"}
         save_result(record)
         emitter.emit(metrics.metrics())
         emitter.emit({"type": "result", "record": record})
@@ -401,6 +402,9 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     async def handle_tool(params: FunctionCallParams) -> None:
         filler.cancel()  # the LLM has answered; the real line follows in a moment
         args = dict(params.arguments or {})
+        if params.function_name == "customer_said" and (why := _ask_again(args, stt, engine)):
+            logger.info(f"call {call_id} asking again ({why}): heard {stt.turn_heard}, LLM said {args}")
+            args = {"intent": "unclear", "language": args.get("language", "hi")}
         action = engine.dispatch(params.function_name, args)
         logger.info(f"tool {params.function_name}({args}) -> {action.result}")
         if action.offguard and last_said["text"]:        # shown on the dashboard's Questions view for an admin
@@ -423,6 +427,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     @aggregators.user().event_handler("on_user_turn_started")
     async def _user_started(_agg, _strategy):
         filler.cancel()
+        stt.start_turn()
 
     @aggregators.user().event_handler("on_user_turn_stopped")
     async def _user_said(_agg, _strategy, message):

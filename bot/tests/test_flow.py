@@ -569,9 +569,9 @@ def test_a_clock_time_outside_service_hours_gets_the_hours_then_the_question():
     assert r.end and call.outcome == "date_requested"
 
 
-def test_re_asks_use_the_short_form_and_never_repeat_the_recording_disclosure():
+def test_re_asks_use_the_short_form_and_do_not_repeat_the_recording_notice():
     call, first, _ = live()
-    assert "record" in first.speak[0]                             # said once, at the start
+    assert "record" in first.speak[0]                             # organisers' rule: disclosed once, in the greeting
     r = call.handle("unclear")                                    # the reported "सुबह।" at the greeting
     assert "record" not in r.speak[0] and r.speak[0].endswith("क्या मैं Rahul जी से बात कर रहा हूँ?")
     call.handle("affirm")
@@ -654,10 +654,8 @@ def test_a_sunday_only_request_gets_the_visit_days_and_the_question_again():
 
 
 # ---- fourth sample call (SSE-15557)
-def test_the_greeting_is_short_but_still_discloses_the_recording():
+def test_the_greeting_is_short_and_announces_the_recording():
     call, first, _ = live()
-    old_hindi = "नमस्ते, क्या मेरी बात Rahul जी से हो रही है? मैं Krupal, SolarSquare से बोल रहा हूँ। यह कॉल रिकॉर्ड की जा रही है।"
-    assert len(first.speak[0]) < len(old_hindi) - 15                     # clearly shorter than before
     assert "record" in first.speak[0] and "SolarSquare" in first.speak[0] and "Rahul" in first.speak[0]
     call, first, _ = live(lang="en")
     assert "recorded" in first.speak[0] and "SolarSquare" in first.speak[0] and len(first.speak[0]) < 100

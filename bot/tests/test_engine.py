@@ -154,27 +154,3 @@ def test_nothing_after_end():
     s = make_state()
     dispatch(s, "transfer_to_human", {"reason": "angry"})
     assert dispatch(s, "save_slot", {"key": "visit_date", "value": "kal"}).result["error"] == "call_already_ended"
-
-
-def test_stale_clone_is_cleared_so_the_call_uses_the_stock_voice(tmp_path, monkeypatch):
-    import asyncio
-
-    from agent import voice
-
-    monkeypatch.setattr(voice, "VOICE_FILE", tmp_path / "voice.json")
-    monkeypatch.delenv("SARVAM_CLONE_VOICE_ID", raising=False)
-    voice.set_active_voice("svc-gone", "Jasir")
-
-    async def ids(): return {"svc-other"}
-    monkeypatch.setattr(voice, "_account_voice_ids", ids)
-    asyncio.run(voice.drop_stale_clone())
-    assert voice.active_voice_id() is None
-
-    voice.set_active_voice("svc-other", "Krupal")
-    asyncio.run(voice.drop_stale_clone())
-    assert voice.active_voice_id() == "svc-other"          # still there: kept
-
-    async def unknown(): return None
-    monkeypatch.setattr(voice, "_account_voice_ids", unknown)
-    asyncio.run(voice.drop_stale_clone())
-    assert voice.active_voice_id() == "svc-other"          # can't check: kept

@@ -1,6 +1,6 @@
 """Script-agnostic scoring for Hinglish transcripts.
 
-Sarvam (codemix) returns a mix of Latin and Devanagari; IndicConformer returns only Devanagari.
+Whisper returns Devanagari, or Latin script when it hears English; references mix both.
 Plain WER would punish whichever engine uses a different script from the reference, so both sides
 are reduced to a loose Latin "skeleton" first: Devanagari is transliterated, long vowels folded,
 doubled letters collapsed. CER on that skeleton is fair across engines.
@@ -120,6 +120,8 @@ def has_entity(text: str, entity: str) -> bool:
 
 def entity_score(text: str, expected: list[str], forbidden: list[str] = ()) -> tuple[int, int, list[str]]:
     """(hits, total, misses). A forbidden entity that appears counts as a miss (e.g. 'no' heard as 'yes')."""
+    fix = lambda es: [("yes" if e else "no") if isinstance(e, bool) else str(e) for e in es]  # YAML: yes/no -> bool
+    expected, forbidden = fix(expected), fix(forbidden)
     misses = [e for e in expected if not has_entity(text, e)]
     misses += [f"!{e}" for e in forbidden if has_entity(text, e)]
     total = len(expected) + len(forbidden)
