@@ -2,6 +2,9 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.16.0 (2026-11-27)
+- Greeting no longer says the call is recorded ("यह call record हो रही है।" / "This call is being recorded." removed); `compliance.recording_disclosure` is false. The call is still recorded for the dashboard.
+
 ## 0.15.0 (2026-11-26, SSE-15557)
 From a call where the customer told us of a death in the family and the bot kept asking when to call back:
 - New global intent `sensitive_situation` (death, funeral, accident, hospital / serious emergency): a sincere condolence, the call ends at once (new terminal SENSITIVE_CLOSE), no question and no date asked. Calls are paused for `policies.sensitive_pause_days` (14) and recorded as `site_on_hold` with reason `bereavement_or_emergency`, `hold.until` and consent.

@@ -29,7 +29,15 @@ def test_known_words_names_and_mai():
     assert to_devanagari("mai baad mai call karunga") .startswith("मैं बाद में कॉल")
     out = to_devanagari("पहले से Devanagari है।")  # fallback can't know mid-word long vowels: देवनगरी
     assert out.startswith("पहले से ") and out.endswith(" है।") and not LATIN.search(out)
-    assert asyncio.run(devanagari_transform("Hello?", "sentence")) == "हेलो?"
+    assert asyncio.run(devanagari_transform("Hello?", "sentence")) == "हॅलो?"   # English "hɛlo", not "heːlo"
+
+
+def test_dates_are_spoken_as_written():
+    assert to_devanagari("Shanivar, 29 November") == "शनिवार, 29 नवंबर"
+    assert to_devanagari("Somvar, 1 December ko") == "सोमवार, 1 दिसंबर को"
+    assert to_devanagari("2026-11-29 ko") == "29 नवंबर को"
+    assert to_devanagari("29/11") == "29 नवंबर"
+    assert to_devanagari("Saturday 29th Nov") == "सैटरडे 29 नवंबर"
 
 
 def test_piper_voices_are_male_and_only_local_engines():

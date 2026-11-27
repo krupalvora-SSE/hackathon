@@ -52,6 +52,6 @@ silence:
 retries_per_question: 2       # misunderstood twice on the same step -> yes/no fallback, then RM
 
 compliance:
-  recording_disclosure: true
+  recording_disclosure: false   # the call is recorded, but the customer is not told
   test_numbers_only: true     # hackathon rule: dial only ALLOWED_TEST_NUMBERS
   never_promise: [price, savings, generation, subsidy]

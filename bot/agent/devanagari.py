@@ -18,7 +18,7 @@ WORDS = {
     "a-type": "ए-टाइप", "arrange": "अरेंज", "available": "अवेलेबल", "call": "कॉल", "callback": "कॉलबैक",
     "calls": "कॉल्स", "cleaning": "क्लीनिंग", "confirm": "कन्फ़र्म", "connect": "कनेक्ट",
     "connection": "कनेक्शन", "consultant": "कंसल्टेंट", "date": "डेट", "details": "डिटेल्स", "due": "ड्यू",
-    "exact": "एग्ज़ैक्ट", "guarantee": "गारंटी", "hello": "हेलो", "hero": "हीरो", "hold": "होल्ड",
+    "exact": "एग्ज़ैक्ट", "guarantee": "गारंटी", "hello": "हॅलो", "hero": "हीरो", "hold": "होल्ड",
     "ladder": "लैडर", "light": "लाइट", "maintenance": "मेंटेनेंस", "member": "मेंबर", "minute": "मिनट",
     "note": "नोट", "number": "नंबर", "ok": "ओके", "okay": "ओके", "panel": "पैनल", "panels": "पैनल्स", "plant": "प्लांट",
     "quality": "क्वालिटी", "ready": "रेडी", "record": "रिकॉर्ड", "senior": "सीनियर", "service": "सर्विस",
@@ -65,6 +65,18 @@ WORDS = {
     "second": "सेकंड", "seconds": "सेकंड्स", "moment": "मोमेंट", "nice": "नाइस", "wife": "वाइफ़",
     "personal": "पर्सनल", "accident": "एक्सीडेंट", "phone": "फ़ोन", "tank": "टैंक", "pipe": "पाइप",
     "bucket": "बकेट", "mop": "मॉप",
+    # dates (speak_date says "Shanivar, 29 November"; the fallback made these शनिवर, नोवेम्बेर, देचेम्बेर)
+    "somvar": "सोमवार", "somwar": "सोमवार", "mangalvar": "मंगलवार", "mangalwar": "मंगलवार",
+    "budhvar": "बुधवार", "budhwar": "बुधवार", "guruvar": "गुरुवार", "guruwar": "गुरुवार",
+    "shukravar": "शुक्रवार", "shukrawar": "शुक्रवार", "shanivar": "शनिवार", "shaniwar": "शनिवार",
+    "ravivar": "रविवार", "raviwar": "रविवार", "itvaar": "इतवार", "itwar": "इतवार",
+    "monday": "मंडे", "tuesday": "ट्यूज़डे", "wednesday": "वेडनेसडे", "thursday": "थर्सडे", "friday": "फ़्राइडे",
+    "saturday": "सैटरडे", "sunday": "संडे",
+    "january": "जनवरी", "jan": "जनवरी", "february": "फ़रवरी", "feb": "फ़रवरी", "march": "मार्च",
+    "april": "अप्रैल", "apr": "अप्रैल", "may": "मई", "june": "जून", "jun": "जून", "july": "जुलाई", "jul": "जुलाई",
+    "august": "अगस्त", "aug": "अगस्त", "september": "सितंबर", "sep": "सितंबर", "sept": "सितंबर",
+    "october": "अक्टूबर", "oct": "अक्टूबर", "november": "नवंबर", "nov": "नवंबर",
+    "december": "दिसंबर", "dec": "दिसंबर", "tarikh": "तारीख़", "tareekh": "तारीख़", "baje": "बजे",
 }
 
 # Hinglish (checklist flow lines and LLM replies in Roman script). Also tells Roman Hinglish from English.
@@ -113,7 +125,26 @@ def is_english(text: str) -> bool:
     return len(words) >= 3 and sum(w in HINGLISH for w in words) * 3 < len(words)
 
 
+_HI_MONTHS = ["जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"]
+_ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
+_DMY_DATE = re.compile(r"\b(\d{1,2})/(\d{1,2})(?:/\d{2,4})?\b")
+_ORDINAL = re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)\b", re.I)
+
+
+def _spoken_date(day: str, month: str, whole: str) -> str:
+    d, m = int(day), int(month)
+    return f"{d} {_HI_MONTHS[m - 1]}" if 1 <= d <= 31 and 1 <= m <= 12 else whole
+
+
+def _dates(text: str) -> str:
+    """Dates the way they are said: 2026-11-29 / 29/11 -> "29 नवंबर", 29th -> 29 (else read digit by digit)."""
+    text = _ISO_DATE.sub(lambda m: _spoken_date(m[3], m[2], m[0]), text)
+    text = _DMY_DATE.sub(lambda m: _spoken_date(m[1], m[2], m[0]), text)
+    return _ORDINAL.sub(r"\1", text)
+
+
 def to_devanagari(text: str) -> str:
+    text = _dates(text)
     for pat, rep in _PHRASES:
         text = pat.sub(rep, text)
     return _LATIN.sub(_word, text)

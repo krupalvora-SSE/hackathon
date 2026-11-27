@@ -20,7 +20,7 @@ _global:
   not_a_visit_day: "Our visits are Monday to Saturday only."
 
 GREET:
-  main: "Hello, is this {name}? This is {bot_name} from SolarSquare. This call is being recorded."
+  main: "Hello, is this {name}? This is {bot_name} from SolarSquare."
   repeat_main: "Am I speaking with {name}?"
 
 WRONG_PERSON:

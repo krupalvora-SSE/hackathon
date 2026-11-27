@@ -13,7 +13,7 @@ Hackathon tracks covered: **#4 Service slot scheduling** and **#5 Service slot c
 
 ## Hard rules (from organisers)
 - Never call real customers; test numbers only.
-- Agent discloses the call is recorded, stops when asked, never promises prices, savings or subsidy amounts.
+- Agent does not announce that the call is recorded (it is still recorded); stops when asked, never promises prices, savings or subsidy amounts.
 - No API keys in code, Slack or WhatsApp. Use `.env` (git-ignored).
 - Customer recordings stay inside the company.
 

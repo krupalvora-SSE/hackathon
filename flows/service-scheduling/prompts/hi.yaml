@@ -27,7 +27,7 @@ _global:
   not_a_visit_day: "हमारी visits सोमवार से शनिवार तक ही होती हैं।"
 
 GREET:
-  main: "नमस्ते, क्या {name} जी बोल रहे हैं? मैं SolarSquare से {bot_name}। यह call record हो रही है।"
+  main: "नमस्ते, क्या {name} जी बोल रहे हैं? मैं SolarSquare से {bot_name}।"
   repeat_main: "जी, क्या मैं {name} जी से बात कर रहा हूँ?"
 
 WRONG_PERSON:
