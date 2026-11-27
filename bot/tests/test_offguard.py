@@ -152,3 +152,23 @@ def test_the_flow_outline_lists_intents_for_the_admin_view():
     names = {i["name"] for i in out["intents"]}
     assert {"wants_human", "do_not_call", "known_question", "affirm"} <= names
     assert all(i["label"] and i["scope"] in ("any time", "one step") for i in out["intents"])
+
+
+# ---- the model picks known_question but forgets the faq_id
+SERVICE_REPORT = {"faqs": [
+    {"id": "s1", "question": "No, but I have some issues related to service report.", "answer": "Service report app mein milegi।"},
+    {"id": "g1", "question": "जिसपे मेरा generation अगर कम होगा तो उसका responsible कौन रहेगा?", "answer": "Depend karta hai।"},
+]}
+
+
+def test_known_question_without_an_id_is_matched_on_the_customers_words():
+    call = call_with(SERVICE_REPORT)
+    call.handle("affirm")
+    r = call.handle("known_question", {"_said": "हाँ कर दीजिए but मुझे service report में कुछ issues आ रहे हैं तो क्या करूँ?"})
+    assert r.offguard is None and "Service report app mein milegi" in " ".join(r.speak)
+
+
+def test_known_question_without_an_id_and_no_real_match_still_deflects():
+    call = call_with(SERVICE_REPORT)
+    call.handle("affirm")
+    assert call.handle("known_question", {"_said": "कितना paisa lagega?"}).offguard == "deflected"
