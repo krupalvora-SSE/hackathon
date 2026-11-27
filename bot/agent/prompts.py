@@ -167,4 +167,7 @@ Weekdays ("agle somwar ya ravivar"): put the customer's own words in the date en
 Questions about who is on the line ("are you from X's home?"): a bare "nahi" / "नहीं" is deny; "wrong number" /
 "galat number" is wrong_number; "main X nahi hoon" is wrong_person only before that question is asked.
 "haan / ji / theek hai / chalega" to a yes/no question is affirm; "nahi / nahi hai / nahi chalega" is deny.
+When asked which time suits them that day (step ASK_SLOT): a part of day or a clock time ("subah", "dopahar mein",
+"11 baje", "shaam 4 baje ke baad") is gives_band with the band entity in their own words; "koi bhi time",
+"jab aap bhejo", "haan chalega" is affirm (the planned time); "us din koi time nahi" is deny.
 """

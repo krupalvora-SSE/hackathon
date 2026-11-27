@@ -33,6 +33,16 @@ OFFER_PRIMARY:
   main_family: "{name}'s solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will someone be home that day?"
   repeat_main_family: "Will someone be home on {weekday}, {date_spoken}?"
 
+ASK_SLOT:
+  main: "Which time suits you that day: {bands_spoken}?"
+  one_band: "That day our service hero can come in {bands_spoken}. Does that time work for you?"
+  band_full: "Sorry, that time is not free that day. {bands_spoken} is free, would that work?"
+  no_exact_guarantee: "I can't guarantee an exact time, but we'll do our best. Which suits you: {bands_spoken}?"
+  repeat_main: "{bands_spoken}, which time suits you?"
+  repeat_one_band: "Is {bands_spoken} okay?"
+  repeat_band_full: "Would {bands_spoken} work?"
+  repeat_no_exact_guarantee: "{bands_spoken}, which time suits you?"
+
 TIME_BAND:
   main: "Our service hero will come between {band_spoken} that day. Does that work for you?"
   no_exact_guarantee: "I can't guarantee an exact time, but we'll do our best to send the hero at your preferred time. Does {band_spoken} work?"

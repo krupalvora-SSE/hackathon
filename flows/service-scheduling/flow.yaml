@@ -9,9 +9,10 @@
 #     whose `when` flag holds wins. `when: "!flag"` means the flag is false.
 #   - Flags are set by code (counters, policy values, action results), never by the LLM.
 #   - `say:` plays a specific prompt key of the target state instead of its `main` line.
-#   - `time_line: <key>` on a state: use that prompt key instead of `main` once the customer has asked
-#     about time (intents with `shares_time: true`). Otherwise the bot never mentions a time window,
-#     which keeps the team free to move the slot within the day.
+#   - `time_line: <key>` on a state: use that prompt key instead of `main` once a time was talked about
+#     (intents with `shares_time: true`, or a state with `shares_time: true` such as ASK_SLOT).
+#   - `shares_time: true` on a state: entering it counts as talking about time, so the read-back and
+#     "visit booked" lines say the time window from then on.
 #   - `set:` stores values in call context (e.g. which slot the customer picked).
 #   - Global intents (intents.yaml, scope: global) work in every `conversation`
 #     state unless the state lists them in `disable_global`.
@@ -22,7 +23,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.16.0
+version: 0.17.0
 title: Service scheduling call flow
 ticket: SSE-15557
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -38,7 +39,7 @@ sections:
   slot:
     title: 2. Find another date or time
     about: When the planned date or time doesn't suit, or the customer pushes back, find one that does.
-    states: [OFFER_PRIMARY, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, NOT_NEEDED, ASK_BAND_FOR_DATE, NO_SLOT_CLOSE, NOT_NEEDED_CLOSE, REQUEST_CLOSE]
+    states: [OFFER_PRIMARY, ASK_SLOT, CHECK_SLOT, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, NOT_NEEDED, ASK_BAND_FOR_DATE, NO_SLOT_CLOSE, NOT_NEEDED_CLOSE, REQUEST_CLOSE]
   confirm:
     title: 3. Check readiness and book
     about: Make sure the ladder, water and light are ready, repeat the details and book the visit.
@@ -76,11 +77,11 @@ labels:
 
 # Example values for {placeholders}, so the shareable page shows a real-sounding line.
 sample_values:
-  hi: {name: राहुल, bot_name: Krupal, weekday: शनिवार, date_spoken: 28 नवंबर, band_spoken: सुबह आठ से बारह बजे,
+  hi: {name: राहुल, bot_name: Krupal, weekday: शनिवार, date_spoken: 28 नवंबर, band_spoken: सुबह आठ से बारह बजे, bands_spoken: "सुबह नौ से बारह बजे या शाम तीन से छह बजे",
        options_spoken: "सोमवार, 30 नवंबर, सुबह या बुधवार, 2 दिसंबर, शाम", missing_item: A-type ladder,
        hold_until_spoken: 5 दिसंबर, recall_window_spoken: कल शाम 5 से 7 बजे,
        requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह, sms_line: ""}
-  en: {name: Rahul, bot_name: Krupal, weekday: Saturday, date_spoken: 28 November, band_spoken: 8 am and 12 pm,
+  en: {name: Rahul, bot_name: Krupal, weekday: Saturday, date_spoken: 28 November, band_spoken: 8 am and 12 pm, bands_spoken: "the morning (9 am to 12 pm) or the evening (3 pm to 6 pm)",
        options_spoken: "Monday, 30 November, morning or Wednesday, 2 December, evening", missing_item: A-type ladder,
        hold_until_spoken: 5 December, recall_window_spoken: tomorrow 5 to 7 pm,
        requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning, sms_line: ""}
@@ -182,7 +183,7 @@ states:
     disable_global: [ask_time]          # here "what time?" moves on to TIME_BAND
     transitions:
       - on: affirm
-        to: READINESS_CHECK
+        to: ASK_SLOT                    # date agreed: now ask which time suits them
         set: {selected_slot: primary_slot, slot_source: primary}
       - on: ask_time
         to: TIME_BAND
@@ -195,11 +196,59 @@ states:
         to: ALTERNATE_DAYS
       - on: proposes_date
         when: date_is_free
-        to: READINESS_CHECK
+        to: ASK_SLOT
         set: {slot_source: alt_day}
       - on: proposes_date
         when: "!date_is_free"
         to: ASK_BAND_FOR_DATE
+
+  ASK_SLOT:
+    title: Ask which time suits
+    type: conversation
+    shares_time: true                   # from here on the read-back and close say the time window
+    # Offers only the bands still free that day (Beat Plan availability); one free band -> prompt key one_band.
+    # "Any time is fine" / "yes" keeps the planned band. A clock time ("11 baje") is read as its band.
+    collects: [preferred_band]
+    disable_global: [ask_time]          # "kitne baje?" here: just ask the question again
+    transitions:
+      - on: gives_band
+        to: CHECK_SLOT
+      - on: wants_other_band
+        to: CHECK_SLOT
+      - on: affirm                      # only reached before the readiness check, so no readiness_done branch
+        to: READINESS_CHECK
+      - on: dont_know
+        to: READINESS_CHECK
+      - on: ask_time
+        to: ASK_SLOT
+      - on: wants_exact_time
+        when: "!exact_time_limit_reached"
+        to: ASK_SLOT
+        say: no_exact_guarantee
+      - on: wants_exact_time
+        when: exact_time_limit_reached
+        to: ESCALATE_RM
+        set: {rm_callback_reason: insists_on_exact_time}
+      - on: deny
+        to: ALTERNATE_DAYS
+      - on: proposes_date
+        when: date_is_free
+        to: ASK_SLOT
+        set: {slot_source: alt_day}
+      - on: proposes_date
+        when: "!date_is_free"
+        to: ASK_BAND_FOR_DATE
+
+  CHECK_SLOT:
+    title: Check the time they picked
+    type: system
+    actions: [check_band_availability]
+    transitions:
+      - on: band_available
+        to: READINESS_CHECK
+      - on: band_full
+        to: ASK_SLOT
+        say: band_full
 
   TIME_BAND:
     title: Tell the time window
@@ -253,7 +302,7 @@ states:
         to: RECAP
         set: {slot_source: alt_day}
       - on: affirm
-        to: READINESS_CHECK
+        to: ASK_SLOT
         set: {slot_source: alt_day}
       - on: wants_other_band
         to: CHECK_BAND
@@ -265,7 +314,7 @@ states:
         to: RECAP
         set: {slot_source: alt_day}
       - on: proposes_date
-        to: READINESS_CHECK
+        to: ASK_SLOT
         set: {slot_source: alt_day}
       - on: deny
         when: options_remaining
@@ -282,7 +331,7 @@ states:
     disable_global: [not_needed_now, ask_time]
     transitions:
       - on: affirm
-        to: READINESS_CHECK
+        to: ASK_SLOT
         set: {selected_slot: primary_slot, slot_source: primary}
       - on: ask_time
         to: TIME_BAND
@@ -344,7 +393,7 @@ states:
         to: HOLD_CONSENT
 
   RECAP:
-    time_line: with_time    # say the time window only if the customer asked about time
+    time_line: with_time    # say the time window once it was talked about (always after ASK_SLOT)
     title: Repeat the details, get a yes
     type: conversation
     transitions:
@@ -460,7 +509,7 @@ states:
   CONFIRMED_CLOSE:
     title: Visit booked
     type: terminal
-    time_line: with_time    # say the time window only if the customer asked about time
+    time_line: with_time    # say the time window once it was talked about (always after ASK_SLOT)
     outcome_from: slot_source
     outcome_map:
       primary: slot_confirmed
