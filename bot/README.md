@@ -12,6 +12,14 @@ Browser mic ──POST /api/offer (WebRTC, 16 kHz)──► bot ──POST event
                                                    └──GET /api/calls/:id (booking)──┘
 ```
 
+## First-time setup (new machine)
+```bash
+cd bot && ./setup_models.sh     # deps, our trained voices (models/piper) -> ~/.cache/pipecat/piper,
+                                # stock Piper voices, Whisper large-v3-turbo (~1.6 GB, once); creates .env
+```
+Then put your `GOOGLE_API_KEY` in `bot/.env`. Trained voices in git: `models/piper/hi_IN-jasir-medium`
+(Hindi) and `hi_IN-krupal-medium` (Hinglish). Voice recordings (`voice_training/data/`) are not in git.
+
 ## Run
 ```bash
 cp .env.example .env            # GOOGLE_API_KEY (Gemini)
