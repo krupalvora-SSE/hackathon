@@ -18,7 +18,7 @@ _global:
   time_window: "उस दिन हमारे service hero {band_spoken} के बीच आएँगे।"
   didnt_catch: "माफ़ कीजिए, ठीक से सुनाई नहीं दिया।"
   didnt_catch_date: "माफ़ कीजिए, date समझ नहीं आई। जैसे 5 दिसंबर, या एक महीने बाद?"
-  repeat_lead: "जी, फिर से बता देता हूँ।"
+  repeat_lead: "जी, फिर से बता देती हूँ।"
   hold_ack: "जी, मैं line पर हूँ, आप देख लीजिए।"
   identity_who: "मैं {bot_name} बोल रहा हूँ, SolarSquare से, आपके solar system के maintenance के बारे में।"
   identity_source: "आपका number SolarSquare के पास आपके solar system की service के records में है।"
@@ -66,7 +66,7 @@ ASK_BAND_FOR_DATE:
   repeat_main: "सुबह, दोपहर या शाम, कौन सा time ठीक रहेगा?"
 
 READINESS_CHECK:
-  main: "बढ़िया। Service के लिए कुछ चीज़ें ready रखनी होंगी, बस confirm कर लेता हूँ।"
+  main: "बढ़िया। Service के लिए कुछ चीज़ें ready रखनी होंगी, बस confirm कर लेती हूँ।"
   ask_ladder: "क्या आपके पास A-type ladder है, जिससे hero छत तक पहुँच सकें?"
   arrange_ladder: "कोई बात नहीं। क्या visit से पहले आप कहीं से A-type ladder arrange कर पाएँगे?"
   repeat_arrange_ladder: "क्या आप ladder arrange कर पाएँगे?"
@@ -137,7 +137,7 @@ NO_SLOT_CLOSE:
   main: "माफ़ कीजिए, अभी हमारे पास और slots नहीं हैं। नया slot खुलते ही हमारी team आपसे संपर्क करेगी। धन्यवाद!"
 
 RM_CLOSE:
-  main: "मैं हमारे senior से आपको callback arrange करवा देता हूँ, वो जल्द ही आपसे बात करेंगे। धन्यवाद!"
+  main: "मैं हमारे senior से आपको callback arrange करवा देती हूँ, वो जल्द ही आपसे बात करेंगे। धन्यवाद!"
 
 RECALL_CLOSE:
   main: "ठीक है, हम आपको {recall_window_spoken} call करेंगे। धन्यवाद!"
