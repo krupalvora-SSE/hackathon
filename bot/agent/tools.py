@@ -55,6 +55,7 @@ class Action:
     run_llm: bool = True             # let the LLM respond to the result
     ask_next: str | None = None      # spoken after this turn's tool calls (skips a 2nd LLM round trip)
     idle_timeout: float | None = None  # lengthen the silence timer (customer asked us to hold)
+    offguard: str | None = None        # the customer said something we could not handle (for the Questions view)
 
 
 ACKS = ["Theek hai.", "Ji, bilkul.", "Achha ji."]
@@ -130,13 +131,18 @@ def on_silence(state: CallState, max_silences: int = 3) -> Action:
 
 
 # ------------------------------------------------------------------ YAML flow mode
-def flow_tools(spec) -> list[dict]:
-    """The one tool the LLM uses when a YAML flow runs the call."""
-    return [{
+def flow_tools(spec, knowledge: dict | None = None) -> list[dict]:
+    """The one tool the LLM uses when a YAML flow runs the call.
+
+    known_question and faq_id exist only while an admin has taught approved answers, and faq_id can only be one of
+    their ids: with nothing taught the model used to invent an id ("light_distance") and the customer got a deflection."""
+    faq_ids = [f["id"] for f in (knowledge or {}).get("faqs", [])]
+    intents = [i for i in spec.all_intents if i != "known_question" or faq_ids]
+    tool = {
         "name": "customer_said",
         "description": "Report what the customer just said. Call on every customer turn. The system speaks next.",
         "properties": {
-            "intent": {"type": "string", "enum": spec.all_intents},
+            "intent": {"type": "string", "enum": intents},
             "date": {"type": "string", "description": "Customer's words for a date, if any."},
             "option": {"type": "integer", "description": "1 or 2: which offered day they picked."},
             "band": {"type": "string", "description": "Preferred part of day in their words."},
@@ -156,4 +162,9 @@ def flow_tools(spec) -> list[dict]:
             "language": {"type": "string", "enum": spec.policies["languages"]},
         },
         "required": ["intent"],
-    }]
+    }
+    if faq_ids:
+        tool["properties"]["faq_id"] = {"type": "string", "enum": faq_ids,
+                                        "description": "With intent known_question: the faq_id of the approved "
+                                                       "answer that matches what the customer asked."}
+    return [tool]

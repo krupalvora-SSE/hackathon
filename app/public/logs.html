@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Call logs</title>
+  <link rel="stylesheet" href="/tokens.css">
+  <script src="/nav.js" defer></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <style>
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--bg-page); color: var(--fg-1); font-family: var(--font-sans); }
+    header { display:flex; align-items:center; justify-content:space-between; gap:var(--space-4); height:72px; padding:0 clamp(20px,4vw,56px); background:var(--bg-surface); border-bottom:1px solid var(--border-2); position:sticky; top:0; z-index:5; }
+    .brand { display:flex; align-items:center; gap:14px; }
+    .brand img { height:28px; }
+    .brand-divider { width:1px; height:28px; background:var(--border-2); }
+    .brand-name { font-weight:700; color:var(--navy, var(--blue-900)); }
+    .header-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .header-link { display:inline-flex; align-items:center; gap:6px; color:var(--fg-2); font-size:var(--text-xs); font-weight:700; text-decoration:none; padding:8px 12px; border:1px solid var(--border-1); border-radius:999px; background:var(--bg-surface); }
+    .header-link:hover { color:var(--fg-1); border-color:var(--border-2); }
+    .header-link svg { width:14px; height:14px; }
+    main { max-width:1280px; margin:0 auto; padding:32px clamp(20px,4vw,40px) 80px; }
+    .eyebrow { color:var(--blue-600); font-size:var(--text-xs); text-transform:uppercase; letter-spacing:.08em; font-weight:800; }
+    h1 { margin:8px 0 6px; font-size:clamp(30px,4.5vw,44px); color:var(--navy, var(--blue-900)); }
+    .sub { margin:0 0 20px; color:var(--fg-3); font-size:var(--text-sm); }
+    .layout { display:grid; grid-template-columns:340px minmax(0,1fr); gap:20px; align-items:start; }
+    .card { background:var(--bg-surface); border:1px solid var(--border-2); border-radius:18px; box-shadow:var(--shadow-sm); }
+    .list { padding:10px; position:sticky; top:88px; max-height:calc(100vh - 110px); overflow:auto; }
+    .list-head { display:flex; gap:8px; align-items:center; padding:4px 6px 10px; }
+    select { width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid var(--border-1); border-radius:10px; background:#fff; font:var(--text-sm) var(--font-sans); color:var(--fg-1); }
+    .item { display:block; width:100%; text-align:left; border:1px solid transparent; background:transparent; border-radius:12px; padding:10px 12px; cursor:pointer; font:inherit; color:inherit; }
+    .item:hover { background:var(--bg-sunken); }
+    /* each call card takes the colour of its outcome in the chart above: faint normally, stronger when selected */
+    .item + .item { margin-top:8px; }
+    .item { --tone:var(--ink-200); background:color-mix(in srgb, var(--tone) 10%, #fff); }
+    .item:hover { background:color-mix(in srgb, var(--tone) 18%, #fff); }
+    .item.sel { background:color-mix(in srgb, var(--tone) 32%, #fff); border-color:var(--tone); }
+    .item.g-confirmed { --tone:var(--leaf-600); } .item.g-hold { --tone:var(--blue-500); } .item.g-callback { --tone:var(--sun-500, #FFC11F); }
+    .item.g-info { --tone:var(--blue-300); } .item.g-stopped { --tone:var(--rust-600); } .item.g-silent { --tone:var(--ink-400, #9a978c); }
+    .item.g-failed { --tone:#7a1f0e; } .item.g-running { --tone:var(--ink-200); }
+    .item b { display:block; font-size:var(--text-sm); }
+    .item .when { color:var(--fg-3); font-size:var(--text-xs); margin:2px 0 6px; }
+    .detail { padding:24px; min-height:420px; }
+    .detail h2 { margin:0; font-size:22px; color:var(--navy, var(--blue-900)); }
+    .detail h3 { margin:26px 0 10px; font-size:var(--text-xs); text-transform:uppercase; letter-spacing:.07em; color:var(--fg-3); }
+    .top { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+    .mono { font-family:var(--font-mono); color:var(--fg-2); font-size:var(--text-xs); }
+    .chip { display:inline-flex; align-items:center; gap:7px; padding:4px 10px; border-radius:999px; font-size:var(--text-xs); font-weight:700; background:var(--ink-100); color:var(--fg-2); }
+    .chip::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+    .good { background:#E8F6EC; color:var(--leaf-600); }
+    .warm { background:var(--sun-50); color:var(--sun-700); }
+    .cool { background:var(--blue-100); color:var(--blue-800); }
+    .bad { background:#FBEAE4; color:var(--rust-600); }
+    .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-top:16px; }
+    .stat { background:var(--bg-sunken); border-radius:12px; padding:10px 12px; }
+    .stat small { display:block; color:var(--fg-3); font-size:var(--text-xs); }
+    .stat b { font-size:18px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:8px; }
+    .kv { border:1px solid var(--border-2); border-radius:12px; padding:9px 12px; background:#fff; }
+    .kv small { display:block; color:var(--fg-3); font-size:var(--text-xs); margin-bottom:2px; }
+    .kv.ok { background:#E8F6EC; border-color:transparent; }
+    .kv.no { background:#FBEAE4; border-color:transparent; }
+    .summary { margin-top:12px; padding:12px 14px; border-radius:12px; background:var(--bg-sunken); font-size:var(--text-sm); line-height:1.55; color:var(--fg-2); }
+    .path { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+    .path span { padding:3px 10px; border-radius:999px; background:var(--bg-sunken); border:1px solid var(--border-2); font-size:var(--text-xs); color:var(--fg-2); }
+    .path i { color:var(--fg-4); font-style:normal; font-size:12px; }
+    .chat { display:flex; flex-direction:column; gap:8px; }
+    .msg { max-width:78%; padding:8px 12px; border-radius:14px; font-size:var(--text-sm); line-height:1.5; }
+    .msg time { display:block; margin-top:3px; font-size:11px; color:var(--fg-3); font-family:var(--font-mono); }
+    .msg.agent { align-self:flex-start; background:var(--blue-50); color:var(--blue-900); border-top-left-radius:4px; }
+    .msg.customer { align-self:flex-end; background:var(--bg-sunken); border-top-right-radius:4px; }
+    .msg.sys { align-self:center; max-width:100%; background:transparent; color:var(--fg-3); font-size:var(--text-xs); }
+    .rows { display:flex; flex-direction:column; gap:8px; }
+    .row { border:1px solid var(--border-2); border-radius:12px; padding:9px 12px; font-size:var(--text-sm); }
+    .row code { display:block; margin-top:4px; color:var(--fg-3); font-family:var(--font-mono); font-size:11px; word-break:break-all; }
+    .row a { color:var(--blue-600); }
+    details { margin-top:8px; }
+    summary { cursor:pointer; color:var(--blue-600); font-size:var(--text-sm); font-weight:600; }
+    pre { background:var(--bg-sunken); border-radius:12px; padding:14px; overflow:auto; font-size:12px; line-height:1.5; max-height:360px; }
+    .empty { padding:60px 20px; text-align:center; color:var(--fg-3); }
+    .overview { padding:20px 22px; margin-bottom:20px; }
+    .ov-head { display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+    .ov-head h2 { margin:0; font-size:18px; color:var(--navy, var(--blue-900)); }
+    .ov-head .scope { color:var(--fg-3); font-size:var(--text-xs); }
+    .ov-head select { width:auto; min-width:130px; }
+    .tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    @media (max-width: 900px) { .tiles { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width: 480px) { .tiles { grid-template-columns:1fr; } }
+    .tile { border:1px solid var(--border-2); border-radius:14px; padding:12px 14px; background:#fff; }
+    .tile small { display:block; color:var(--fg-3); font-size:var(--text-xs); margin-bottom:4px; }
+    .tile b { font-size:24px; line-height:1.1; color:var(--navy, var(--blue-900)); font-family:var(--font-sans); }
+    .tile span { display:block; margin-top:4px; color:var(--fg-3); font-size:var(--text-xs); }
+    .tile.good b { color:var(--leaf-600); } .tile.bad b { color:var(--rust-600); } .tile.warn b { color:var(--sun-700); }
+    .bar { display:flex; height:14px; border-radius:999px; overflow:hidden; background:var(--ink-100); margin:16px 0 8px; }
+    .bar i { display:block; min-width:3px; }
+    .legend { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:var(--text-xs); color:var(--fg-2); }
+    .legend span::before { content:""; display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:-1px; }
+    .lg-confirmed::before { background:var(--leaf-600); } .lg-hold::before { background:var(--blue-500); } .lg-callback::before { background:var(--sun-500, #FFC11F); } .lg-info::before { background:var(--blue-300); } .lg-stopped::before { background:var(--rust-600); } .lg-silent::before { background:var(--ink-400, #9a978c); } .lg-failed::before { background:#7a1f0e; } .lg-running::before { background:var(--ink-200); }
+    .seg-confirmed { background:var(--leaf-600); } .seg-hold { background:var(--blue-500); } .seg-callback { background:var(--sun-500, #FFC11F); }
+    .seg-info { background:var(--blue-300); } .seg-stopped { background:var(--rust-600); } .seg-silent { background:var(--ink-400, #9a978c); } .seg-failed { background:#7a1f0e; } .seg-running { background:var(--ink-200); }
+    @media (max-width: 900px) { .layout { grid-template-columns:1fr; } .list { position:static; max-height:none; } .brand-name { display:none; } .msg { max-width:92%; } }
+  </style>
+  <link rel="stylesheet" href="/theme.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="/" style="text-decoration:none">
+      <img src="https://cdn.solarsquare.in/blog/wp-content/uploads/2025/11/05101757/logo.webp" alt="SolarSquare">
+      <span class="brand-divider"></span>
+      <span class="brand-name">AMC operations</span>
+    </a>
+    <div class="header-actions">
+      <a class="header-link" id="voice-link" href="http://localhost:7860/voice"><i data-lucide="audio-lines"></i>Voice studio</a>
+      <a class="header-link" href="/flow"><i data-lucide="git-branch"></i>Call flow</a>
+      <a class="header-link" aria-current="page" href="/logs.html"><i data-lucide="scroll-text"></i>Call logs</a>
+      <a class="header-link" href="/calculator.html"><i data-lucide="calculator"></i>Cost calculator</a>
+      <a class="header-link" href="/questions.html"><i data-lucide="message-circle-question"></i>Questions<span class="q-badge" id="q-badge" hidden></span></a>
+      <span class="live-pill"><i class="live-dot"></i><span id="service-status">Service online</span></span>
+    </div>
+  </header>
+  <main>
+    <div class="eyebrow">After the call</div>
+    <h1>Call logs</h1>
+    <p class="sub">Every call: what was confirmed, the path it took, the full transcript and what was sent to Beat Plan.</p>
+    <section class="card overview" id="overview" aria-label="Combined stats">
+      <div class="ov-head">
+        <div><h2>Overview</h2><div class="scope" id="scope"></div></div>
+        <select id="range" aria-label="Time range">
+          <option value="all">All time</option><option value="today">Today</option><option value="7d">Last 7 days</option>
+        </select>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <div class="bar" id="bar" role="img" aria-label="Outcomes of the calls"></div>
+      <div class="legend" id="legend"></div>
+    </section>
+    <div class="layout">
+      <aside class="card list">
+        <div class="list-head"><select id="filter" aria-label="Filter by booking"></select></div>
+        <div id="items"></div>
+      </aside>
+      <section class="card detail" id="detail" aria-live="polite"></section>
+    </div>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const IST = { timeZone: 'Asia/Kolkata' };
+    const fmtDay = (d) => new Date(d + 'T00:00:00+05:30').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', ...IST });
+    const fmtWhen = (iso) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, ...IST });
+    const fmtTime = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, ...IST });
+    const fmtDur = (s) => (s == null ? '–' : s >= 60 ? `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s` : `${Math.round(s)}s`);
+    const pretty = (t) => String(t ?? '').replace(/_/g, ' ');
+    const WINDOWS = { morning: '9am–12pm', afternoon: '12–3pm', evening: '3–6pm', '09-12': '9am–12pm', '12-15': '12–3pm', '15-18': '3–6pm' };
+    const LABEL = {
+      confirmed: 'Confirmed', slot_confirmed: 'Confirmed', slot_confirmed_alt_band: 'Confirmed (other time)', slot_confirmed_alt_day: 'Confirmed (other day)',
+      site_on_hold: 'Site on hold', hold_declined: 'Hold declined', no_slot_available: 'No slot', rm_callback: 'Senior will call',
+      recall_requested: 'Call later', do_not_call: 'Do not call', wrong_number: 'Wrong number', no_answer: 'No answer', hung_up: 'Hung up',
+      needs_manual_confirmation: 'Needs manual confirm', not_dialled: 'Not dialled', not_needed_now: 'Not needed yet', date_requested: 'Date requested',
+      handed_to_human: 'Handed to human', created: 'Starting', dialing: 'Dialing', connecting: 'Connecting', in_progress: 'On call', ended: 'Ended', failed: 'Failed',
+    };
+    const TONE = { confirmed: 'good', slot_confirmed: 'good', slot_confirmed_alt_band: 'good', slot_confirmed_alt_day: 'good',
+      rm_callback: 'cool', site_on_hold: 'cool', not_needed_now: 'cool', date_requested: 'cool', handed_to_human: 'cool',
+      do_not_call: 'bad', wrong_number: 'bad', failed: 'bad', hung_up: 'bad', no_answer: 'bad', needs_manual_confirmation: 'warm', recall_requested: 'warm', in_progress: 'warm', created: 'warm' };
+    const chip = (o) => `<span class="chip ${TONE[o] ?? ''}">${esc(LABEL[o] ?? pretty(o))}</span>`;
+    const KIND = { deflected: "Couldn't answer", not_understood: "Couldn't use the reply", unclear: "Didn't understand", other_language: 'Other language' };
+
+    const params = new URLSearchParams(location.search);
+    let all = [], calls = [], current = null, flow = null, bookingFilter = params.get('booking') ?? '', selected = params.get('call'), range = 'all';
+
+    async function loadList() {
+      const q = bookingFilter ? `?bookingId=${encodeURIComponent(bookingFilter)}` : '';
+      all = await (await fetch(`/api/calls${q}`)).json();
+      calls = inRange(all);
+      if (!selected || !calls.some((c) => c.id === selected)) selected = calls[0]?.id ?? null;
+      renderOverview();
+      renderList();
+      await loadDetail();
+    }
+
+    // ---- the combined stats at the top, over the calls in view (booking filter + time range)
+    const DAY = 86400000;
+    function inRange(list) {
+      if (range === 'all') return list;
+      const since = range === 'today' ? new Date(new Date().toLocaleDateString('en-CA', IST) + 'T00:00:00+05:30').getTime() : Date.now() - 7 * DAY;
+      return list.filter((c) => new Date(c.createdAt).getTime() >= since);
+    }
+    const GROUPS = [   // outcome -> group; the order is the order on the bar
+      ['confirmed', 'Confirmed', ['confirmed', 'slot_confirmed', 'slot_confirmed_alt_band', 'slot_confirmed_alt_day']],
+      ['hold', 'Site on hold', ['site_on_hold']],
+      ['callback', 'Callback / call later', ['recall_requested', 'rm_callback', 'needs_manual_confirmation', 'handed_to_human']],
+      ['info', 'Not needed / date requested / no slot', ['not_needed_now', 'date_requested', 'hold_declined', 'no_slot_available']],
+      ['stopped', 'Wrong number / do not call', ['do_not_call', 'wrong_number']],
+      ['silent', 'No answer / hung up', ['no_answer', 'hung_up', 'not_dialled']],
+      ['failed', 'Failed', ['failed']],
+    ];
+    const FINISHED = (c) => c.status === 'ended' || c.status === 'failed';
+    const groupOf = (c) => (c.status === 'failed' ? 'failed' : GROUPS.find(([, , os]) => os.includes(c.outcome))?.[0] ?? 'silent');
+    const sum = (xs) => xs.reduce((a, b) => a + b, 0);
+    const money = (n) => `₹${n.toFixed(2)}`;
+
+    function stats(list) {
+      const done = list.filter(FINISHED), running = list.length - done.length;
+      const ok = done.filter((c) => groupOf(c) === 'confirmed').length;
+      const talk = done.map((c) => c.durationS).filter((x) => x != null);
+      const costs = done.map((c) => c.costInr).filter((x) => x != null);
+      return {
+        total: list.length, done: done.length, running, ok, failed: done.filter((c) => c.status === 'failed').length,
+        rate: done.length ? ok / done.length : null,
+        avgDur: talk.length ? sum(talk) / talk.length : null, totalDur: sum(talk),
+        totalCost: sum(costs), avgCost: costs.length ? sum(costs) / costs.length : null,
+        phone: list.filter((c) => c.mode === 'phone').length, browser: list.filter((c) => c.mode === 'browser').length,
+        groups: Object.fromEntries(GROUPS.map(([k]) => [k, done.filter((c) => groupOf(c) === k).length])),
+      };
+    }
+
+    function renderOverview() {
+      const st = stats(calls);
+      const pct = (x) => (x == null ? '–' : `${Math.round(x * 100)}%`);
+      const tile = (label, value, sub = '', tone = '', sub2 = '') => `<div class="tile ${tone}"><small>${esc(label)}</small><b>${esc(value)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}${sub2 ? `<span>${esc(sub2)}</span>` : ''}</div>`;
+      $('scope').textContent = `${bookingFilter ? (all[0]?.customerName ?? bookingFilter) : 'All bookings'} · ${$('range').selectedOptions[0].text.toLowerCase()} · ${st.total} call${st.total === 1 ? '' : 's'}`;
+      if (!st.total) { $('tiles').innerHTML = '<div class="empty" style="grid-column:1/-1;padding:24px">No calls in this view yet.</div>'; $('bar').innerHTML = ''; $('legend').innerHTML = ''; return; }
+      $('tiles').innerHTML = [
+        tile('Calls', st.total, `${st.done} finished${st.running ? ` · ${st.running} running` : ''}${st.failed ? ` · ${st.failed} failed` : ''}`, '', `${st.phone} phone · ${st.browser} browser`),
+        tile('Confirmed', pct(st.rate), `${st.ok} of ${st.done} finished calls`, st.rate >= 0.5 ? 'good' : ''),
+        tile('Avg call length', fmtDur(st.avgDur), `${fmtDur(st.totalDur)} talk time in total`),
+        tile('Cost per call', st.avgCost == null ? '–' : money(st.avgCost), `${money(st.totalCost)} in total`),
+      ].join('');
+      const total = st.total;
+      const segs = [...GROUPS.map(([k, label]) => [k, label, st.groups[k]]), ['running', 'Running', st.running]].filter(([, , n]) => n);
+      $('bar').innerHTML = segs.map(([k, label, n]) => `<i class="seg-${k}" style="width:${(n / total) * 100}%" title="${esc(label)}: ${n}"></i>`).join('');
+      $('legend').innerHTML = segs.map(([k, label, n]) => `<span class="lg-${k}">${esc(label)} <b>${n}</b></span>`).join('');
+    }
+
+    function renderList() {
+      $('items').innerHTML = calls.length ? calls.map((c) => `
+        <button class="item g-${FINISHED(c) ? groupOf(c) : 'running'} ${c.id === selected ? 'sel' : ''}" data-id="${esc(c.id)}">
+          <b>${esc(c.customerName ?? c.bookingId)}</b>
+          <div class="when">${esc(fmtWhen(c.createdAt))} · ${esc(c.mode)} · ${esc(fmtDur(c.durationS))}${c.costInr != null ? ` · ₹${c.costInr.toFixed(2)}` : ''}</div>
+          ${chip(c.outcome ?? c.status)}
+        </button>`).join('') : '<div class="empty">No calls yet.</div>';
+    }
+
+    async function loadFilter() {
+      const all = await (await fetch('/api/bookings')).json();
+      $('filter').innerHTML = '<option value="">All bookings</option>' + all.map((b) =>
+        `<option value="${esc(b.id)}" ${b.id === bookingFilter ? 'selected' : ''}>${esc(b.customerName)} (${esc(b.id)})</option>`).join('');
+    }
+
+    async function loadDetail() {
+      if (!selected) { current = null; $('detail').innerHTML = '<div class="empty">Select a call, or make one from the dashboard.<br>Finished calls are kept here, also after a restart.</div>'; return; }
+      current = await (await fetch(`/api/calls/${encodeURIComponent(selected)}`)).json();
+      renderDetail();
+    }
+
+    const stepTitle = (id) => flow?.states?.[id]?.title ?? id;
+
+    function confirmed(r, call) {
+      const s = r.slots ?? {}, rd = r.readiness ?? {}, arr = r.will_arrange ?? [];
+      const yes = (label, v, key) => {
+        const arrange = arr.includes(key);
+        return [label, arrange ? 'Will arrange before the visit' : v === true ? 'Yes' : v === false ? 'No' : '–', arrange || v === true ? 'ok' : v === false ? 'no' : ''];
+      };
+      const kv = [];
+      const cs = r.confirmed_slot;
+      kv.push(['Visit', cs ? `${fmtDay(cs.date)} · ${WINDOWS[cs.band] ?? cs.band}${r.time_window_told ? '' : ' (window not told)'}` : '–', cs ? 'ok' : '']);
+      kv.push(yes('Ladder', rd.ladder ?? s.ladder_available, 'ladder'), yes('Water source', rd.water ?? s.water_source_available, 'water'), yes('Light connection', rd.light ?? s.light_available, 'light'));
+      kv.push(['Spoke to', typeof r.spoke_to === 'string' && r.spoke_to !== 'nobody' ? pretty(r.spoke_to) : r.spoke_to ? 'Customer' : '–', '']);
+      if (r.hold?.until) kv.push(['Site on hold till', `${fmtDay(r.hold.until)}${r.hold.reason ? ` · ${pretty(r.hold.reason)}` : ''}${r.hold.consent ? '' : ' (no consent)'}`, 'ok']);
+      if (r.recall_window) kv.push(['Call back', r.recall_window, 'ok']);
+      if (r.requested_slot?.date) kv.push(['Requested day', `${fmtDay(r.requested_slot.date)}${r.requested_slot.band ? ` · ${WINDOWS[r.requested_slot.band] ?? r.requested_slot.band}` : ''}`, 'ok']);
+      if (r.rm_callback_reason) kv.push(['Senior callback reason', pretty(r.rm_callback_reason), '']);
+      if (r.language) kv.push(['Language', r.language === 'hi' ? 'Hindi' : r.language === 'en' ? 'English' : r.language, '']);
+      return kv.map(([k, v, c]) => `<div class="kv ${c}"><small>${esc(k)}</small>${esc(v)}</div>`).join('');
+    }
+
+    function renderDetail() {
+      const c = current, r = c.record ?? {}, ev = c.events ?? [];
+      const L = r.latency ?? {};
+      const transcript = ev.filter((e) => e.type === 'transcript' || (e.type === 'status' && e.error));
+      const actions = ev.filter((e) => e.type === 'beatplan');
+      const offguard = ev.filter((e) => e.type === 'offguard');
+      const path = (r.path?.length ? r.path : ev.filter((e) => e.type === 'flow_state').map((e) => e.state));
+      const running = !['ended', 'failed'].includes(c.status);
+      $('detail').innerHTML = `
+        <div class="top">
+          <div><h2>${esc(c.booking?.customerName ?? c.bookingId)}</h2>
+            <div class="mono">${esc(c.id)} · ${esc(c.bookingId)} · ${esc(c.booking?.sseId ?? '')} · ${esc(c.mode)} · ${esc(fmtWhen(c.createdAt))}</div></div>
+          ${chip(c.outcome ?? c.status)}
+        </div>
+        ${running ? '<div class="summary">This call is still running. The log updates as it goes.</div>' : ''}
+        <div class="stats">
+          <div class="stat"><small>Duration</small><b>${esc(fmtDur(r.duration_s))}</b></div>
+          <div class="stat"><small>Cost</small><b>${r.cost_inr != null ? `₹${Number(r.cost_inr).toFixed(2)}` : '–'}</b></div>
+          <div class="stat"><small>Turn p50</small><b>${L.p50 != null ? `${L.p50} ms` : '–'}</b></div>
+          <div class="stat"><small>Turn p95</small><b>${L.p95 != null ? `${L.p95} ms` : '–'}</b></div>
+          <div class="stat"><small>Turns</small><b>${L.turns ?? '–'}</b></div>
+          <div class="stat"><small>Flow</small><b>${r.flow_version ? `v${esc(r.flow_version)}` : '–'}</b></div>
+        </div>
+        <h3>What was confirmed</h3>
+        <div class="grid">${confirmed(r, c)}</div>
+        ${r.summary ? `<div class="summary">${esc(r.summary)}</div>` : ''}
+        <h3>Path through the flow</h3>
+        <div class="path">${path.length ? path.map((p, i) => `${i ? '<i>›</i>' : ''}<span title="${esc(p)}">${esc(stepTitle(p))}</span>`).join('') : '<span>No steps recorded</span>'}</div>
+        <h3>Transcript</h3>
+        <div class="chat">${transcript.length ? transcript.map((e) => e.type === 'status'
+          ? `<div class="msg sys">The call failed: ${esc(e.error)}</div>`
+          : `<div class="msg ${e.role === 'agent' ? 'agent' : e.role === 'customer' ? 'customer' : 'sys'}">${esc(e.text)}<time>${esc(fmtTime(e.ts))} · ${e.role === 'agent' ? 'agent' : e.role === 'customer' ? 'customer' : 'system'}</time></div>`).join('')
+          : '<div class="msg sys">No transcript was recorded.</div>'}</div>
+        <h3>Sent to Beat Plan</h3>
+        <div class="rows">${actions.length ? actions.map((a) => {
+          const p = { ...(a.payload ?? {}) }; if (p.record) p.record = '(call record attached)';
+          return `<div class="row"><b>${esc(pretty(a.action))}</b> <span class="chip warm">${esc(a.status ?? 'stub')}</span> <span class="mono">${esc(fmtTime(a.ts))}</span><code>${esc(JSON.stringify(p))}</code></div>`;
+        }).join('') : '<div class="row">Nothing was sent.</div>'}</div>
+        ${offguard.length ? `<h3>Things the agent could not handle</h3><div class="rows">${offguard.map((o) =>
+          `<div class="row">“${esc(o.text)}” <span class="chip warm">${esc(KIND[o.kind] ?? o.kind)}</span> <span class="mono">${esc(fmtTime(o.ts))}</span></div>`).join('')}
+          <div class="row"><a href="/questions.html">Review and teach the agent on the Questions page</a></div></div>` : ''}
+        <details><summary>Final call record</summary><pre>${esc(JSON.stringify(r, null, 2))}</pre></details>
+        <details><summary>All ${ev.length} events</summary><pre>${esc(ev.map((e) => `${fmtTime(e.ts)}  ${e.type}  ${JSON.stringify({ ...e, type: undefined, ts: undefined, record: undefined })}`).join('\n'))}</pre></details>`;
+      window.lucide?.createIcons();
+    }
+
+    document.addEventListener('click', (e) => {
+      const it = e.target.closest('.item');
+      if (!it) return;
+      selected = it.dataset.id;
+      const p = new URLSearchParams(location.search); p.set('call', selected); history.replaceState(null, '', `?${p}`);
+      renderList(); loadDetail();
+    });
+    $('range').addEventListener('change', (e) => { range = e.target.value; selected = null; loadList(); });
+    $('filter').addEventListener('change', (e) => {
+      bookingFilter = e.target.value; selected = null;
+      const p = new URLSearchParams(); if (bookingFilter) p.set('booking', bookingFilter); history.replaceState(null, '', p.toString() ? `?${p}` : location.pathname);
+      loadList();
+    });
+
+    (async () => {
+      try {
+        const c = await (await fetch('/api/config')).json();
+        flow = await (await fetch(`${c.botUrl}/api/flow`)).json();
+      } catch { /* step titles fall back to the step ids */ }
+      await Promise.all([loadFilter(), loadList()]).catch(() => { $('detail').innerHTML = '<div class="empty">Could not reach the dashboard server.</div>'; });
+      setInterval(() => { if (current && !['ended', 'failed'].includes(current.status)) loadList(); }, 4000);   // a running call keeps updating
+    })();
+  </script>
+</body>
+</html>

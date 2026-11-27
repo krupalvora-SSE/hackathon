@@ -323,6 +323,7 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Chit-chat that is not an answer | Bot answers briefly, then repeats its question |
 | Asks what something means or why it is needed | Bot answers briefly, then repeats its question |
 | Asks if the visit costs anything | Bot answers briefly, then repeats its question |
+| Asks something an admin has approved an answer for | Bot answers briefly, then repeats its question |
 | Asks something we can't answer (generation, inverter, savings...) | Bot answers briefly, then repeats its question |
 | No reply | No answer |
 
