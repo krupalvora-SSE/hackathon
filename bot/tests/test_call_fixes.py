@@ -148,3 +148,21 @@ def test_garbled_twelve_to_three(heard):
 def test_identity_yes_by_opening_word(heard, state, intent, take):
     from agent.bot import _identity_yes_heard
     assert _identity_yes_heard({"intent": intent}, _STT(heard), _Engine(state)) is take
+
+
+def test_greeting_clears_the_misheard_first_reply():
+    # CALL-1e03b45f: "Hello" heard as "प्रोग" (unsure) went to the greeting, not the LLM, so it was never consumed;
+    # the clear "हाँ" to "क्या Vikas जी बोल रहे हैं?" then counted as unsure and was asked again
+    import asyncio
+    from agent.bot import GreetingGate
+    from agent.stt_whisper import WhisperHiEnSTTService
+
+    stt = WhisperHiEnSTTService.__new__(WhisperHiEnSTTService)
+    stt.turn_unsure, stt.turn_heard, stt.turn_consumed = True, [{"text": "प्रोग", "unsure": True}], False
+    greeted = []
+
+    async def speak(): greeted.append(True)
+
+    asyncio.run(GreetingGate(speak, stt).greet())
+    stt.start_turn()                                   # the customer answers the greeting
+    assert greeted and not stt.turn_unsure and stt.turn_heard == []

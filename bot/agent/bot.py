@@ -84,11 +84,21 @@ class GreetingGate(FrameProcessor):
     """The bot opens with "Hello?". The customer's first reply is held back from the LLM and the
     real greeting is spoken instead (on_first_reply)."""
 
-    def __init__(self, on_first_reply):
+    def __init__(self, on_first_reply, stt=None):
         super().__init__()
         self._on_first_reply = on_first_reply
+        self._stt = stt
         self.greeted = False
         self._protected_until = 0.0
+
+    async def greet(self) -> None:
+        """Speak the greeting in answer to the first reply (or to silence). That reply never reaches the LLM, so
+        it is done with here: a misheard "Hello" ("प्रोग") must not make the next clear "हाँ" unsure and asked
+        again (CALL-1e03b45f)."""
+        self.greeted = True
+        if self._stt is not None and hasattr(self._stt, "consume_turn"):
+            self._stt.consume_turn()
+        await self._on_first_reply()
 
     def protect(self, secs: float) -> None:
         """Ignore interruptions for `secs`: early line noise must not cancel "Hello?" before it is heard."""
@@ -100,8 +110,7 @@ class GreetingGate(FrameProcessor):
                 and time.monotonic() < self._protected_until):
             return
         if isinstance(frame, LLMContextFrame) and not self.greeted:
-            self.greeted = True
-            await self._on_first_reply()
+            await self.greet()
             return
         await self.push_frame(frame, direction)
 
@@ -430,7 +439,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     async def speak_opening() -> None:
         await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
 
-    gate = GreetingGate(speak_opening)
+    gate = GreetingGate(speak_opening, stt)
     recorder = CallRecorder(call_id, sample_rate) if cfg["record_call"] else None
     pipeline = Pipeline([
         transport.input(), stt, aggregators.user(), gate, llm, filler_tap, tts,
@@ -554,8 +563,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             return
         await end_hold()
         if not gate.greeted:  # no reply to "Hello?": give the greeting itself, not a second "Hello?"
-            gate.greeted = True
-            await speak_opening()
+            await gate.greet()
             return
         await perform(engine.on_silence())
 
