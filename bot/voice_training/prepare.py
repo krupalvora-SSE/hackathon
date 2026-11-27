@@ -110,7 +110,7 @@ def transcribe_all(x: np.ndarray, segs, cache_path: Path) -> list[str]:
 
 
 def norm(t: str) -> str:
-    t = to_devanagari(t)
+    t = to_devanagari(t, near_dates=False)
     t = re.sub(r"\d+", lambda m: NUM[int(m.group())] if int(m.group()) < len(NUM) else m.group(), t)
     t = t.replace("़", "").replace("ँ", "ं")       # nukta, chandrabindu: ASR is inconsistent
     t = t.replace("सोलार", "सोलर").replace("स्क्वायर", "स्क्वेयर").replace("कृपल", "कृपाल")  # ASR spellings
@@ -216,7 +216,7 @@ def main():
         clip = tidy(x[max(0, segs[f][0] - pad): min(len(x), segs[l][1] + pad)].copy())
         lid, text = script[j]
         sf.write(out / "wavs" / f"{lid}.wav", clip, SR, subtype="PCM_16")
-        meta.append(f"{lid}.wav|{to_devanagari(text)}")  # exactly what Piper gets at call time
+        meta.append(f"{lid}.wav|{to_devanagari(text, near_dates=False)}")  # exactly what Piper gets at call time
         secs += len(clip) / SR
     (out / "metadata.csv").write_text("\n".join(meta) + "\n")
 

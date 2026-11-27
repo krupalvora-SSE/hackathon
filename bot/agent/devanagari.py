@@ -10,6 +10,7 @@ customer names, is transliterated phonetically: "Sharma" -> शर्मा, "Kr
 from __future__ import annotations
 
 import re
+from datetime import date
 
 from indic_transliteration import sanscript
 
@@ -143,11 +144,36 @@ def _dates(text: str) -> str:
     return _ORDINAL.sub(r"\1", text)
 
 
-def to_devanagari(text: str) -> str:
+_DAY_MONTH = re.compile(rf"\b(\d{{1,2}}) ({'|'.join(_HI_MONTHS)})(?![\u0900-\u097F])")
+NEAR_DAYS = 14
+
+
+def _near_day(m: re.Match, today: date) -> str:
+    """Within the next two weeks the weekday + day number is enough: "सोमवार, 30 नवंबर" -> "सोमवार, 30".
+    The trained Hindi voices garble month names they saw in only a few lines (नवंबर: 5 of 231)."""
+    day, month = int(m[1]), _HI_MONTHS.index(m[2]) + 1
+    for year in (today.year, today.year + 1):
+        try:
+            d = date(year, month, day)
+        except ValueError:
+            return m[0]
+        if 0 <= (d - today).days <= NEAR_DAYS:
+            return m[1]
+    return m[0]
+
+
+def to_devanagari(text: str, today: date | None = None, *, near_dates: bool = True) -> str:
+    """near_dates=False keeps every month (training transcripts must match what was read aloud)."""
+    from .normalize import today_ist
+
     text = _dates(text)
     for pat, rep in _PHRASES:
         text = pat.sub(rep, text)
-    return _LATIN.sub(_word, text)
+    text = _LATIN.sub(_word, text)
+    if not near_dates:
+        return text
+    today = today or today_ist()
+    return _DAY_MONTH.sub(lambda m: _near_day(m, today), text)
 
 
 async def devanagari_transform(text: str, _text_type=None) -> str:

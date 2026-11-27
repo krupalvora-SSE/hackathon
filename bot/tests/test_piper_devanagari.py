@@ -5,6 +5,8 @@ import re
 import yaml
 
 from agent import bot, config
+from datetime import date
+
 from agent.devanagari import devanagari_transform, to_devanagari
 
 LATIN = re.compile(r"[A-Za-z]")
@@ -32,12 +34,26 @@ def test_known_words_names_and_mai():
     assert asyncio.run(devanagari_transform("Hello?", "sentence")) == "हॅलो?"   # English "hɛlo", not "heːlo"
 
 
+FAR = date(2026, 1, 1)  # months away: dates keep their month
+
+
 def test_dates_are_spoken_as_written():
-    assert to_devanagari("Shanivar, 29 November") == "शनिवार, 29 नवंबर"
-    assert to_devanagari("Somvar, 1 December ko") == "सोमवार, 1 दिसंबर को"
-    assert to_devanagari("2026-11-29 ko") == "29 नवंबर को"
-    assert to_devanagari("29/11") == "29 नवंबर"
-    assert to_devanagari("Saturday 29th Nov") == "सैटरडे 29 नवंबर"
+    assert to_devanagari("Shanivar, 29 November", FAR) == "शनिवार, 29 नवंबर"
+    assert to_devanagari("Somvar, 1 December ko", FAR) == "सोमवार, 1 दिसंबर को"
+    assert to_devanagari("2026-11-29 ko", FAR) == "29 नवंबर को"
+    assert to_devanagari("29/11", FAR) == "29 नवंबर"
+    assert to_devanagari("Saturday 29th Nov", FAR) == "सैटरडे 29 नवंबर"
+
+
+def test_near_dates_drop_the_month():
+    today = date(2026, 11, 27)
+    assert to_devanagari("सोमवार, 30 नवंबर को आप अवेलेबल हैं?", today) == "सोमवार, 30 को आप अवेलेबल हैं?"
+    assert to_devanagari("Shanivar, 28 November", today) == "शनिवार, 28"
+    assert to_devanagari("30 नवंबर या 7 दिसंबर", today) == "30 या 7"
+    assert to_devanagari("2026-12-11 ko", today) == "11 को"          # day 14: still near
+    assert to_devanagari("12 दिसंबर", today) == "12 दिसंबर"          # day 15: keep the month
+    assert to_devanagari("26 नवंबर", today) == "26 नवंबर"            # past date: keep it
+    assert to_devanagari("2 जनवरी", date(2026, 12, 25)) == "2"       # across the new year
 
 
 def test_piper_voices_are_male_and_only_local_engines():

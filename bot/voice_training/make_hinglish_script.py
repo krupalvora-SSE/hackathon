@@ -192,7 +192,7 @@ def seconds(lines: list[str]) -> list[float]:
 
     v = PiperVoice.load(PIPER_CACHE_DIR / "hi_IN-rohan-medium.onnx")
     sr = v.config.sample_rate
-    return [sum(len(c.audio_int16_bytes) for c in v.synthesize(to_devanagari(t))) / 2 / sr for t in lines]
+    return [sum(len(c.audio_int16_bytes) for c in v.synthesize(to_devanagari(t, near_dates=False))) / 2 / sr for t in lines]
 
 
 def main() -> None:
