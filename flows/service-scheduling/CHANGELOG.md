@@ -2,6 +2,10 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.17.0 (2026-11-27, SSE-15551)
+From a call where the customer answered the planned-date question with "कोई और alternate slot है?" twice and the bot said "ठीक से सुनाई नहीं दिया" both times:
+- New intent `asks_other_slots` ("koi aur slot hai?", "any other dates"). At the planned-date offer and at the time-window step it goes straight to `ALTERNATE_DAYS`, which reads out the real days. While other days are being offered it gives the next options, or ends with no slot when none are left.
+
 ## 0.16.0 (2026-11-26, SSE-15557)
 From a call where the customer asked the price three times and got "our team will tell you separately" each time:
 - New global intent `asks_price` ("आप पैसे लोगे क्या?", "is it free"): the bot says "फ़िलहाल यह visit free है।" and asks the question again. Controlled by `policies.price_answer: free`; clear it to go back to the deflection. No amount is ever stated (`never_promise` now lists `price_amounts`, savings, generation, subsidy). NOTE: this relaxes the organisers' hard rule "never promises prices" for this one sentence and needs the owner's confirmation.

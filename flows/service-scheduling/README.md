@@ -129,6 +129,7 @@ flowchart LR
 | Asks the time | Find another date or time: Tell the time window |
 | Wants exact time | Find another date or time: Tell the time window |
 | Wants another time | Find another date or time: Check another time that day |
+| Asks for other slots | Find another date or time: Offer other days |
 | No | Find another date or time: Offer other days |
 | Suggests their own date (Beat Plan has that day) | Step 3: Ask: ladder, water, light ready? |
 | Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
@@ -173,6 +174,7 @@ When the planned date or time doesn't suit, or the customer pushes back, find on
 | Wants exact time (first time) | Bot answers and asks again |
 | Wants exact time (asks again) | Call back or hand over: Ask a senior to call |
 | Wants another time | Check another time that day |
+| Asks for other slots | Offer other days |
 | No | Offer other days |
 
 **Check another time that day**
@@ -192,6 +194,8 @@ The bot doesn't speak here. **Free (already checked)** → Step 4: Repeat the de
 | Suggests their own date (not in Beat Plan) | Ask the time for their date |
 | Suggests their own date (already checked) | Step 4: Repeat the details, get a yes |
 | Suggests their own date | Step 3: Ask: ladder, water, light ready? |
+| Asks for other slots (more days to offer) | Bot answers and asks again |
+| Asks for other slots (no more days) | Call ends: No free slot |
 | No (more days to offer) | Bot answers and asks again |
 | No (no more days) | Call ends: No free slot |
 

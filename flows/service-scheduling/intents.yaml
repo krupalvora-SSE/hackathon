@@ -230,6 +230,12 @@ local:
       hi: ["subah nahi, shaam ko aa sakte ho", "dopahar mai bhejo"]
       en: ["not morning, can they come in the evening", "afternoon works better"]
 
+  asks_other_slots:
+    label: Asks for other slots
+    examples:
+      hi: ["कोई और alternate slot है?", "क्या आपके पास कोई और slots है?", "koi aur din hai kya", "aur kaun si dates available hain", "doosra slot batao"]
+      en: ["do you have any other slot", "any other dates available", "what else do you have"]
+
   household_member:
     label: Family member, can decide
     examples:
