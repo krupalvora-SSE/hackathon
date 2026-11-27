@@ -13,6 +13,7 @@ From test call CALL-2c3e81bb (ended as do-not-call) and an LLM benchmark:
 - "Hello?" was said twice: the browser transport reported one connection twice (CALL-24b72b22); the connect handler now runs once.
 - At the identity question a garbled reply that opens with a clear "हाँ" and has no "no" or hedge is a yes ("हाँ, सोल पालोग?" CALL-24b72b22, "हाँ बुल रिम।" CALL-392c194e); it used to be asked again.
 - The reply to "Hello?" (answered by the greeting, never by the LLM) is now done with once greeted: a misheard "प्रोग" kept the turn unsure and the clear "हाँ" after the greeting was asked again (CALL-1e03b45f).
+- Filler "जी, देखता हूँ" -> "एक मिनट रुकिए": "देखता" is not in the Hindi voice's training lines and came out garbled right before "आपकी visit … confirm हो गई है" (CALL-7b3aafb3). A test now keeps every filler to trained words.
 - LLM benchmark (real prompt and tools, 14 simulated customers x 2): gemini-3.6-flash ~1.5 s, no wrong outcomes; gemini-3.5-flash-lite ~0.72 s but 4/28 wrong (read "date perfect hai par ladder nahi hai" as wrong person, booked a no-ladder site); gemini-3.1-flash-lite 6/28 wrong; gemini-3.7/3.8-flash ~3 s. Kept gemini-3.6-flash.
 
 ## 0.20.0 — bot follow-up 2 (2026-11-27)

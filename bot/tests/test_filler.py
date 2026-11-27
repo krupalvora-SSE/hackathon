@@ -109,3 +109,14 @@ def test_connect_handler_runs_once():
         await connected(None, None)
     asyncio.run(main())
     assert said == ["Hello?"]
+
+
+def test_fillers_use_only_trained_words():
+    # CALL-7b3aafb3: "जी, देखता हूँ" came out garbled; "सेकंड" came out Hindi-accented. Both were never trained.
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "voice_training"
+    trained = set(re.findall(r"[\u0900-\u0963\u0966-\u097F]+", "".join(p.read_text() for p in root.glob("script_*.txt"))))
+    for line in FILLERS:
+        words = re.findall(r"[\u0900-\u0963\u0966-\u097F]+", line)
+        assert words and set(words) <= trained, (line, set(words) - trained)

@@ -5,8 +5,10 @@ import asyncio
 from typing import Awaitable, Callable
 
 # "एक second" became "एक सेकंड", a word the Hindi voice never trained on: it came out Hindi-accented.
+# "जी, देखता हूँ" garbled before "आपकी visit … confirm हो गई है" (CALL-7b3aafb3): "देखता" is not in the training
+# lines either. Every filler must use only words the Hindi voice was trained on (voice_training/script_*.txt).
 # Neutral on purpose: "हाँ जी…" sounded like agreement right before "माफ़ कीजिए, ठीक से सुनाई नहीं दिया".
-FILLERS = ["जी, एक मिनट।", "जी…", "जी, देखता हूँ।"]
+FILLERS = ["जी, एक मिनट।", "जी…", "एक मिनट रुकिए।"]
 
 
 class Filler:
