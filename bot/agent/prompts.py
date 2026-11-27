@@ -135,7 +135,7 @@ Entities (fill only when the customer said them, using their own words):
 - language: "en" if the customer is speaking English, "hi" if Hindi/Hinglish
 - asks_time: true when the customer also asks about the time of the visit in the same turn
   ("chalega shukrawar, but kya time hoga?"). The intent is still their answer (affirm / deny / ...); a bare
-  question about the time with no answer is the intent ask_time.
+  question about the time with no answer is the intent ask_time, even if it starts with "जी" ("जी, क्या slot है?").
 - hedged: true when the customer says yes but hedges in the same sentence ("ji haan, shayad hai", "haan, lagta hai").
   Any hedge makes the answer unsure, so set hedged = true instead of answering a plain affirm.
 - readiness: when the customer also answers the ladder / water / light questions in the same turn

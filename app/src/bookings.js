@@ -39,6 +39,7 @@ export function createStore(rows = seed) {
       // new flow results: kept per call, so a later call clears them
       requestedSlot: record.requested_slot ?? null,
       willArrange: record.will_arrange ?? [],
+      siteIssues: record.site_issues ?? [],            // problems the customer reported on their site (rusting...)
       timeWindowTold: record.time_window_told ?? null,
     });
     return { booking: b };

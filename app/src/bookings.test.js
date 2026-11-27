@@ -14,15 +14,17 @@ test('flow results the dashboard shows are stored, and cleared by a later call',
   const s = createStore([{ id: 'A' }]);
   s.applyCallResult('A', {
     outcome: 'date_requested', call_id: 'c1', requested_slot: { date: '2026-12-03', band: 'morning' },
-    will_arrange: ['ladder'], time_window_told: false, slots: {},
+    will_arrange: ['ladder'], site_issues: ['rusting on the frame'], time_window_told: false, slots: {},
   });
   assert.deepEqual(s.get('A').requestedSlot, { date: '2026-12-03', band: 'morning' });
   assert.deepEqual(s.get('A').willArrange, ['ladder']);
+  assert.deepEqual(s.get('A').siteIssues, ['rusting on the frame']);
   assert.equal(s.get('A').status, 'date_requested');
 
   s.applyCallResult('A', { outcome: 'slot_confirmed', call_id: 'c2', slots: { visit_date: '2026-11-28', visit_time_slot: 'morning' } });
   assert.equal(s.get('A').requestedSlot, null);
   assert.deepEqual(s.get('A').willArrange, []);
+  assert.deepEqual(s.get('A').siteIssues, []);
   assert.equal(s.get('A').status, 'confirmed');
 });
 

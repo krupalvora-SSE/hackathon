@@ -60,6 +60,8 @@
     .kv small { display:block; color:var(--fg-3); font-size:var(--text-xs); margin-bottom:2px; }
     .kv.ok { background:#E8F6EC; border-color:transparent; }
     .kv.no { background:#FBEAE4; border-color:transparent; }
+    .kv.warn { background:var(--sun-50); border-color:transparent; color:var(--sun-700); font-weight:600; }
+    .kv.warn small { font-weight:400; }
     .summary { margin-top:12px; padding:12px 14px; border-radius:12px; background:var(--bg-sunken); font-size:var(--text-sm); line-height:1.55; color:var(--fg-2); }
     .path { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
     .path span { padding:3px 10px; border-radius:999px; background:var(--bg-sunken); border:1px solid var(--border-2); font-size:var(--text-xs); color:var(--fg-2); }
@@ -265,6 +267,7 @@
       kv.push(['Visit', cs ? `${fmtDay(cs.date)} · ${WINDOWS[cs.band] ?? cs.band}${r.time_window_told ? '' : ' (window not told)'}` : '–', cs ? 'ok' : '']);
       kv.push(yes('Ladder', rd.ladder ?? s.ladder_available, 'ladder'), yes('Water source', rd.water ?? s.water_source_available, 'water'), yes('Light connection', rd.light ?? s.light_available, 'light'));
       kv.push(['Spoke to', typeof r.spoke_to === 'string' && r.spoke_to !== 'nobody' ? pretty(r.spoke_to) : r.spoke_to ? 'Customer' : '–', '']);
+      if (Array.isArray(r.site_issues) && (cs || r.site_issues.length)) kv.push(['Site issues', r.site_issues.length ? r.site_issues.join('; ') : 'None reported', r.site_issues.length ? 'warn' : 'ok']);
       if (r.hold?.until) kv.push(['Site on hold till', `${fmtDay(r.hold.until)}${r.hold.reason ? ` · ${pretty(r.hold.reason)}` : ''}${r.hold.consent ? '' : ' (no consent)'}`, 'ok']);
       if (r.recall_window) kv.push(['Call back', r.recall_window, 'ok']);
       if (r.requested_slot?.date) kv.push(['Requested day', `${fmtDay(r.requested_slot.date)}${r.requested_slot.band ? ` · ${WINDOWS[r.requested_slot.band] ?? r.requested_slot.band}` : ''}`, 'ok']);

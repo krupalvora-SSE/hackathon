@@ -276,7 +276,9 @@ class FlowCall:
         entities = {k: v for k, v in (entities or {}).items() if v not in (None, "")}
         st = self.spec.states[self.state]
         lang = entities.get("language")
-        if lang in self.spec.prompts:
+        # A bare yes/no says little about language ("Yes." in the middle of a Hindi call): after the greeting only
+        # a fuller answer may switch it.
+        if lang in self.spec.prompts and not (self.state != "GREET" and on in ("affirm", "deny", "unsure", "dont_know")):
             self.lang = lang
 
         if st.get("type") == "conversation":
@@ -286,6 +288,8 @@ class FlowCall:
                 return Step(error=f"intent '{on}' does not apply in {self.state}", state=self.state, allowed=allowed)
             if (entities or {}).get("hedged") is True and on == "affirm" and st.get("checklist"):
                 on = "unsure"           # "haan, shayad hai": a hedge inside a yes is a maybe
+            if on == "affirm" and entities.get("asks_time") is True and self.state == "OFFER_PRIMARY":
+                on = "ask_time"         # "जी, क्या slot है?" is a question, not a yes: tell the window and ask again
             self._prev_streak = self.unclear_streak
             gi0 = self.spec.global_intents.get(on)
             if (gi0 and on not in (st.get("disable_global") or []) and gi0.get("goto") == self.state
@@ -541,6 +545,9 @@ class FlowCall:
             note = str(e["site_issue"]).strip()[:300]
             if note and note not in issues and len(issues) < 5:
                 issues.append(note)
+                self.on_event({"type": "slot", "key": "site_issues", "ok": True, "value": list(issues), "display": "; ".join(issues)})
+        elif self.state in ("SITE_ISSUES", "ISSUE_DETAILS") and on in ("deny", "dont_know") and not self.ctx.get("site_issues"):
+            self.on_event({"type": "slot", "key": "site_issues", "ok": True, "value": [], "display": "None reported"})
         if e.get("reason"):
             self.ctx["hold_reason"] = self.ctx.get("hold_reason") or e["reason"]
             if on == "wants_human":
@@ -746,6 +753,8 @@ class FlowCall:
                                                  for s in self.offered)
         sms = (self.spec.prompts[self.lang].get("_global") or {}).get("sms_reminder") or ""
         v["sms_line"] = (" " + sms) if sms and self.policies.get("sms_reminder") else ""
+        noted = (self.spec.prompts[self.lang].get("_global") or {}).get("issue_noted") or ""
+        v["issue_line"] = (" " + noted) if noted and self.ctx.get("site_issues") else ""      # they told us about a problem: say it was noted
         labels = {i["id"]: i["labels"][self.lang] for i in self.policies["readiness_items"]}
         miss = [labels[m] for m in self.ctx["missing_items"]]
         v["missing_item"] = (" और " if self.lang == "hi" else " and ").join(miss) if miss else ""
