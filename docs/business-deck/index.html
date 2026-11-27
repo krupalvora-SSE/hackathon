@@ -292,6 +292,15 @@ table.cmp{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 .bridge .flowline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:28px;font:500 13px var(--mono)}
 .bridge .flowline span{border:1px solid color-mix(in srgb,var(--bg) 35%,transparent);border-radius:8px;padding:5px 10px}
 .bridge .flowline i{font-style:normal;opacity:.6}
+.pillars{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:32px}
+@media (max-width:820px){.pillars{grid-template-columns:minmax(0,1fr)}}
+.pillar{border:1px solid color-mix(in srgb,var(--bg) 22%,transparent);border-radius:var(--r);padding:22px;display:flex;flex-direction:column;gap:10px;min-width:0;background:color-mix(in srgb,var(--bg) 5%,transparent)}
+.pillar .pk{font:600 12px var(--mono);color:var(--sun)}
+.pillar h3{font-size:19px;color:var(--bg)}
+.pillar p{font-size:14.5px;color:color-mix(in srgb,var(--bg) 80%,transparent)}
+.pillar .ps{margin-top:auto;font:500 12.5px var(--mono);color:var(--bg);border-top:1px solid color-mix(in srgb,var(--bg) 20%,transparent);padding-top:10px}
+.bridge .tagline{margin-top:36px;font-size:17px;font-weight:600;color:var(--bg)}
+.bridge .tagline+.flowline{margin-top:12px}
 .chan{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .svc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 @media (max-width:700px){.chan,.svc{grid-template-columns:minmax(0,1fr)}}
@@ -722,8 +731,29 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
   <section class="s bridge" id="built">
     <div class="in">
       <div class="eyebrow"><b>08</b> How it's built</div>
-      <h2>Natural language at the edge. Deterministic state and validation at the core.</h2>
-      <p class="lede">The AI listens and understands. A YAML call flow decides what happens next, so a flexible conversation never makes an unvalidated booking.</p>
+      <h2>Three things we designed for</h2>
+      <p class="lede">While designing the solution, we focused on three aspects in particular.</p>
+      <div class="pillars">
+        <div class="pillar">
+          <div class="pk">01</div>
+          <h3>Cost efficiency</h3>
+          <p>Open-source STT and TTS run alongside managed AI services. That keeps operating cost down and reduces vendor dependency, with the same architecture either way.</p>
+          <div class="ps">Open source: ₹0.3 a call</div>
+        </div>
+        <div class="pillar">
+          <div class="pk">02</div>
+          <h3>Contextual awareness and empathy</h3>
+          <p>The agent goes beyond a script. It understands the customer's context and emotional state, responds with empathy, and adapts or steps away when the situation calls for it.</p>
+          <div class="ps">Sensitive moment: stop and hand to a senior</div>
+        </div>
+        <div class="pillar">
+          <div class="pk">03</div>
+          <h3>Continuous learning</h3>
+          <p>A feedback-driven learning module spots conversations that go off track, captures the knowledge gap, and lets the agent improve with every piece of human feedback.</p>
+          <div class="ps">Questions view: answer once, used from the next call</div>
+        </div>
+      </div>
+      <p class="tagline">Natural language at the edge. Deterministic state and validation at the core.</p>
       <div class="flowline" aria-label="Call journey"><span>Identify</span><i>→</i><span>Offer slot</span><i>→</i><span>Check readiness</span><i>→</i><span>Recap</span><i>→</i><span>Confirm</span><i>→</i><span>Record</span></div>
     </div>
   </section>
