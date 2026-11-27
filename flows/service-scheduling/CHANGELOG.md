@@ -2,6 +2,12 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.18.0 (2026-11-27, SSE-15563)
+From call CALL-8dc7d921, where the customer said yes to the date and the visit was booked without any time being asked:
+- New step ASK_SLOT after the customer agrees to a day (the planned date, a backup day, their own Beat Plan day, or after NOT_NEEDED): "उस दिन आपको कौन सा time ठीक रहेगा? सुबह नौ से बारह बजे या दोपहर बारह से तीन बजे?" Only the bands Beat Plan has free that day are offered (`{bands_spoken}`); with one free band the bot names it and asks if it's okay (`one_band`).
+- New system step CHECK_SLOT checks the band they pick; a full band gets the free ones offered again (`band_full`). "Any time" / yes keeps the planned band; "no time that day" goes to ALTERNATE_DAYS; a clock time ("11 baje") counts as its band.
+- This replaces the 0.10 rule (SSE-15527) of mentioning a time only when the customer asks: the recap and "visit booked" lines now always say the time window (ASK_SLOT has `shares_time: true`).
+
 ## 0.17.0 (2026-11-26, SSE-15559)
 Off-guard questions can be reviewed and taught:
 - Every turn the bot could not handle (`deflected`, `not_understood`, `unclear`, `other_language`) is sent to the dashboard app with the customer's words and the step it happened at, and listed on the new Questions view.

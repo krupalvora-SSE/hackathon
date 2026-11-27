@@ -68,11 +68,13 @@ def test_happy_path_checks_every_readiness_item_then_confirms():
     call, _, events = live()
     call.handle("affirm")
     r = call.handle("affirm")                       # yes to primary slot
+    assert call.state == "ASK_SLOT" and "सुबह नौ से बारह बजे या दोपहर बारह से तीन बजे" in r.speak[0]   # only the free bands
+    r = call.handle("affirm")                       # any time is fine -> the planned band
     assert call.state == "READINESS_CHECK" and "ladder" in r.speak[-1]
     assert "पानी" in call.handle("affirm").speak[0]  # ladder yes -> water
     assert "light" in call.handle("affirm").speak[0]  # water yes -> light
     r = call.handle("affirm")
-    assert call.state == "RECAP" and "बजे" not in r.speak[0]          # no time window unless asked
+    assert call.state == "RECAP" and "सुबह नौ से बारह बजे" in r.speak[0]   # the time they agreed to
     r = call.handle("affirm")
     assert r.end and call.outcome == "slot_confirmed"
     sent = beatplan(events, "confirm_slot")[0]
@@ -117,7 +119,7 @@ def test_other_band_full_offers_closest_backups_two_at_a_time():
     assert [s["date"] for s in call.offered] == ["2026-11-30", "2026-12-03"]  # closest first, max 2
     assert "सोमवार" in r.speak[0] and " या " in r.speak[0]
     call.handle("affirm", {"option": 2})
-    for _ in range(4):
+    for _ in range(5):                               # time, ladder, water, light, recap
         call.handle("affirm")
     assert call.outcome == "slot_confirmed_alt_day"
     assert beatplan(events, "confirm_slot")[0]["date"] == "2026-12-03"
@@ -138,6 +140,7 @@ def test_missing_ladder_puts_site_on_hold_with_consent():
     call, _, events = live()
     call.handle("affirm")
     call.handle("affirm")
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     r = call.handle("deny")                          # no ladder
     assert "arrange" in r.speak[0] and call.state == "READINESS_CHECK"
     call.handle("deny")                              # can't arrange one either
@@ -187,6 +190,7 @@ def test_repeat_request_on_each_readiness_question():
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")                                  # -> ladder question
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     assert call.handle("repeat_request").speak == ["आपके पास A-type ladder है?"]
     call.handle("affirm")                                  # -> water question
     assert call.handle("repeat_request").speak == ["Panels के पास पानी मिल जाएगा?"]
@@ -265,7 +269,8 @@ def test_identity_questions_never_count_as_unclear():
 def test_several_answers_at_once_skip_the_questions_already_answered():
     call, _, events = live()
     call.handle("affirm")
-    r = call.handle("affirm", {"readiness": {"ladder": True, "water": True}})     # yes + ladder + water
+    call.handle("affirm", {"readiness": {"ladder": True, "water": True}})         # yes + ladder + water
+    r = call.handle("affirm")                                                     # ASK_SLOT: any time
     assert call.state == "READINESS_CHECK" and "light" in r.speak[-1] and "ladder" not in r.speak[-1].lower()
     assert call.ctx["readiness"] == {"ladder": True, "water": True}
     r = call.handle("affirm")                                                     # light -> recap
@@ -277,7 +282,8 @@ def test_several_answers_at_once_skip_the_questions_already_answered():
 def test_all_three_answered_at_once_goes_straight_to_the_recap():
     call, _, _ = live()
     call.handle("affirm")
-    r = call.handle("affirm", {"readiness": {"ladder": True, "water": True, "light": True}})
+    call.handle("affirm", {"readiness": {"ladder": True, "water": True, "light": True}})
+    r = call.handle("affirm")                                                     # ASK_SLOT: any time
     assert call.state == "RECAP" and "confirm" in r.speak[-1]
     assert not call.ctx["missing_items"]
 
@@ -286,6 +292,7 @@ def test_answers_given_mid_checklist_skip_the_following_questions():
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")                                                         # asked about the ladder
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     r = call.handle("affirm", {"readiness": {"water": True}})                     # "yes, and water too"
     assert call.state == "READINESS_CHECK" and "light" in r.speak[0]
     assert call.ctx["readiness"] == {"ladder": True, "water": True}
@@ -294,7 +301,8 @@ def test_answers_given_mid_checklist_skip_the_following_questions():
 def test_a_missing_ladder_given_up_front_still_asks_if_they_can_arrange_one():
     call, _, _ = live()
     call.handle("affirm")
-    r = call.handle("affirm", {"readiness": {"ladder": False, "water": True}})    # no ladder, has water
+    call.handle("affirm", {"readiness": {"ladder": False, "water": True}})        # no ladder, has water
+    r = call.handle("affirm")                                                     # ASK_SLOT: any time
     assert call.state == "READINESS_CHECK" and "arrange" in r.speak[-1]           # PR #4's arrange question first
     assert call.handle("repeat_request").speak == ["क्या आप ladder arrange कर पाएँगे?"]
     r = call.handle("deny")                                                       # cannot arrange one -> on to light
@@ -308,6 +316,7 @@ def test_a_ladder_they_will_arrange_keeps_the_booking_when_given_up_front():
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm", {"readiness": {"ladder": False, "water": True, "light": True}})
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     r = call.handle("affirm")                                                     # "yes, I can arrange one"
     assert call.state == "RECAP" and call.ctx["will_arrange"] == ["ladder"] and not call.ctx["missing_items"]
 
@@ -316,6 +325,7 @@ def test_repeat_inside_the_arrange_question_repeats_that_question():
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")                                                         # ladder question
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     call.handle("deny")                                                           # -> "can you arrange one?"
     assert call.handle("repeat_request").speak == ["क्या आप ladder arrange कर पाएँगे?"]
 
@@ -323,13 +333,14 @@ def test_repeat_inside_the_arrange_question_repeats_that_question():
 def test_junk_readiness_entities_are_ignored():
     call, _, _ = live()
     call.handle("affirm")
-    r = call.handle("affirm", {"readiness": {"roof": True, "water": "maybe", "light": False}})
+    call.handle("affirm", {"readiness": {"roof": True, "water": "maybe", "light": False}})
+    r = call.handle("affirm")                                                     # ASK_SLOT: any time
     assert call.ctx["known_readiness"] == {"light": False}      # "roof" and the non-boolean "water" are dropped
     assert call.ctx["readiness"] == {} and "ladder" in r.speak[-1].lower()  # the ladder is still asked
 
 
-def _to_recap(call, steps=("affirm", "affirm", "affirm", "affirm", "affirm")):
-    for on in steps:                               # greeting, offer, ladder, water, light
+def _to_recap(call, steps=("affirm", "affirm", "affirm", "affirm", "affirm", "affirm")):
+    for on in steps:                               # greeting, offer, time, ladder, water, light
         call.handle(on)
     assert call.state == "RECAP"
 
@@ -339,6 +350,7 @@ def test_changing_the_time_at_the_recap_keeps_the_chosen_day_and_skips_the_check
     call.handle("affirm")
     call.handle("deny")
     call.handle("affirm", {"option": 1})                         # picks Monday 30 Nov
+    call.handle("affirm")                                        # ASK_SLOT: any time is fine
     for _ in range(3):
         call.handle("affirm")                                    # ladder, water, light
     assert call.state == "RECAP" and call.ctx["selected_slot"]["date"] == "2026-11-30"
@@ -399,6 +411,7 @@ def test_dont_know_when_the_site_will_be_ready_goes_to_a_senior(path):
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")                                         # ladder question
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     call.handle("deny")                                           # no ladder -> can you arrange one?
     call.handle("deny")                                           # no -> water
     call.handle("affirm")                                         # water
@@ -431,17 +444,18 @@ def test_dont_know_the_time_of_day_still_records_the_requested_date():
     assert r.end and call.outcome == "date_requested"
 
 
-def test_yes_and_asks_the_time_in_one_turn_gets_the_time_answered():
+def test_yes_and_asks_the_time_in_one_turn_gets_the_time_question():
     call, _, _ = live()
     call.handle("affirm")
     call.handle("deny")                                                           # other days
     r = call.handle("affirm", {"option": 2, "asks_time": True})                   # "ok that one, but what time?"
-    window = call._global_line("time_window")
-    assert call.state == "READINESS_CHECK" and window and r.speak[0].startswith(window)
-    assert "A-type ladder" in r.speak[-1]                                          # and the next question follows
+    assert call.state == "ASK_SLOT" and len(r.speak) == 1                          # the time question answers it
+    assert "शाम तीन से छह बजे" in r.speak[0] and r.speak[0].count("बजे") == 1     # Beat Plan's only band that day
+    r = call.handle("affirm")
+    assert call.state == "READINESS_CHECK" and "A-type ladder" in r.speak[-1]
     for _ in range(3):
         last = call.handle("affirm")
-    assert call.state == "RECAP" and "के बीच" in last.speak[0]                    # the recap now names the window
+    assert call.state == "RECAP" and "के बीच" in last.speak[0]                    # the recap names the window
     assert call.record()["time_window_told"] is True
 
 
@@ -449,6 +463,7 @@ def test_asks_the_time_at_the_ladder_question_is_answered_not_read_as_no():
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")                                                         # ladder question
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     ladder = call.last_line
     r = call.handle("ask_time")
     assert call.state == "READINESS_CHECK" and r.speak[0].startswith(call._global_line("time_window"))
@@ -492,6 +507,7 @@ def test_asking_the_time_in_english():
     call, _, _ = live(lang="en")
     call.handle("affirm")
     call.handle("affirm")
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     r = call.handle("ask_time")
     assert r.speak[0].startswith("Our service hero will come between")
 
@@ -650,7 +666,7 @@ def test_a_sunday_only_request_gets_the_visit_days_and_the_question_again():
     r = call.handle("proposes_date", {"date": "ravivar"})
     assert call.state == "OFFER_PRIMARY" and "सोमवार से शनिवार" in r.speak[0] and r.speak[0].endswith(call._reask())
     r = call.handle("proposes_date", {"date": "agle somwar ya ravivar"})      # the reported request
-    assert call.state == "READINESS_CHECK" and call.ctx["selected_slot"]["date"] == "2026-11-30"
+    assert call.state == "ASK_SLOT" and call.ctx["selected_slot"]["date"] == "2026-11-30"
 
 
 # ---- fourth sample call (SSE-15557)
@@ -669,6 +685,7 @@ def test_a_maybe_is_never_booked_as_ready_it_gets_one_clear_follow_up(item, inte
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")                                           # ladder question
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     for before in {"ladder": [], "water": ["affirm"], "light": ["affirm", "affirm"]}[item]:
         call.handle(before)
     r = call.handle(intent)
@@ -681,6 +698,7 @@ def test_a_maybe_that_becomes_a_yes_is_recorded_as_will_arrange_and_the_recap_sa
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     call.handle("unsure")                                           # ladder: "शायद"
     call.handle("affirm")                                           # "yes, I'll get one"
     call.handle("affirm")                                           # water
@@ -694,6 +712,7 @@ def test_a_maybe_that_stays_a_maybe_counts_as_missing_and_leads_to_the_hold_flow
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     call.handle("unsure")                                           # "शायद"
     call.handle("unsure")                                           # "शायद" again to the follow-up
     call.handle("affirm")
@@ -708,6 +727,7 @@ def test_what_does_that_mean_is_explained_not_answered_with_could_not_hear(asked
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     for on in asked_at:
         call.handle(on)
     r = call.handle("asks_meaning")                                 # "ये A type ladder क्या होता है?"
@@ -757,7 +777,7 @@ def test_a_family_member_is_spoken_to_as_family_not_as_the_customer():
     assert "Rahul जी के solar system" in r.speak[0] and "आपके solar system" not in r.speak[0]
     assert "घर पर कोई available" in r.speak[0]
     assert call.handle("price_or_offtopic").speak[0].endswith("घर पर कोई available रहेगा?")      # short form too
-    for _ in range(5):                                              # offer, ladder, water, light, recap
+    for _ in range(6):                                              # offer, time, ladder, water, light, recap
         last = call.handle("affirm")
     assert call.outcome == "slot_confirmed" and "Rahul जी की visit" in last.speak[-1] and "आपकी visit" not in last.speak[-1]
 
@@ -814,6 +834,7 @@ def test_yes_with_a_hedge_is_a_maybe_not_a_yes():
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")                                                          # ladder question
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     r = call.handle("affirm", {"hedged": True})                                    # "जी हाँ, फिर तो शायद है"
     assert call.arranging == "ladder" and "arrange" in r.speak[0] and "ladder" not in call.ctx["readiness"]
 
@@ -826,6 +847,7 @@ def test_the_recap_is_a_proper_sentence():
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     call.handle("affirm")                                                          # ladder yes
     call.handle("affirm")                                                          # water yes
     call.handle("unsure")                                                          # light: "शायद है"
@@ -852,6 +874,7 @@ def test_a_promised_item_corrected_to_missing_is_asked_again_from_the_change_ste
     call, _, _ = live()
     call.handle("affirm")
     call.handle("affirm")
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     call.handle("unsure")
     call.handle("affirm")                                                          # ladder: will arrange
     call.handle("affirm")
@@ -1062,7 +1085,7 @@ def test_dnc_customer_is_never_dialled():
 def test_confirm_api_failure_needs_manual_confirmation():
     b = {**BOOKING, "beatPlan": {**BOOKING["beatPlan"], "fail_actions": ["confirm_slot"]}}
     call, _, events = live(b)
-    for _ in range(6):
+    for _ in range(7):
         call.handle("affirm")
     assert call.outcome == "needs_manual_confirmation" and beatplan(events, "create_rm_callback")
 
@@ -1134,6 +1157,7 @@ def test_ladder_can_be_arranged_keeps_booking():
     call, _, events = live()
     call.handle("affirm")
     call.handle("affirm")
+    call.handle("affirm")                                                         # ASK_SLOT: any time is fine
     call.handle("deny")                              # no ladder now
     r = call.handle("affirm")                        # but can arrange one
     assert "पानी" in r.speak[0]                      # moves on to water
@@ -1161,7 +1185,7 @@ def test_not_needed_yet_then_agrees():
     call.handle("affirm")
     call.handle("not_needed_now")
     call.handle("affirm")
-    assert call.state == "READINESS_CHECK"
+    assert call.state == "ASK_SLOT"
 
 
 def test_time_outside_service_hours_is_explained():
@@ -1183,8 +1207,8 @@ def test_own_date_that_beat_plan_has_is_booked():
     call, _, events = live()
     call.handle("affirm")
     call.handle("proposes_date", {"date": "3 december"})   # a backup day
-    assert call.state == "READINESS_CHECK"
-    for _ in range(4):
+    assert call.state == "ASK_SLOT"
+    for _ in range(5):
         call.handle("affirm")
     assert call.outcome == "slot_confirmed_alt_day"
     assert beatplan(events, "confirm_slot")[0]["date"] == "2026-12-03"
@@ -1205,7 +1229,7 @@ def test_own_date_not_in_beat_plan_is_a_request():
 
 def test_sms_line_only_when_policy_on():
     call, _, _ = live()
-    for _ in range(5):
+    for _ in range(6):
         call.handle("affirm")
     r = call.handle("affirm")
     assert "SMS" not in r.speak[0]
@@ -1213,7 +1237,7 @@ def test_sms_line_only_when_policy_on():
     spec.policies["sms_reminder"] = True
     call = FlowCall(call_id="S", booking=BOOKING, spec=spec, today=TODAY)
     call.start()
-    for _ in range(5):
+    for _ in range(6):
         call.handle("affirm")
     r = call.handle("affirm")
     assert "SMS" in r.speak[0] and call.outcome == "slot_confirmed"
@@ -1221,15 +1245,62 @@ def test_sms_line_only_when_policy_on():
 
 # ---------- time window only when the customer asks (v0.3.0)
 
-def test_plain_yes_never_mentions_a_time_window():
+def test_a_plain_yes_to_the_date_is_asked_the_time_and_the_close_says_it():
     call, _, events = live()
     lines = []
-    for _ in range(6):
+    for _ in range(7):                                               # greet, date, time, ladder, water, light, recap
         lines += call.handle("affirm").speak
-    assert call.outcome == "slot_confirmed"
-    assert not any("बजे" in ln or "सुबह" in ln for ln in lines), lines
-    assert call.record()["time_window_told"] is False
-    assert call.record()["confirmed_slot"]["band"] == "morning"     # Beat Plan still gets the band
+    assert call.outcome == "slot_confirmed" and "ASK_SLOT" in call.path
+    assert "सुबह नौ से बारह बजे के बीच" in lines[-1]                 # "visit booked" says the time
+    assert call.record()["time_window_told"] is True
+    assert call.record()["confirmed_slot"]["band"] == "morning"
+
+
+def test_picking_another_free_time_books_that_band():
+    call, _, events = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    r = call.handle("gives_band", {"band": "dopahar"})
+    assert call.state == "READINESS_CHECK" and call.ctx["selected_slot"]["band"] == "afternoon"
+    for _ in range(4):
+        r = call.handle("affirm")
+    assert "दोपहर बारह से तीन बजे" in r.speak[-1] and call.outcome == "slot_confirmed"
+    assert beatplan(events, "confirm_slot")[0]["band"] == "afternoon"
+    assert call.record()["requested_slot"] is None                  # a Beat Plan band, not a request for the team
+
+
+def test_a_full_time_gets_the_free_ones_offered_again():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    r = call.handle("gives_band", {"band": "shaam"})                 # evening is full on the 28th
+    assert call.state == "ASK_SLOT" and "खाली नहीं" in r.speak[0] and "सुबह नौ से बारह बजे" in r.speak[0]
+    call.handle("gives_band", {"band": "subah"})
+    assert call.state == "READINESS_CHECK" and call.ctx["selected_slot"]["band"] == "morning"
+
+
+def test_a_clock_time_is_read_as_its_band_and_no_time_that_day_offers_other_days():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    call.handle("wants_exact_time", {"exact_time": "1 baje"})       # "1 बजे आ जाना" -> afternoon
+    assert call.state == "READINESS_CHECK" and call.ctx["selected_slot"]["band"] == "afternoon"
+    assert call.exact_time_asks == 0
+
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    r = call.handle("ask_time")                                      # "kitne baje?" -> the choice again
+    assert call.state == "ASK_SLOT" and "सुबह नौ से बारह बजे" in r.speak[0]
+    call.handle("deny")                                              # no time works that day
+    assert call.state == "ALTERNATE_DAYS"
+
+
+def test_the_time_question_in_english_lists_the_free_bands():
+    call, _, _ = live(lang="en")
+    call.handle("affirm")
+    r = call.handle("affirm")
+    assert r.speak[0] == "Which time suits you that day: the morning (9 am to 12 pm) or the afternoon (12 pm to 3 pm)?"
 
 
 def test_asking_the_time_shares_it_in_recap_and_close():

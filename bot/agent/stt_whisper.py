@@ -51,6 +51,24 @@ HALLUCINATIONS = {"thank you", "thanks for watching", "thank you for watching", 
 VOCAB_PROMPT = os.getenv("WHISPER_PROMPT", "हाँ जी, ठीक है, नहीं जी, चलेगा, कर दो। शनिवार सुबह, सोमवार शाम। "
                                            "सीढ़ी है, पानी है, light है। SolarSquare, slot, confirm.")
 
+# Whole replies Whisper keeps writing for short answers it half-hears (live calls, browser mic): the
+# "h" and nasal of "हाँ जी" get lost and it comes back as "अजी"/"आजी" however it is decoded; "confirm"
+# comes back as "कन फो". Only an exact whole-reply match is replaced, so a real "अजी सुनिए" is untouched.
+MISHEARD = {**dict.fromkeys(("अजी", "आजी", "आँजी", "अँजी", "आंजी", "अंजी", "हजी", "हाजी", "हांजी", "हाँजी",
+                             "हा जी", "हां जी", "aji", "aaji", "haji", "hanji", "haanji", "han ji"), "हाँ जी"),
+            **dict.fromkeys(("कन फो", "कन फोल्म", "कन फॉर्म", "कनफो", "कन्फो", "कन्फोर्म", "कन्फ़ॉर्म",
+                             "कन्फॉर्म", "conform", "con four"), "confirm")}
+
+# Short answers Whisper garbles when decoding freely ("हाँ" came back as "अँ़", "बढ़ी", "अ" on browser-mic
+# calls). For an unsure reply of at most two words, each of these is scored against the audio and the
+# best is kept when it is likely enough (SHORT_MIN_LOGPROB) and its side (yes / not yes) wins by
+# SHORT_MARGIN. Calibrated on recordings/ + eval/corpus: at -0.9 no "नहीं" clip turns into a yes
+# (one noisy synthetic "नहीं" scores "हाँ" at -1.03); below it the reply stays unsure and is asked again.
+SHORT_YES = ("हाँ", "हाँ जी", "जी", "जी हाँ", "हाँ हाँ", "हाँ बोलिए", "ठीक है", "ओके")
+SHORT_OTHER = ("नहीं", "नहीं जी", "ना", "हेलो", "कौन")
+SHORT_MIN_LOGPROB = -0.9
+SHORT_MARGIN = 0.25
+
 _warm = threading.Lock()
 _warmed = False
 
@@ -100,8 +118,19 @@ def _keep(text: str) -> str:
     return "" if " ".join(bare.split()) in HALLUCINATIONS else text
 
 
+def _fix(r: dict) -> dict:
+    """Replace a known whole-reply mishearing (MISHEARD); such a fix is not an unsure transcript."""
+    bare = " ".join(re.sub(r"[।॥.,!?;:'\"()\-]", " ", r["text"]).lower().split())
+    if bare in MISHEARD:
+        logger.debug(f"Whisper [{r['text']}] read as [{MISHEARD[bare]}]")
+        return {**r, "text": MISHEARD[bare], "heard_as": r["text"], "fixed": True}
+    return r
+
+
 def is_unsure(r: dict) -> bool:
     """True when Whisper itself isn't confident in the transcript (see UNSURE_*)."""
+    if r.get("fixed"):
+        return False
     return bool(r["text"]) and (r["avg_logprob"] < UNSURE_LOGPROB or r["compression_ratio"] > UNSURE_COMPRESSION)
 
 
@@ -115,7 +144,7 @@ def transcribe_detailed(audio, mlx: bool | None = None, prompt: str | None = VOC
     """16 kHz float32 mono -> {text, lang, avg_logprob, compression_ratio, no_speech_prob}. Blocking."""
     mlx = use_mlx() if mlx is None else mlx
     if mlx:
-        return _transcribe_mlx(audio, prompt)
+        return _fix(_transcribe_mlx(audio, prompt))
 
     def run(language):
         segs, info = _cpu_model().transcribe(audio, language=language, beam_size=1, condition_on_previous_text=False,
@@ -126,10 +155,10 @@ def transcribe_detailed(audio, mlx: bool | None = None, prompt: str | None = VOC
     lang = "en" if info.language == "en" and info.language_probability >= EN_MIN_PROB else "hi"
     segs, _ = run(lang)
     kept = [s for s in segs if s.no_speech_prob < NO_SPEECH_PROB]
-    return {"text": _keep("".join(s.text for s in kept)), "lang": lang,
-            "avg_logprob": min((s.avg_logprob for s in kept), default=0.0),
-            "compression_ratio": max((s.compression_ratio for s in kept), default=0.0),
-            "no_speech_prob": max((s.no_speech_prob for s in segs), default=1.0)}
+    return _fix({"text": _keep("".join(s.text for s in kept)), "lang": lang,
+                 "avg_logprob": min((s.avg_logprob for s in kept), default=0.0),
+                 "compression_ratio": max((s.compression_ratio for s in kept), default=0.0),
+                 "no_speech_prob": max((s.no_speech_prob for s in segs), default=1.0)})
 
 
 def _transcribe_mlx(audio, prompt: str | None = None) -> dict:
@@ -157,7 +186,17 @@ def _transcribe_mlx(audio, prompt: str | None = None) -> dict:
     # Whisper *translates* it). So decode Hindi always, English only when it is plausible, and keep
     # English only if it is clearly more confident or the Hindi attempt is a repetition loop.
     hi = run("hi")
+    if prompt and hi.compression_ratio > UNSURE_COMPRESSION:
+        # a repetition loop seeded by the vocab prompt ("confirm" -> "कर दो, कर दो, ..."): decode unprompted
+        bare = decode(model, features, DecodingOptions(
+            language="hi", temperature=0.0, without_timestamps=True, fp16=True, sample_len=max_tokens))
+        bare = bare[0] if isinstance(bare, list) else bare
+        if bare.compression_ratio <= UNSURE_COMPRESSION:
+            hi = bare
     best, lang = hi, "hi"
+    short = _short_answer(model, features, prompt, hi)
+    if short:
+        return short
     if probs[0].get("en", 0) >= EN_PLAUSIBLE:
         en = run("en")
         if en.avg_logprob > hi.avg_logprob + EN_MARGIN or (hi.compression_ratio > 2.4 >= en.compression_ratio):
@@ -165,6 +204,41 @@ def _transcribe_mlx(audio, prompt: str | None = None) -> dict:
     return {"text": _keep(best.text) if best.no_speech_prob < NO_SPEECH_PROB else "", "lang": lang,
             "avg_logprob": float(best.avg_logprob), "compression_ratio": float(best.compression_ratio),
             "no_speech_prob": float(best.no_speech_prob)}
+
+
+def _short_answer(model, features, prompt: str | None, hi) -> dict | None:
+    """The likeliest SHORT_YES/SHORT_OTHER answer for a garbled short reply, or None (see SHORT_*)."""
+    text = hi.text.strip()
+    if not text or len(text.split()) > 2 or re.search(r"[A-Za-z]", text) or hi.no_speech_prob >= NO_SPEECH_PROB:
+        return None
+    if not is_unsure({"text": text, "avg_logprob": hi.avg_logprob, "compression_ratio": hi.compression_ratio}):
+        return None
+    import mlx.core as mx
+    import numpy as np
+    from mlx_whisper.tokenizer import get_tokenizer
+
+    tok = get_tokenizer(model.is_multilingual, num_languages=model.num_languages, language="hi", task="transcribe")
+    pre = ([tok.sot_prev] + tok.encode(" " + prompt.strip()) if prompt else []) \
+        + list(tok.sot_sequence_including_notimestamps)
+    cands = SHORT_YES + SHORT_OTHER
+    seqs = [pre + tok.encode(" " + c) + [tok.eot] for c in cands]
+    width = max(map(len, seqs))
+    batch = mx.array([q + [tok.eot] * (width - len(q)) for q in seqs])
+    logits, _, _ = model.decoder(batch[:, :-1], mx.repeat(features, len(seqs), axis=0))
+    lp = logits.astype(mx.float32)
+    lp = np.array(lp - mx.logsumexp(lp, axis=-1, keepdims=True))
+    scores = {}
+    for i, (c, q) in enumerate(zip(cands, seqs)):
+        pos = np.arange(len(pre) - 1, len(q) - 1)
+        scores[c] = float(lp[i, pos, q[len(pre):]].sum()) / (len(q) - len(pre))  # incl. eot, as Whisper
+    pick = max(scores, key=scores.get)
+    side = SHORT_YES if pick in SHORT_YES else SHORT_OTHER
+    rival = max(v for c, v in scores.items() if c not in side)
+    if scores[pick] < SHORT_MIN_LOGPROB or scores[pick] - rival < SHORT_MARGIN:
+        return None
+    logger.debug(f"Whisper [{text}] ({hi.avg_logprob:.2f}) rescored as [{pick}] ({scores[pick]:.2f})")
+    return {"text": pick, "lang": "hi", "avg_logprob": scores[pick], "compression_ratio": 0.0,
+            "no_speech_prob": float(hi.no_speech_prob), "heard_as": text, "fixed": True}
 
 
 _cpu = None

@@ -4,7 +4,7 @@
 # Add a scenario whenever you add or change a branch.
 
 - name: yes, everything ready
-  steps: [context_ready, affirm, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, affirm, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: asks time, accepts the 4-hour band
@@ -48,6 +48,7 @@
     - wants_other_band
     - band_full
     - {on: affirm, flags: {readiness_done: false}}
+    - affirm                      # ASK_SLOT: any time is fine
     - affirm
     - affirm
     - action_ok
@@ -71,6 +72,7 @@
     - context_ready
     - affirm
     - affirm
+    - affirm                      # ASK_SLOT: any time is fine
     - deny
     - {on: date_given, flags: {reschedule_after_ready_date: false}}
     - affirm
@@ -82,6 +84,7 @@
     - context_ready
     - affirm
     - affirm
+    - affirm                      # ASK_SLOT: any time is fine
     - deny
     - {on: date_given, flags: {reschedule_after_ready_date: true}}
     - slot_found
@@ -102,23 +105,23 @@
   expect: rm_callback
 
 - name: asks to repeat a question, then confirms
-  steps: [context_ready, repeat_request, affirm, repeat_request, affirm, repeat_request, affirm, affirm, action_ok]
+  steps: [context_ready, repeat_request, affirm, repeat_request, affirm, affirm, repeat_request, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: asks to hold on, comes back and confirms
-  steps: [context_ready, affirm, wait_a_moment, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, wait_a_moment, affirm, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: asks who is calling, where the number came from and if it is a robot, then confirms
-  steps: [context_ready, who_are_you, number_source, is_robot, affirm, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, who_are_you, number_source, is_robot, affirm, affirm, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: price question, then confirms
-  steps: [context_ready, affirm, price_or_offtopic, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, price_or_offtopic, affirm, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: family member picks up and confirms
-  steps: [context_ready, wrong_person, household_member, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, wrong_person, household_member, affirm, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: wrong number
@@ -138,11 +141,11 @@
   expect: not_dialled
 
 - name: confirm API fails
-  steps: [context_ready, affirm, affirm, affirm, affirm, action_failed]
+  steps: [context_ready, affirm, affirm, affirm, affirm, affirm, action_failed]
   expect: needs_manual_confirmation
 
 - name: 'not needed yet, explained, then agrees'
-  steps: [context_ready, affirm, not_needed_now, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, not_needed_now, affirm, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: 'not needed yet, still says no'
@@ -166,6 +169,7 @@
     - context_ready
     - affirm
     - {on: proposes_date, flags: {date_is_free: true}}
+    - affirm                      # ASK_SLOT: any time is fine
     - affirm
     - affirm
     - action_ok
@@ -184,6 +188,7 @@
     - context_ready
     - affirm
     - affirm
+    - affirm                      # ASK_SLOT: any time is fine
     - affirm
     - deny
     - change_time
@@ -197,6 +202,7 @@
     - context_ready
     - affirm
     - affirm
+    - affirm                      # ASK_SLOT: any time is fine
     - affirm
     - deny
     - {on: proposes_date, flags: {date_is_free: true}}
@@ -209,6 +215,7 @@
     - context_ready
     - affirm
     - affirm
+    - affirm                      # ASK_SLOT: any time is fine
     - affirm
     - change_date
     - {on: affirm, flags: {readiness_done: true}}
@@ -221,6 +228,7 @@
     - context_ready
     - affirm
     - affirm
+    - affirm                      # ASK_SLOT: any time is fine
     - affirm
     - change_time
     - wants_other_band
@@ -230,7 +238,7 @@
   expect: slot_confirmed_alt_band
 
 - name: says no to the greeting, someone else answers and says yes
-  steps: [context_ready, deny, affirm, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, deny, affirm, affirm, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: asks for another time of day straight at the offer
@@ -256,7 +264,7 @@
   expect: slot_confirmed
 
 - name: does not know when the ladder will be ready -> senior callback
-  steps: [context_ready, affirm, affirm, deny, dont_know, action_ok]
+  steps: [context_ready, affirm, affirm, affirm, deny, dont_know, action_ok]
   expect: rm_callback
 
 - name: out of town and cannot say when -> senior callback
@@ -282,17 +290,18 @@
     - deny
     - ask_time
     - {on: affirm, flags: {readiness_done: false}}
+    - affirm                      # ASK_SLOT: any time is fine
     - affirm
     - affirm
     - action_ok
   expect: slot_confirmed_alt_day
 
 - name: asks the time at the readiness question, then confirms
-  steps: [context_ready, affirm, affirm, ask_time, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, affirm, affirm, ask_time, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: asks the time at the recap, then confirms
-  steps: [context_ready, affirm, affirm, affirm, ask_time, affirm, action_ok]
+  steps: [context_ready, affirm, affirm, affirm, affirm, ask_time, affirm, action_ok]
   expect: slot_confirmed
 
 - name: call-back time could not be saved -> team will confirm
@@ -328,27 +337,27 @@
   expect: rm_callback
 
 - name: speaks another language, then Hindi, and confirms
-  steps: [context_ready, other_language, affirm, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, other_language, affirm, affirm, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: small talk, then confirms
-  steps: [context_ready, affirm, small_talk, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, small_talk, affirm, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: family member says go ahead at the greeting, then confirms
-  steps: [context_ready, household_member, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, household_member, affirm, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: says maybe to a readiness question, then confirms
-  steps: [context_ready, affirm, affirm, unsure, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, affirm, affirm, unsure, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: asks what an item means, then confirms
-  steps: [context_ready, affirm, affirm, asks_meaning, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, affirm, affirm, asks_meaning, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: corrects a readiness answer at the recap, then confirms
-  steps: [context_ready, affirm, affirm, affirm, corrects_readiness, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, affirm, affirm, affirm, corrects_readiness, affirm, affirm, action_ok]
   expect: slot_confirmed
 
 - name: death in the family -> condolence, call ends, calls paused
@@ -364,6 +373,37 @@
   expect: site_on_hold
 
 - name: asks if it costs anything, hears it is free, then confirms
-  steps: [context_ready, affirm, asks_price, affirm, affirm, affirm, action_ok]
+  steps: [context_ready, affirm, asks_price, affirm, affirm, affirm, affirm, action_ok]   # 4th affirm: ASK_SLOT "any time"
   expect: slot_confirmed
 
+
+- name: picks a free time when asked
+  steps: [context_ready, affirm, affirm, gives_band, band_available, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: picked time is full, takes the free one
+  steps: [context_ready, affirm, affirm, gives_band, band_full, affirm, affirm, affirm, action_ok]
+  expect: slot_confirmed
+
+- name: no time works that day -> another day
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - deny                            # ASK_SLOT: no time suits that day
+    - {on: affirm, flags: {readiness_done: false}}
+    - affirm                          # ASK_SLOT: any time is fine
+    - affirm
+    - affirm
+    - action_ok
+  expect: slot_confirmed_alt_day
+
+- name: insists on an exact time when asked the time -> RM callback
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - {on: wants_exact_time, flags: {exact_time_limit_reached: false}}
+    - {on: wants_exact_time, flags: {exact_time_limit_reached: true}}
+    - action_ok
+  expect: rm_callback

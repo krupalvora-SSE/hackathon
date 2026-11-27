@@ -261,8 +261,8 @@ local:
     label: Picks a time of day
     entities: [band]
     examples:
-      hi: ["subah", "dopahar mai", "shaam ko"]
-      en: ["morning", "afternoon", "evening"]
+      hi: ["subah", "dopahar mai", "shaam ko", "11 baje aa jao", "subah wala time", "shaam 4 baje ke baad"]
+      en: ["morning", "afternoon", "evening", "around 11", "after 4 pm"]
 
   date_given:
     label: Gives a date

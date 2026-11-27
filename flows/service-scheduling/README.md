@@ -99,11 +99,12 @@ flowchart LR
   P0["Check before calling"]:::sys
   P1["1. Say hello, check it's the customer"]:::talk
   P2["2. Offer the planned date"]:::talk
-  P3["3. Ask: ladder, water, light ready?"]:::talk
-  P4["4. Repeat the details, get a yes"]:::talk
-  P5["Book the visit"]:::sys
-  P6(["Visit booked"]):::end_
-  P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6
+  P3["3. Ask which time suits"]:::talk
+  P4["4. Ask: ladder, water, light ready?"]:::talk
+  P5["5. Repeat the details, get a yes"]:::talk
+  P6["Book the visit"]:::sys
+  P7(["Visit booked"]):::end_
+  P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7
   classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
   classDef sys fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
   classDef end_ fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
@@ -125,26 +126,43 @@ flowchart LR
 
 | Customer says | What happens |
 |---|---|
-| Yes | Step 3: Ask: ladder, water, light ready? |
+| Yes | Step 3: Ask which time suits |
 | Asks the time | Find another date or time: Tell the time window |
 | Wants exact time | Find another date or time: Tell the time window |
 | Wants another time | Find another date or time: Check another time that day |
 | No | Find another date or time: Offer other days |
-| Suggests their own date (Beat Plan has that day) | Step 3: Ask: ladder, water, light ready? |
+| Suggests their own date (Beat Plan has that day) | Step 3: Ask which time suits |
 | Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
 
-#### Step 3. Ask: ladder, water, light ready?
+#### Step 3. Ask which time suits
+
+> Which time suits you that day: the morning (9 am to 12 pm) or the evening (3 pm to 6 pm)?
+
+| Customer says | What happens |
+|---|---|
+| Picks a time of day | Find another date or time: Check the time they picked |
+| Wants another time | Find another date or time: Check the time they picked |
+| Yes | Step 4: Ask: ladder, water, light ready? |
+| Can't say / doesn't know | Step 4: Ask: ladder, water, light ready? |
+| Asks the time | Bot answers and asks again |
+| Wants exact time (first time) | Bot answers and asks again |
+| Wants exact time (asks again) | Call back or hand over: Ask a senior to call |
+| No | Find another date or time: Offer other days |
+| Suggests their own date (Beat Plan has that day) | Bot answers and asks again |
+| Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
+
+#### Step 4. Ask: ladder, water, light ready?
 
 > Great. A few things need to be ready for the service, let me quickly confirm.
 
 | Customer says | What happens |
 |---|---|
-| Yes | Step 4: Repeat the details, get a yes |
+| Yes | Step 5: Repeat the details, get a yes |
 | No | Pause the site: Ask when it will be ready |
 | Maybe / not sure (to a yes-no question) | Bot answers and asks again |
 | Can't say / doesn't know | Bot answers and asks again |
 
-#### Step 4. Repeat the details, get a yes
+#### Step 5. Repeat the details, get a yes
 
 > So that's Saturday, 28 November. {ready_note}. Shall I confirm it?
 
@@ -152,7 +170,7 @@ flowchart LR
 |---|---|
 | Yes | System: Book the visit |
 | No | Check readiness and book: Ask what to change |
-| Corrects an earlier ladder / water / light answer | Step 3: Ask: ladder, water, light ready? |
+| Corrects an earlier ladder / water / light answer | Step 4: Ask: ladder, water, light ready? |
 | Change day | Find another date or time: Offer other days |
 | Change time | Find another date or time: Tell the time window |
 
@@ -162,14 +180,18 @@ flowchart LR
 
 When the planned date or time doesn't suit, or the customer pushes back, find one that does.
 
+**Check the time they picked**
+
+The bot doesn't speak here. **Free** → Step 4: Ask: ladder, water, light ready?; **Full** → Step 3: Ask which time suits.
+
 **Tell the time window**
 
 > Our service hero will come between 8 am and 12 pm that day. Does that work for you?
 
 | Customer says | What happens |
 |---|---|
-| Yes (already checked) | Step 4: Repeat the details, get a yes |
-| Yes | Step 3: Ask: ladder, water, light ready? |
+| Yes (already checked) | Step 5: Repeat the details, get a yes |
+| Yes | Step 4: Ask: ladder, water, light ready? |
 | Wants exact time (first time) | Bot answers and asks again |
 | Wants exact time (asks again) | Call back or hand over: Ask a senior to call |
 | Wants another time | Check another time that day |
@@ -177,7 +199,7 @@ When the planned date or time doesn't suit, or the customer pushes back, find on
 
 **Check another time that day**
 
-The bot doesn't speak here. **Free (already checked)** → Step 4: Repeat the details, get a yes; **Free** → Step 3: Ask: ladder, water, light ready?; **Full** → Offer other days.
+The bot doesn't speak here. **Free (already checked)** → Step 5: Repeat the details, get a yes; **Free** → Step 4: Ask: ladder, water, light ready?; **Full** → Offer other days.
 
 **Offer other days**
 
@@ -186,12 +208,12 @@ The bot doesn't speak here. **Free (already checked)** → Step 4: Repeat the de
 | Customer says | What happens |
 |---|---|
 | No other days | Call ends: No free slot |
-| Yes (already checked) | Step 4: Repeat the details, get a yes |
-| Yes | Step 3: Ask: ladder, water, light ready? |
+| Yes (already checked) | Step 5: Repeat the details, get a yes |
+| Yes | Step 3: Ask which time suits |
 | Wants another time | Check another time that day |
 | Suggests their own date (not in Beat Plan) | Ask the time for their date |
-| Suggests their own date (already checked) | Step 4: Repeat the details, get a yes |
-| Suggests their own date | Step 3: Ask: ladder, water, light ready? |
+| Suggests their own date (already checked) | Step 5: Repeat the details, get a yes |
+| Suggests their own date | Step 3: Ask which time suits |
 | No (more days to offer) | Bot answers and asks again |
 | No (no more days) | Call ends: No free slot |
 
@@ -201,7 +223,7 @@ The bot doesn't speak here. **Free (already checked)** → Step 4: Repeat the de
 
 | Customer says | What happens |
 |---|---|
-| Yes | Step 3: Ask: ladder, water, light ready? |
+| Yes | Step 3: Ask which time suits |
 | Asks the time | Tell the time window |
 | No | Call ends: Not needed yet, call later |
 
@@ -224,12 +246,12 @@ Make sure the ladder, water and light are ready, repeat the details and book the
 
 | Customer says | What happens |
 |---|---|
-| Corrects an earlier ladder / water / light answer | Step 3: Ask: ladder, water, light ready? |
+| Corrects an earlier ladder / water / light answer | Step 4: Ask: ladder, water, light ready? |
 | Change day | Find another date or time: Offer other days |
 | Change time | Find another date or time: Tell the time window |
 | Wants another time | Find another date or time: Check another time that day |
 | Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
-| Suggests their own date | Step 4: Repeat the details, get a yes |
+| Suggests their own date | Step 5: Repeat the details, get a yes |
 
 #### Pause the site
 
@@ -247,7 +269,7 @@ If the site isn't ready, get a date and the customer's OK to stop calls until th
 
 **Find a free day after that**
 
-The bot doesn't speak here. **Found one** → Step 4: Repeat the details, get a yes; **None free** → Ask OK to pause calls.
+The bot doesn't speak here. **Found one** → Step 5: Repeat the details, get a yes; **None free** → Ask OK to pause calls.
 
 **Ask when we can come**
 

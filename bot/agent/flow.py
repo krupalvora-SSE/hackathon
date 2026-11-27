@@ -138,6 +138,13 @@ def speak_band(band: str, policies: dict, lang: str) -> str:
     return f"{fmt(s)} and {fmt(e)}"
 
 
+def speak_band_choice(band: str, policies: dict, lang: str) -> str:
+    """A band as one of several choices: "सुबह नौ से बारह बजे" / "the morning (9 am to 12 pm)"."""
+    if lang == "hi":
+        return speak_band(band, policies, lang)
+    return f"the {EN_PART[band]} ({speak_band(band, policies, lang).replace(' and ', ' to ')})"
+
+
 def speak_slot(slot: dict, policies: dict, lang: str, with_time: bool = True) -> str:
     """A backup day as spoken; the time of day only if the customer asked about time."""
     d = date.fromisoformat(slot["date"])
@@ -262,7 +269,7 @@ class FlowCall:
         step.offguard = self._offguard
         # "yes, Friday - but what time?": answer the time in front of the next line, whatever step we moved to
         if ((entities or {}).get("asks_time") is True and on != "ask_time" and not step.error and not step.end
-                and step.speak and step.state != "TIME_BAND"):
+                and step.speak and step.state not in ("TIME_BAND", "ASK_SLOT")):   # those lines say the time themselves
             step.speak = [f"{self._time_answer()} {step.speak[0]}".strip(), *step.speak[1:]]
         return step
 
@@ -299,6 +306,10 @@ class FlowCall:
                 self.deflect_streak = 0
             self.silences = 0
 
+        if self.state == "ASK_SLOT" and on == "wants_exact_time" and entities.get("exact_time") \
+                and parse_band(str(entities["exact_time"]), self.policies):
+            entities.setdefault("band", entities["exact_time"])
+            on = "gives_band"
         self.on_event({"type": "flow", "state": self.state, "intent": on, "entities": entities})
         self._absorb(on, entities)
 
@@ -387,6 +398,8 @@ class FlowCall:
                 continue
 
             if kind == "conversation":
+                if st.get("shares_time"):
+                    self.ctx["time_shared"] = True
                 if self.auto and st.get("actions"):
                     ev = self._run_actions(st["actions"])
                     tr = self._pick(target, ev, None) if ev != "action_ok" else None
@@ -553,7 +566,7 @@ class FlowCall:
             self.ctx["hold_reason"] = e.get("reason") or "not_serviceable"
             if self.ctx.get("_date"):
                 self.ctx["hold_until"] = self.ctx["_date"].isoformat()
-        if on == "wants_exact_time" and self.state in ("TIME_BAND", "OFFER_PRIMARY"):
+        if on == "wants_exact_time" and self.state in ("TIME_BAND", "OFFER_PRIMARY", "ASK_SLOT"):
             self.exact_time_asks += 1
 
     def _before_transition(self, on: str, e: dict) -> Step | None:
@@ -632,7 +645,8 @@ class FlowCall:
             band = self.ctx.get("preferred_band")
             if not band:
                 return self._not_understood()
-            self.ctx["requested_band"] = band
+            if self.state == "ASK_BAND_FOR_DATE":   # a date outside Beat Plan: the team must confirm it
+                self.ctx["requested_band"] = band
 
         if on == "date_given":
             d = self.ctx.pop("_date", None)
@@ -688,10 +702,20 @@ class FlowCall:
         """Prompt key to speak on entering a state: its time_line once the customer asked about time."""
         key = st.get("time_line")
         key = key if key and self.ctx.get("time_shared") else "main"
+        if self.state == "ASK_SLOT" and len(self._free_bands()) == 1:
+            key = "one_band"
         family = f"{key}_family"        # spoken to a family member: "Amit's solar system", not "your solar system"
         if self.ctx.get("spoke_to") == "family_member" and (self.spec.prompts[self.lang].get(self.state) or {}).get(family):
             return family
         return key
+
+    def _free_bands(self) -> list[str]:
+        """Bands still free on the chosen day, in day order; just the planned band when Beat Plan has no data."""
+        slot = self.ctx.get("selected_slot") or self.context.get("primary_slot")
+        if not isinstance(slot, dict):
+            return []
+        free = (self.context.get("availability") or {}).get(slot["date"])
+        return [b for b in self.policies["time_bands"] if b in free] if free else [slot["band"]]
 
     def _checklist_key(self) -> str:
         item = self.policies[self.spec.states[self.state]["checklist"]][self.readiness_idx]["id"]
@@ -737,6 +761,8 @@ class FlowCall:
             v["weekday"] = speak_weekday(d, self.lang)
             v["date_spoken"] = speak_day(d, self.lang)
             v["band_spoken"] = speak_band(band or slot["band"], self.policies, self.lang)
+        v["bands_spoken"] = OR[self.lang].join(speak_band_choice(b, self.policies, self.lang)
+                                               for b in self._free_bands())
         v["options_spoken"] = OR[self.lang].join(speak_slot(s, self.policies, self.lang, self.ctx.get("time_shared"))
                                                  for s in self.offered)
         sms = (self.spec.prompts[self.lang].get("_global") or {}).get("sms_reminder") or ""

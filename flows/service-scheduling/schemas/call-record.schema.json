@@ -33,7 +33,7 @@
       }
     },
     "will_arrange": {"type": "array", "items": {"type": "string"}, "description": "Readiness items the customer promised to arrange before the visit"},
-    "time_window_told": {"type": "boolean", "description": "True only if the customer asked about time and the bot told them a window"},
+    "time_window_told": {"type": "boolean", "description": "True once the bot asked or told the time window (always after ASK_SLOT)"},
     "slot_source": {"type": ["string", "null"], "enum": ["primary", "alt_band", "alt_day", null]},
     "preferred_exact_time": {"type": ["string", "null"], "description": "Logged whenever the customer asked for one, even if not escalated"},
     "readiness": {
