@@ -227,6 +227,20 @@ def _opens_with_yes(heard: str) -> bool:
         and not set(words) & {"मत", "mat", "शायद", "shayad", "maybe", "पता"}
 
 
+IDENTITY_STATES = {"GREET"}
+
+
+def _identity_yes_heard(args: dict, stt, engine) -> bool:
+    """At "क्या Kavita जी बोल रहे हैं?" the LLM gave up on a garbled reply that still opens with a clear yes
+    ("हाँ, सोल पालोग?" CALL-24b72b22, "हाँ बुल रिम।" CALL-392c194e: "हाँ, बोल रहा हूँ"). Take the yes: a wrong
+    person says "नहीं", and the next line names the date anyway."""
+    call = getattr(engine, "call", None)
+    if args.get("intent") != "unclear" or getattr(call, "state", None) not in IDENTITY_STATES:
+        return False
+    heard = " ".join(h["text"] for h in getattr(stt, "turn_heard", []))
+    return _opens_with_yes(heard)
+
+
 def _same_reading_again(args: dict, state: str | None, engine) -> bool:
     """Outside the booking steps, the LLM read an unsure turn the same way as the unsure turn just before it
     at the same step: take it rather than ask a third time and hand the call to a senior (CALL-5b614da9)."""
@@ -276,6 +290,20 @@ def _ask_again(args: dict, stt, engine) -> str | None:
     if state in COMMIT_STATES and intent == "affirm" and heard and not N.clear_yes(heard):
         return f"no clear yes at {state}"
     return None
+
+
+def _once(handler):
+    """Run an async event handler on its first call only; later calls do nothing."""
+    done = False
+
+    async def wrapper(*args, **kwargs):
+        nonlocal done
+        if done:
+            return None
+        done = True
+        return await handler(*args, **kwargs)
+
+    return wrapper
 
 
 def _turn_strategies(cfg: dict) -> UserTurnStrategies:
@@ -477,6 +505,9 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if params.function_name == "customer_said" and (guess := _offered_day_heard(args, stt, engine)):
             logger.info(f"call {call_id} day matched by sound: heard {stt.turn_heard}, LLM said {args} -> {guess}")
             args = {"intent": "proposes_date", "date": guess, "language": args.get("language", "hi")}
+        elif params.function_name == "customer_said" and _identity_yes_heard(args, stt, engine):
+            logger.info(f"call {call_id} identity yes by its opening word: heard {stt.turn_heard}, LLM said {args}")
+            args = {"intent": "affirm", "language": args.get("language", "hi")}
         elif params.function_name == "customer_said" and (why := _ask_again(args, stt, engine)):
             logger.info(f"call {call_id} asking again ({why}): heard {stt.turn_heard}, LLM said {args}")
             # keep the call's language: a garbled turn read as English ("Yes, I'm from India.") must not
@@ -534,6 +565,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             emitter.emit({"type": "transcript", "role": "agent", "text": message.content})
 
     @transport.event_handler("on_client_connected")
+    @_once  # the browser transport can report one connection twice, 1 ms apart: "Hello?" twice (CALL-24b72b22)
     async def _connected(_t, _client):
         status = {"type": "status", "status": "in_progress"}
         if call_sid:

@@ -133,3 +133,18 @@ def test_a_clear_turn_forgets_the_last_unsure_reading():
 def test_garbled_twelve_to_three(heard):
     from agent.flow import FlowSpec, band_from_range
     assert band_from_range(heard, FlowSpec.load().policies) == "afternoon"
+
+
+# CALL-24b72b22 / CALL-392c194e: "हाँ, बोल रहा हूँ" garbled at the identity question was asked again
+@pytest.mark.parametrize("heard,state,intent,take", [
+    ("हाँ, सोल पालोग?", "GREET", "unclear", True),
+    ("हाँ बुल रिम।", "GREET", "unclear", True),
+    ("हाँ नहीं", "GREET", "unclear", False),           # a "no" inside
+    ("हाँ शायद", "GREET", "unclear", False),           # a hedge
+    ("सोल पालोग", "GREET", "unclear", False),          # no opening yes
+    ("हाँ, सोल पालोग?", "OFFER_PRIMARY", "unclear", False),  # only the identity question
+    ("हाँ, सोल पालोग?", "GREET", "deny", False),       # only overrides "unclear"
+])
+def test_identity_yes_by_opening_word(heard, state, intent, take):
+    from agent.bot import _identity_yes_heard
+    assert _identity_yes_heard({"intent": intent}, _STT(heard), _Engine(state)) is take

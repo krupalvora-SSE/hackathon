@@ -94,3 +94,18 @@ def test_filler_returns_after_an_unsure_turn():
         await asyncio.sleep(0.1)
         f.customer_stopped()
     assert run(s) == [FILLERS[0]]
+
+
+def test_connect_handler_runs_once():
+    # CALL-24b72b22: on_client_connected fired twice, 1 ms apart, and the bot said "Hello?" twice
+    from agent.bot import _once
+    said = []
+
+    @_once
+    async def connected(_t, _c): said.append("Hello?")
+
+    async def main():
+        await connected(None, None)
+        await connected(None, None)
+    asyncio.run(main())
+    assert said == ["Hello?"]
