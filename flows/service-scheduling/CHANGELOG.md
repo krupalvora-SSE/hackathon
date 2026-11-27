@@ -2,6 +2,12 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.18.0 (2026-11-27)
+From an end-to-end test run of simulated callers:
+- HOLD_CONSENT takes `proposes_date`: "haan, Monday ko karwa lo" at the hold question books that day (same branches as ALTERNATE_DAYS) instead of pausing the site. A yes whose date differs from the hold date counts as a proposed day, and the hold is dropped from the call record.
+- Call later with the time in the same turn ("kal 10:15 baje call karna") skips "आपको किस time पर call करना ठीक रहेगा?" and schedules the recall directly. Vague times ("baad mein") still get the question.
+- RECALL_CLOSE says the call-back time built by code ("कल सुबह सवा दस बजे", "tomorrow at 10:15 am") instead of reading back the customer's romanised words; unparsed times become `_global.recall_as_told` ("आपके बताए time पर").
+
 ## 0.17.0 (2026-11-27)
 From call CALL-8dc7d921, where the customer said yes to the date and the visit was booked without any time being asked:
 - New step ASK_SLOT after the customer agrees to a day (the planned date, a backup day, their own Beat Plan day, or after NOT_NEEDED): "उस दिन आपको कौन सा time ठीक रहेगा? सुबह नौ से बारह बजे या दोपहर बारह से तीन बजे?" Only the bands Beat Plan has free that day are offered (`{bands_spoken}`); with one free band the bot names it and asks if it's okay (`one_band`).

@@ -8,6 +8,7 @@
 # Keep each line under ~20 words, one question per turn. The LLM may paraphrase lightly.
 
 _global:
+  recall_as_told: "आपके बताए time पर"   # call-back time we could not turn into words (RECALL_CLOSE)
   deflection: "इसकी जानकारी हमारी टीम आपको अलग से देगी।"
   reprompt: "हैलो, क्या आप मुझे सुन पा रहे हैं?"
   sms_reminder: "Visit से पहले आपको reminder SMS भी आ जाएगा।"

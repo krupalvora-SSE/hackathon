@@ -23,7 +23,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.17.0
+version: 0.18.0
 title: Service scheduling call flow
 ticket: SSE-15557
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -461,6 +461,17 @@ states:
       - on: deny
         to: HOLD_DECLINED_CLOSE
         set: {hold_consent: false}
+      # "haan, Monday ko karwa lo": a day to visit, not a yes to the pause. Same branches as ALTERNATE_DAYS.
+      - on: proposes_date
+        when: "!date_is_free"
+        to: ASK_BAND_FOR_DATE
+      - on: proposes_date
+        when: readiness_done
+        to: RECAP
+        set: {slot_source: alt_day}
+      - on: proposes_date
+        to: ASK_SLOT
+        set: {slot_source: alt_day}
 
   APPLY_HOLD:
     title: Pause the site

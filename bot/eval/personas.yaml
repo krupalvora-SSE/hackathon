@@ -37,7 +37,7 @@ personas:
     expect: [site_on_hold, hold_declined, rm_callback]
   - id: exact_time
     booking: BK-1001
-    persona: "Keeps insisting on an exact time like 10:15, refuses a time band, insists twice."
+    persona: "Can talk now and is fine with a visit, but insists the cleaning team must arrive at an exact time like 10:15, refuses a time band, insists twice. Never asks to be called back."
     expect: [rm_callback]
   - id: son_decides
     booking: BK-1001

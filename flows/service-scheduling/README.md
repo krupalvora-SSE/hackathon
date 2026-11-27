@@ -288,6 +288,9 @@ The bot doesn't speak here. **Found one** → Step 5: Repeat the details, get a 
 |---|---|
 | Yes | Pause the site |
 | No | Call ends: Customer said no to pausing |
+| Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
+| Suggests their own date (already checked) | Step 5: Repeat the details, get a yes |
+| Suggests their own date | Step 3: Ask which time suits |
 
 **Pause the site**
 

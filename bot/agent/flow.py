@@ -145,6 +145,111 @@ def speak_band_choice(band: str, policies: dict, lang: str) -> str:
     return f"the {EN_PART[band]} ({speak_band(band, policies, lang).replace(' and ', ' to ')})"
 
 
+_REL_DAY = {"today": 0, "aaj": 0, "आज": 0, "tomorrow": 1, "kal": 1, "कल": 1, "parso": 2, "parson": 2, "परसों": 2}
+_HI_REL_DAY = ["आज", "कल", "परसों"]
+_EN_REL_DAY = ["today", "tomorrow", "the day after tomorrow"]
+_CLOCK = re.compile(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|baje|bje|बजे|o'?clock)?\b")
+_RANGE = re.compile(r"\b(\d{1,2})(?:[:.]\d{2})?\s*(?:se|to|-|से|and)\s*(\d{1,2})(?:[:.]\d{2})?\b")
+_HOURS_LATER = re.compile(r"\b(\d{1,2}|ek|do|teen|char|aadhe|aadha|half an?)\s*(?:ghante|ghanta|घंटे|घंटा|hours?)\b")
+_HI_COUNT = {"ek": 1, "do": 2, "teen": 3, "char": 4}
+
+
+def _hi_clock(h: int, m: int) -> str:
+    """10:15 -> "सवा दस बजे", 1:30 -> "डेढ़ बजे", 4:45 -> "पौने पाँच बजे" (12-hour, no part of day)."""
+    h12 = h % 12 or 12
+    if m == 0:
+        return f"{HI_HOUR[h12]} बजे"
+    if m == 15:
+        return f"सवा {HI_HOUR[h12]} बजे"
+    if m == 30:
+        return {1: "डेढ़ बजे", 2: "ढाई बजे"}.get(h12, f"साढ़े {HI_HOUR[h12]} बजे")
+    if m == 45:
+        return f"पौने {HI_HOUR[h12 % 12 + 1]} बजे"
+    return f"{HI_HOUR[h12]} बजकर {m} मिनट"
+
+
+def _part_of(h: int) -> str:
+    return "morning" if h < 12 else "afternoon" if h < 16 else "evening" if h < 20 else "night"
+
+
+def speak_recall(text: str, today: date, lang: str) -> str | None:
+    """The customer's call-back words as the bot should say them, built by code ("kal sharp 10:15 baje" ->
+    "कल सुबह सवा दस बजे"), so their romanised words are never read back. None if no day or time is in it."""
+    t = (text or "").strip().lower().translate(N.DEVANAGARI_DIGITS)
+    if not t:
+        return None
+    hi = lang == "hi"
+    tokens = set(_WORD.findall(t))
+    if (m := _HOURS_LATER.search(t)):                           # "do ghante baad" / "in 2 hours"
+        n = m[1]
+        if n.startswith(("aadh", "half")):
+            return "आधे घंटे बाद" if hi else "in half an hour"
+        n = int(n) if n.isdigit() else _HI_COUNT[n]
+        return f"{HI_HOUR[n] if 1 <= n <= 12 else n} घंटे बाद" if hi else f"in {n} hour{'s' * (n != 1)}"
+
+    day = None
+    rel = next((_REL_DAY[w] for w in tokens if w in _REL_DAY), None)
+    if "day after tomorrow" in t:
+        rel = 2
+    if rel is not None:
+        day = (_HI_REL_DAY if hi else _EN_REL_DAY)[rel]
+    else:
+        no_time = _RANGE.sub(" ", _CLOCK.sub(lambda x: " " if (x[2] or x[3]) else x[0], t))
+        d = N.parse_date(no_time, today)
+        if d and d > today:
+            day = f"{speak_weekday(d, lang)}, {speak_day(d, lang)}" + (" को" if hi else "")
+            day = day if hi else f"on {day}"
+
+    part = ("morning" if tokens & N.MORNING - {"am", "a m"} else "afternoon" if tokens & N.AFTERNOON
+            else "evening" if tokens & N.EVENING - {"pm", "p m"} else "night" if tokens & N.NIGHT else None)
+    hi_part = {**HI_PART, "night": "रात"}
+    en_part = {"morning": "in the morning", "afternoon": "in the afternoon", "evening": "in the evening",
+               "night": "at night"}
+
+    def to24(h: int, ampm: str | None) -> int:
+        if ampm == "pm" and h < 12:
+            return h + 12
+        if ampm == "am":
+            return 0 if h == 12 else h
+        if part in ("afternoon", "evening", "night") and h < 12:
+            return h + 12
+        if part is None and 1 <= h <= 7:
+            return h + 12                                        # bare "5 baje" means evening
+        return h
+
+    when = None
+    if (r := _RANGE.search(t)) and int(r[1]) <= 12 and int(r[2]) <= 12:
+        a, b = to24(int(r[1]), None), to24(int(r[2]), None)
+        p = part or _part_of(a)
+        if hi:
+            when = f"{hi_part[p]} {HI_HOUR[a % 12 or 12]} से {HI_HOUR[b % 12 or 12]} बजे"
+        else:
+            when = f"between {a % 12 or 12} and {b % 12 or 12} {'am' if b < 12 else 'pm'}"
+    else:
+        clocks = [c for c in _CLOCK.finditer(t) if (c[2] or c[3]) and int(c[1]) <= 12]
+        if not clocks and part:                                  # "shaam 5" with no "baje"
+            clocks = [c for c in _CLOCK.finditer(t) if int(c[1]) <= 12]
+        if clocks:
+            c = clocks[0]
+            h, mins, ampm = int(c[1]), int(c[2] or 0), (c[3] if c[3] in ("am", "pm") else None)
+            h = to24(h, ampm)
+            p = part or _part_of(h)
+            if hi:
+                when = f"{hi_part[p]} {_hi_clock(h, mins)}"
+            else:
+                when = f"at {h % 12 or 12}{f':{mins:02d}' if mins else ''} {'am' if h < 12 else 'pm'}"
+        elif part:
+            when = f"{hi_part[part]} को" if hi else en_part[part]
+
+    if day and when:
+        if hi and when.endswith(" को"):                          # "कल सुबह", "रविवार, 29 नवंबर सुबह"
+            return f"{day.removesuffix(' को')} {when[:-3]}"
+        if hi and day.endswith(" को"):
+            day = day[:-3] + ","                                 # "रविवार, 29 नवंबर, सुबह दस बजे"
+        return f"{day} {when}"
+    return day or when
+
+
 def speak_slot(slot: dict, policies: dict, lang: str, with_time: bool = True) -> str:
     """A backup day as spoken; the time of day only if the customer asked about time."""
     d = date.fromisoformat(slot["date"])
@@ -287,6 +392,10 @@ class FlowCall:
                 return Step(error=f"intent '{on}' does not apply in {self.state}", state=self.state, allowed=allowed)
             if (entities or {}).get("hedged") is True and on == "affirm" and st.get("checklist"):
                 on = "unsure"           # "haan, shayad hai": a hedge inside a yes is a maybe
+            if self.state == "HOLD_CONSENT" and on == "affirm" and entities.get("date"):
+                d = N.parse_date(str(entities["date"]), self.today)
+                if d and d.isoformat() != self.ctx.get("hold_until"):
+                    on = "proposes_date"  # "haan, Monday ko karwa lo": a day to visit, not a yes to the hold
             self._prev_streak = self.unclear_streak
             gi0 = self.spec.global_intents.get(on)
             if (gi0 and on not in (st.get("disable_global") or []) and gi0.get("goto") == self.state
@@ -303,6 +412,7 @@ class FlowCall:
             entities.setdefault("band", entities["exact_time"])
             on = "gives_band"
         self.on_event({"type": "flow", "state": self.state, "intent": on, "entities": entities})
+        self._turn = entities
         self._absorb(on, entities)
 
         # global events (silence) and global intents, in conversation states
@@ -473,6 +583,10 @@ class FlowCall:
         if name == "not_serviceable" and self.ctx.get("_date") and self.auto:
             self._enter(gi["goto"])          # date already given: skip "from which date?"
             return self.handle("date_given")
+        if (name == "call_later" and self.auto
+                and speak_recall(getattr(self, "_turn", {}).get("time_range", ""), self.today, self.lang)):
+            self._enter(gi["goto"])          # "kal 10 baje call karna": time already given, skip "what time?"
+            return self.handle("time_range_given")
         if gi.get("goto") == "$stay":
             return self._step([f"{self._global_line(gi.get('say'))} {self._reask()}".strip()])
         return self._step(self._enter(gi["goto"]))
@@ -585,6 +699,9 @@ class FlowCall:
             slots = [self.context.get("primary_slot")] + list(self.context.get("backup_slots") or [])
             match = next((x for x in slots if x and x["date"] == d.isoformat()), None)
             self.ctx["_date_is_free"] = match is not None
+            if self.state == "HOLD_CONSENT":   # they picked a day instead of the pause: no hold on this call
+                for k in ("hold_until", "hold_reason", "hold_consent"):
+                    self.ctx.pop(k, None)
             if match:
                 self.ctx["selected_slot"] = match
                 self._emit_slot()
@@ -738,7 +855,8 @@ class FlowCall:
         if self.ctx.get("hold_until"):
             d = date.fromisoformat(self.ctx["hold_until"])
             v["hold_until_spoken"] = speak_day(d, self.lang)
-        v["recall_window_spoken"] = self.ctx.get("recall_window") or ""
+        v["recall_window_spoken"] = (speak_recall(self.ctx.get("recall_window") or "", self.today, self.lang)
+                                     or (self.spec.prompts[self.lang].get("_global") or {}).get("recall_as_told", ""))
         if self.ctx.get("requested_date"):
             d = date.fromisoformat(self.ctx["requested_date"])
             v["requested_date_spoken"] = f"{speak_weekday(d, self.lang)}, {speak_day(d, self.lang)}"

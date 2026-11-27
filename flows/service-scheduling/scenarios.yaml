@@ -403,3 +403,26 @@
     - {on: wants_exact_time, flags: {exact_time_limit_reached: true}}
     - action_ok
   expect: rm_callback
+
+- name: out of town, then asks for a free backup day at the hold question -> booked that day
+  steps:
+    - context_ready
+    - affirm
+    - not_serviceable
+    - date_given
+    - {on: proposes_date, flags: {date_is_free: true, readiness_done: false}}
+    - affirm
+    - affirm
+    - affirm
+    - action_ok
+  expect: slot_confirmed_alt_day
+
+- name: out of town, then asks for a day Beat Plan doesn't have at the hold question -> date request
+  steps:
+    - context_ready
+    - affirm
+    - not_serviceable
+    - date_given
+    - {on: proposes_date, flags: {date_is_free: false}}
+    - gives_band
+  expect: date_requested

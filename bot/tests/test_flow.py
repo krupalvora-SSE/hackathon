@@ -170,8 +170,72 @@ def test_call_later_uses_recall_stub():
     call.handle("affirm")
     call.handle("call_later")
     r = call.handle("time_range_given", {"time_range": "kal shaam 5 se 7"})
-    assert call.outcome == "recall_requested" and "kal shaam 5 se 7" in r.speak[0]
+    assert call.outcome == "recall_requested" and "कल शाम पाँच से सात बजे" in r.speak[0]
+    assert "kal" not in r.speak[0]                                 # never read their romanised words back
     assert "fallback" in beatplan(events, "schedule_recall")[0]
+    assert call.record()["recall_window"] == "kal shaam 5 se 7"    # the record keeps their words
+
+
+def test_call_later_with_the_time_skips_the_what_time_question():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("call_later", {"time_range": "kal sharp 10:15 baje"})
+    assert call.outcome == "recall_requested" and "RECALL" in call.path
+    assert r.speak == ["ठीक है, हम आपको कल सुबह सवा दस बजे call करेंगे। धन्यवाद!"]
+
+
+def test_call_later_with_a_vague_time_still_asks_when():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("call_later", {"time_range": "baad mai"})
+    assert call.state == "RECALL" and "किस time" in r.speak[0]
+    r = call.handle("time_range_given", {"time_range": "jab free ho"})
+    assert call.outcome == "recall_requested" and "आपके बताए time पर" in r.speak[0]
+
+
+@pytest.mark.parametrize("words,lang,spoken", [
+    ("kal sharp 10:15 baje", "hi", "कल सुबह सवा दस बजे"),
+    ("dot 10:15 baje", "hi", "सुबह सवा दस बजे"),
+    ("do ghante baad", "hi", "दो घंटे बाद"),
+    ("shaam ko", "hi", "शाम को"),
+    ("kal subah", "hi", "कल सुबह"),
+    ("kal morning", "hi", "कल सुबह"),
+    ("Sunday subah", "hi", "रविवार, 29 नवंबर सुबह"),
+    ("parso 4 baje", "hi", "परसों शाम चार बजे"),
+    ("1:30", "hi", "दोपहर डेढ़ बजे"),
+    ("कल शाम ५ बजे", "hi", "कल शाम पाँच बजे"),
+    ("tomorrow 5 to 7 pm", "en", "tomorrow between 5 and 7 pm"),
+    ("in 2 hours", "en", "in 2 hours"),
+    ("baad mai", "hi", None),
+])
+def test_speak_recall(words, lang, spoken):
+    from agent.flow import speak_recall
+    assert speak_recall(words, TODAY, lang) == spoken
+
+
+def test_yes_with_a_visit_day_at_the_hold_question_books_that_day():
+    call, _, events = live()
+    call.handle("affirm")
+    call.handle("not_serviceable", {"reason": "out of town", "date": "Sunday tak"})
+    assert call.state == "HOLD_CONSENT" and call.ctx["hold_until"] == "2026-11-29"
+    r = call.handle("affirm", {"date": "Monday", "readiness": {"ladder": True, "water": True}})
+    assert call.state == "ASK_SLOT" and "hold" not in " ".join(r.speak)
+    assert call.ctx["selected_slot"]["date"] == "2026-11-30" and not beatplan(events, "site_on_hold")
+    call.handle("affirm")                                          # planned band that day
+    while call.state == "READINESS_CHECK":
+        call.handle("affirm")
+    call.handle("affirm")                                          # recap
+    rec = call.record()
+    assert call.outcome == "slot_confirmed_alt_day" and rec["hold"] is None
+    assert rec["confirmed_slot"]["date"] == "2026-11-30"
+
+
+def test_yes_naming_the_hold_date_is_still_a_yes_to_the_hold():
+    call, _, events = live()
+    call.handle("affirm")
+    call.handle("not_serviceable", {"reason": "out of town", "date": "15 december"})
+    call.handle("affirm", {"date": "15 december"})
+    assert call.outcome == "site_on_hold" and beatplan(events, "site_on_hold")
 
 
 def test_repeat_request_repeats_the_question_shorter_and_stays():

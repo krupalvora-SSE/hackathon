@@ -164,6 +164,9 @@ Mild illness or a family function ("mujhe bukhar hai") is personal_reason, not n
 If they say who they are (brother, son, wife) and tell you to go ahead ("bataiye", "bolo"), that is household_member,
 not wrong_person. Chit-chat ("how are you", "Apple khaya?") is small_talk.
 Weekdays ("agle somwar ya ravivar"): put the customer's own words in the date entity, every day they mention.
+At the hold question (step HOLD_CONSENT) a yes that asks for a visit day ("haan, Monday ko karwa lo") is proposes_date
+with that day in the date entity, not affirm: they want the visit, not the pause.
+"Call later" with a time in the same turn ("kal 10 baje call karna") is call_later with time_range filled.
 Questions about who is on the line ("are you from X's home?"): a bare "nahi" / "नहीं" is deny; "wrong number" /
 "galat number" is wrong_number; "main X nahi hoon" is wrong_person only before that question is asked.
 "haan / ji / theek hai / chalega" to a yes/no question is affirm; "nahi / nahi hai / nahi chalega" is deny.
