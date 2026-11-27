@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
-<title>Krupal AMC Scheduler</title>
+<title>Krupal and Aarti AMC Schedulers</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
 <style>
@@ -71,7 +71,7 @@ section.s:nth-of-type(even){background:var(--surface)}
 .cover{padding-block:88px 72px}
 .cover .tag{display:inline-flex;gap:8px;align-items:center;font:500 12.5px var(--ui);color:var(--sun-ink);background:var(--sun-soft);border-radius:999px;padding:4px 12px;margin-bottom:22px}
 .cover .tag i{width:7px;height:7px;border-radius:50%;background:var(--sun);display:block}
-.cover h1{font-size:clamp(36px,5.6vw,60px);line-height:1.06;letter-spacing:-.02em;max-width:16ch}
+.cover h1{font-size:clamp(36px,5.6vw,60px);line-height:1.06;letter-spacing:-.02em;max-width:18ch}
 .cover h1 em{font-style:normal;color:var(--blue)}
 .cover .lede{font-size:19px;margin-top:20px}
 .facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--border1);border:1px solid var(--border1);border-radius:var(--r);overflow:hidden;margin-top:44px}
@@ -186,7 +186,7 @@ section.s:nth-of-type(even){background:var(--surface)}
 .tp .d{font-size:13px;color:var(--muted)}
 .tp.ai .dot{background:var(--blue);border-color:var(--blue);color:#fff}
 .tp.ai .day{color:var(--blue-ink)}
-.tp.ai .ch::after{content:"Krupal";margin-left:8px;font:600 11px var(--ui);color:var(--blue-ink);background:var(--blue-soft);border-radius:999px;padding:2px 8px;vertical-align:2px}
+.tp.ai .ch::after{content:"Krupal / Aarti";margin-left:8px;font:600 11px var(--ui);color:var(--blue-ink);background:var(--blue-soft);border-radius:999px;padding:2px 8px;vertical-align:2px}
 .tp.visit .dot{background:var(--sun);border-color:var(--sun);color:#0E0D0B}
 .flow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.2fr) auto minmax(0,1fr);gap:14px;align-items:stretch}
 @media (max-width:860px){.flow{grid-template-columns:minmax(0,1fr)}.flow .arr{transform:rotate(90deg);justify-self:center}}
@@ -283,6 +283,53 @@ table.cmp{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 .cmp td:first-child{font-family:var(--ui);font-weight:500}
 .cmp th.sel{color:var(--blue-ink)}
 .pos{color:var(--good)} .neg{color:var(--bad)}
+/* Tech half */
+.bridge{background:var(--f0)!important;color:var(--bg);border-bottom:0}
+.bridge .eyebrow{color:color-mix(in srgb,var(--bg) 70%,transparent)}
+.bridge .eyebrow b{color:var(--sun)}
+.bridge h2{font-size:clamp(28px,4vw,44px);max-width:22ch}
+.bridge .lede{color:color-mix(in srgb,var(--bg) 82%,transparent)}
+.bridge .flowline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:28px;font:500 13px var(--mono)}
+.bridge .flowline span{border:1px solid color-mix(in srgb,var(--bg) 35%,transparent);border-radius:8px;padding:5px 10px}
+.bridge .flowline i{font-style:normal;opacity:.6}
+.chan{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.svc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:700px){.chan,.svc{grid-template-columns:minmax(0,1fr)}}
+.port{font:600 11px var(--mono);color:var(--muted);background:var(--sunken);border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.box p{font-size:13.5px;color:var(--fg2)}
+.pipe{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--blue);border-radius:var(--r);overflow:hidden;background:var(--surface)}
+@media (max-width:760px){.pipe{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.pipe>div{padding:16px 18px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px;min-width:0}
+.pipe>div:last-child{border-right:0}
+.pipe .k{font:600 11px var(--mono);letter-spacing:.08em;color:var(--blue-ink)}
+.pipe b{font-size:15px}
+.pipe span{font-size:13px;color:var(--muted)}
+.pipe .core{background:var(--blue-soft)}
+.pipe-h{font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.down{display:grid;place-items:center;color:var(--hint);height:28px}
+.down svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6}
+.ext{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
+.layers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:760px){.layers{grid-template-columns:minmax(0,1fr)}}
+.lst{margin:0;padding:0;list-style:none;display:grid;gap:9px;font-size:14px;color:var(--fg2)}
+.lst li{display:grid;grid-template-columns:14px minmax(0,1fr);gap:8px}
+.lst li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--blue);margin-top:8px}
+.lst.warn li::before{background:var(--sun-ink)}
+.guards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:760px){.guards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.guard{border:1px solid var(--border1);border-radius:10px;padding:12px 14px;min-width:0}
+.guard .w{font:600 12px var(--mono);color:var(--muted)}
+.guard .t{font-weight:600;font-size:14px}
+.files{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.callout{border-left:3px solid var(--sun);background:var(--sun-soft);border-radius:0 10px 10px 0;padding:12px 16px;font-size:14px;color:var(--fg2)}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:760px){.steps{grid-template-columns:minmax(0,1fr)}}
+.step{border:1px solid var(--border1);border-radius:var(--r);padding:20px;background:var(--surface);display:flex;flex-direction:column;gap:8px;min-width:0}
+.step .num{font:600 13px var(--mono);color:#fff;background:var(--blue);width:26px;height:26px;border-radius:50%;display:grid;place-items:center}
+.step h3{font-size:16px}
+.step p{font-size:14px;color:var(--muted)}
+.measure{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.measure .lab{font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:4px}
 footer{padding-block:32px 48px;color:var(--hint);font-size:12.5px}
 footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
 </style>
@@ -295,11 +342,15 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
     <nav class="nav" aria-label="Sections">
       <a href="#team">Team</a>
       <a href="#problem">Problem</a>
-      <a href="#krupal">Meet the agents</a>
-      <a href="#does">What he does</a>
-      <a href="#fit">Where he sits</a>
+      <a href="#krupal">Krupal and Aarti</a>
+      <a href="#does">What they do</a>
+      <a href="#fit">Where they sit</a>
       <a href="#cost">Cost per call</a>
       <a href="#numbers">Calculator</a>
+      <a href="#arch">Architecture</a>
+      <a href="#console">Console</a>
+      <a href="#trust">Safety</a>
+      <a href="#demo">Demo</a>
     </nav>
   </div>
 </header>
@@ -309,14 +360,14 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
   <section class="s cover" id="top">
     <div class="in">
       <div class="tag"><i></i>AI Voice Agent Hackathon · Service slot scheduling &amp; confirmation</div>
-      <h1>Meet <em>Krupal</em>, our own AMC scheduler</h1>
-      <p class="lede">An AI voice agent that calls customers whose solar service is due, offers the slot Beat Planning recommends, and books it in natural Hinglish. When the slot doesn't suit, he finds another one.</p>
+      <h1><em>Krupal</em> and <em>Aarti</em>, our own AMC schedulers</h1>
+      <p class="lede">Two AI voice agents that call customers whose solar service is due, offer the slot Beat Planning recommends, and book it in natural Hinglish. When the slot doesn't suit, they find another one.</p>
       <div class="facts">
-        <div><div class="v" id="c_due">42,499</div><div class="l">sites due for a service visit each month</div></div>
+        <div><div class="v" id="c_due">42,499</div><div class="l">sites due for a service visit each month, Pan India</div></div>
         <div><div class="v" id="c_need">–</div><div class="l">still unconfirmed after app and WhatsApp</div></div>
         <div><div class="v" id="c_calls">–</div><div class="l">scheduler calls a month to close the gap</div></div>
       </div>
-      <p class="src">Sites due: PM visits due in Oct 2026, all clusters, SSE + NSSE. Other figures come from the funnel calculator at its default setup, without AI calling.</p>
+      <p class="src">Pan India. Sites due: PM visits due in Oct 2026, all clusters, SSE + NSSE. The other two figures apply conversion rates derived from Bengaluru and Lucknow outreach (Nov 2026) to the Pan India volume, with no AI calling.</p>
     </div>
   </section>
 
@@ -325,14 +376,14 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
     <div class="in stack">
       <div>
         <div class="eyebrow"><b>01</b> Team</div>
-        <h2>Five of us, one scheduler</h2>
+        <h2>Five of us, two schedulers</h2>
       </div>
       <div class="team">
-        <div class="person"><div class="av">C</div><div><div class="n">Chaitanya</div><div class="r">Team member</div></div></div>
-        <div class="person star"><div class="av">K</div><div><div class="n">Krupal</div><div class="r">Voice artist · the voice of our agent Krupal</div></div></div>
-        <div class="person"><div class="av">D</div><div><div class="n">Dhrumil</div><div class="r">Team member</div></div></div>
-        <div class="person"><div class="av">R</div><div><div class="n">Raghav</div><div class="r">Team member</div></div></div>
-        <div class="person"><div class="av">J</div><div><div class="n">Jasir</div><div class="r">Team member</div></div></div>
+        <div class="person"><div class="av">C</div><div><div class="n">Chaitanya</div><div class="r">Product manager. Turns "what if" into a PRD before the chai gets cold.</div></div></div>
+        <div class="person star"><div class="av">K</div><div><div class="n">Krupal</div><div class="r">Voice artist. Our agent Krupal speaks in his voice.</div></div></div>
+        <div class="person"><div class="av">D</div><div><div class="n">Dhrumil</div><div class="r">Gujju bhai. Runs our use-case factory, manufactured to order.</div></div></div>
+        <div class="person"><div class="av">R</div><div><div class="n">Raghav</div><div class="r">The boss. Team lead who keeps five people on one call flow.</div></div></div>
+        <div class="person"><div class="av">J</div><div><div class="n">Jasir</div><div class="r">All-rounder. Our memory lane: remembers every call we ever made.</div></div></div>
       </div>
     </div>
   </section>
@@ -347,22 +398,21 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
       </div>
       <div class="two">
         <div class="card">
-          <h3 class="c-h">Who confirms the slot today · per month</h3>
+          <h3 class="c-h">Who confirms the slot today · Pan India · per month</h3>
           <div class="sbar" id="p_bar"></div>
           <div class="legend" id="p_legend"></div>
-          <p class="note" style="margin-top:14px">Same model as the calculator below, default setup with AI calling switched off. In-app and WhatsApp rates are Lucknow + Bengaluru outreach from Nov 2026. Scheduler rates are the team's target.</p>
+          <p class="note" style="margin-top:14px">Pan India volume: 42,499 sites due in Oct 2026. In-app and WhatsApp conversion rates are derived from Bengaluru and Lucknow outreach in Nov 2026 and applied Pan India. Scheduler rates are the team's target. AI calling is switched off here.</p>
         </div>
         <div class="pains">
-          <div class="pain"><div class="v" id="p_calls">–</div><div class="t">Scheduler calls a month</div><div class="d">Each unconfirmed customer gets up to three attempts. Most of these calls are routine.</div></div>
+          <div class="pain"><div class="v" id="p_calls">–</div><div class="t">Scheduler calls a month</div><div class="d">Pan India. Each unconfirmed customer gets up to three attempts. Most of these calls are routine.</div></div>
           <div class="pain"><div class="v" id="p_share">–</div><div class="t">Of funnel cost is human calling</div><div class="d"><span id="p_cost">–</span> of <span id="p_total">–</span> a month goes to scheduler calls at ₹8 a call.</div></div>
-          <div class="pain"><div class="v">~66%</div><div class="t">Serviced in Lucknow and Bengaluru</div><div class="d">Share of October's due sites that got their visit. Every slot that isn't confirmed early is a visit at risk.</div>
-            <div class="cluster"><span class="chip">All clusters 88.3%</span><span class="chip">Lucknow 66.1%</span><span class="chip">Bengaluru 65.1%</span></div></div>
+          <div class="pain"><div class="v">~4,970</div><div class="t">Due visits missed in October, Pan India</div><div class="d">88.3% of the 42,499 sites due were serviced. Every slot that isn't confirmed early is a visit at risk.</div></div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- 3. Meet Krupal -->
+  <!-- 3. Krupal and Aarti -->
   <section class="s" id="krupal">
     <div class="in">
       <div class="agent">
@@ -393,7 +443,7 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
         </div>
         <div>
           <div class="eyebrow"><b>03</b> Introducing the agents</div>
-          <h2>Two voice agents: Krupal and Aarti</h2>
+          <h2>Krupal and Aarti, our own schedulers on the phone</h2>
           <p class="lede">Krupal is our own scheduler. He sounds like a member of the service team because he is one: the voice is Krupal's own. Aarti is our female voice agent. Both run the same call flow: they introduce themselves, say the call is recorded, and get to the point.</p>
           <div class="quote" style="margin-top:24px">
             <div class="who">Krupal</div>
@@ -419,8 +469,8 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
   <section class="s" id="does">
     <div class="in stack">
       <div>
-        <div class="eyebrow"><b>04</b> What Krupal does</div>
-        <h2>He calls customers whose service is due and books the slot Beat Planning recommends</h2>
+        <div class="eyebrow"><b>04</b> What Krupal and Aarti do</div>
+        <h2>They call customers whose service is due and book the slot Beat Planning recommends</h2>
         <p class="lede">One call covers the cases our schedulers handle every day. Every call ends with a clear outcome and a note on the site.</p>
       </div>
       <div class="caps">
@@ -445,26 +495,26 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
         <div class="cap">
           <div class="ic"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></div>
           <h3>Puts a site on hold</h3>
-          <p>If the site isn't ready, he gets a date it will be and the customer's OK to pause calls until then.</p>
+          <p>If the site isn't ready, they get a date it will be and the customer's OK to pause calls until then.</p>
           <div class="say">"Ladder kab tak arrange ho jayegi?"</div>
         </div>
         <div class="cap">
           <div class="ic"><svg viewBox="0 0 24 24"><path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 0 0-7.1 7.1L12 21.5l8.8-8.8a5 5 0 0 0 0-7.1z"/></svg></div>
           <h3>Shows empathy</h3>
-          <p>When a customer is going through a hard time, he slows down, apologises, stops the call and asks a senior to follow up later.</p>
+          <p>When a customer is going through a hard time, they slow down, apologise, stop the call and ask a senior to follow up later.</p>
           <div class="say">"Yeh sunkar bahut dukh hua. Abhi hum call nahi karenge."</div>
         </div>
         <div class="cap">
           <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg></div>
           <h3>Writes the call notes</h3>
-          <p>After every call he posts a summary and the structured call record as a comment on the site in Beat Planning.</p>
+          <p>After every call they post a summary and the structured call record as a comment on the site in Beat Planning.</p>
           <div class="say">Outcome, slot, readiness, hold date and callback time</div>
         </div>
         <div class="cap learn">
           <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></div>
           <div><h3>Keeps learning, call after call</h3>
-          <p>He only needs a teacher. Someone reviews calls, finds where the script failed, and writes the right answer. From the next call on, Krupal uses it.</p></div>
-          <div class="loop" aria-label="Learning loop"><span>Krupal calls</span><i>→</i><span>Teacher spots a miss</span><i>→</i><span>Adds the answer to the script</span><i>→</i><span>Next call gets it right</span></div>
+          <p>They only need a teacher. Someone reviews calls in the Questions view, finds where the script failed, and writes the right answer. The bot loads it at the start of the next call.</p></div>
+          <div class="loop" aria-label="Learning loop"><span>Agent calls</span><i>→</i><span>Teacher spots a miss</span><i>→</i><span>Adds the answer to the script</span><i>→</i><span>Next call gets it right</span></div>
         </div>
       </div>
       <div class="outcomes">
@@ -478,16 +528,16 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
   <section class="s" id="fit">
     <div class="in stack">
       <div>
-        <div class="eyebrow"><b>05</b> Where Krupal sits in AMC</div>
-        <h2>He joins the reminder journey three days before the visit</h2>
-        <p class="lede">To start with, Krupal is linked directly to Beat Planning. Beat Planning suggests a slot and Krupal works to confirm it. If the customer can't make it, he checks Beat Planning for other free slots.</p>
+        <div class="eyebrow"><b>05</b> Where Krupal and Aarti sit in AMC</div>
+        <h2>They join the reminder journey three days before the visit</h2>
+        <p class="lede">To start with, the agents are linked directly to Beat Planning. Beat Planning suggests a slot and the agent works to confirm it. If the customer can't make it, the agent checks Beat Planning for other free slots.</p>
       </div>
       <div class="tl-wrap">
         <div class="tl">
           <div class="tp"><div class="dot">15</div><div class="day">T-15</div><div class="ch">App notification</div><div class="d">Beat Planning soft-books the slot and the customer gets an in-app notification.</div></div>
           <div class="tp"><div class="dot">11</div><div class="day">T-11 · T-8 · T-4</div><div class="ch">WhatsApp + in-app</div><div class="d">Three reminders asking the customer to confirm the slot.</div></div>
-          <div class="tp ai"><div class="dot">3</div><div class="day">T-3</div><div class="ch">AI calling</div><div class="d">Krupal calls everyone still unconfirmed.</div></div>
-          <div class="tp"><div class="dot">1</div><div class="day">T-1</div><div class="ch">Scheduler calling</div><div class="d">The team calls only the customers Krupal couldn't close.</div></div>
+          <div class="tp ai"><div class="dot">3</div><div class="day">T-3</div><div class="ch">AI calling</div><div class="d">Krupal or Aarti calls everyone still unconfirmed.</div></div>
+          <div class="tp"><div class="dot">1</div><div class="day">T-1</div><div class="ch">Scheduler calling</div><div class="d">The team calls only the customers the agents couldn't close.</div></div>
           <div class="tp visit"><div class="dot">0</div><div class="day">T-0</div><div class="ch">Service visit</div><div class="d">The hero reaches a site that is booked and ready.</div></div>
           <div class="tp"></div>
         </div>
@@ -504,7 +554,7 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
         <div class="arr"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
         <div class="box mid">
           <div class="k">The call</div>
-          <h3>Krupal</h3>
+          <h3>Krupal / Aarti</h3>
           <ul>
             <li><span class="t">yes</span><span>Checks ladder, water and light, repeats the details</span></li>
             <li><span class="t">other time</span><span>Offers a 3-hour window on the same day</span></li>
@@ -563,8 +613,8 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
     <div class="in stack">
       <div>
         <div class="eyebrow"><b>07</b> The numbers</div>
-        <h2>What it costs to confirm every visit, with and without Krupal</h2>
-        <p class="lede">Each step only reaches customers who are still unconfirmed. Change the costs, attempts and confirm rates to test your own assumptions. It opens with the 42,499 sites due in Oct 2026.</p>
+        <h2>What it costs to confirm every visit Pan India, with and without AI calling</h2>
+        <p class="lede">Each step only reaches customers who are still unconfirmed. Change the costs, attempts and confirm rates to test your own assumptions. It opens with the 42,499 sites due Pan India in Oct 2026. Conversion rates are derived from Bengaluru and Lucknow.</p>
       </div>
 
       <div class="kpis">
@@ -584,10 +634,7 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
         <h3 class="c-h">Calculator</h3>
         <div class="ctop">
           <div class="presets" role="group" aria-label="Load numbers">
-            <button type="button" class="btn on" data-p="all">All clusters</button>
-            <button type="button" class="btn" data-p="lko">Lucknow</button>
-            <button type="button" class="btn" data-p="blr">Bengaluru</button>
-            <button type="button" class="btn" data-p="ex">Example</button>
+            <button type="button" class="btn on" data-p="all">Pan India defaults</button>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
             <div class="fields"><label>Sites due / month<input type="number" id="n" value="42499" min="0" step="100"></label></div>
@@ -670,9 +717,153 @@ footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
       </div>
     </div>
   </section>
+
+  <!-- Bridge into how it's built -->
+  <section class="s bridge" id="built">
+    <div class="in">
+      <div class="eyebrow"><b>08</b> How it's built</div>
+      <h2>Natural language at the edge. Deterministic state and validation at the core.</h2>
+      <p class="lede">The AI listens and understands. A YAML call flow decides what happens next, so a flexible conversation never makes an unvalidated booking.</p>
+      <div class="flowline" aria-label="Call journey"><span>Identify</span><i>→</i><span>Offer slot</span><i>→</i><span>Check readiness</span><i>→</i><span>Recap</span><i>→</i><span>Confirm</span><i>→</i><span>Record</span></div>
+    </div>
+  </section>
+
+  <!-- 9. Architecture -->
+  <section class="s" id="arch">
+    <div class="in stack">
+      <div>
+        <div class="eyebrow"><b>09</b> Architecture</div>
+        <h2>Two call channels share one audio pipeline</h2>
+        <p class="lede">The app coordinates calls and shows outcomes to operators. The bot runs a streaming pipeline with the flow engine in the middle.</p>
+      </div>
+      <div>
+        <div class="chan">
+          <div class="box"><div class="k">Channel</div><h3>Browser</h3><p>The dashboard uses the app API. Browser mic audio connects straight to the bot over WebRTC at 16 kHz.</p></div>
+          <div class="box"><div class="k">Channel</div><h3>Phone</h3><p>The app starts an Exotel call. Exotel streams the customer's phone audio to the bot over a WebSocket at 8 kHz.</p></div>
+        </div>
+        <div class="down" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg></div>
+        <div class="svc">
+          <div class="box"><div class="k">App</div><h3>Node app<span class="port">:3000</span></h3><p>Bookings, call coordination, Exotel dial requests, call logs and live dashboard updates.</p></div>
+          <div class="box mid"><div class="k">Bot</div><h3>Bot API<span class="port">:7860</span></h3><p>FastAPI + Pipecat. Handles WebRTC offers, Exotel media, voice settings and flow execution.</p></div>
+        </div>
+        <div class="down" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg></div>
+        <div class="pipe-h">Pipecat streaming pipeline</div>
+        <div class="pipe">
+          <div><span class="k">STT</span><b>Speech to text</b><span>Sarvam realtime, or local AI4Bharat IndicConformer</span></div>
+          <div><span class="k">LLM</span><b>Understanding</b><span>Gemini by default: intent + entities only</span></div>
+          <div class="core"><span class="k">FLOW ENGINE</span><b>Decides</b><span>YAML state machine, tool and action gating</span></div>
+          <div><span class="k">TTS</span><b>Voice</b><span>Sarvam Bulbul, or the cloned voice</span></div>
+        </div>
+      </div>
+      <div class="ext"><span>External services:</span><span class="chip">Exotel telephony</span><span class="chip">Sarvam speech</span><span class="chip">Gemini</span><span class="chip">AI4Bharat STT (optional, local)</span></div>
+      <div class="callout">The bot posts call events to the Node app, which streams status to the dashboard. Beat Plan / Zeus actions are mocked today.</div>
+    </div>
+  </section>
+
+  <!-- 10. AI understands, flow controls -->
+  <section class="s" id="layers">
+    <div class="in stack">
+      <div>
+        <div class="eyebrow"><b>10</b> Two layers</div>
+        <h2>The AI understands the customer. The flow controls the service.</h2>
+        <p class="lede">Keeping these apart means the LLM never makes a booking decision on its own.</p>
+      </div>
+      <div class="layers">
+        <div class="box"><div class="k">Language layer</div><h3>LLM + speech</h3>
+          <ul class="lst">
+            <li>Transcribes Hindi and Hinglish speech</li>
+            <li>Classifies each turn into an allowed intent</li>
+            <li>Extracts dates, time bands, reasons and readiness</li>
+            <li>Reports the turn through a constrained tool</li>
+            <li>Uses approved FAQ answers when available</li>
+          </ul></div>
+        <div class="box mid"><div class="k">Workflow layer</div><h3>Flow engine</h3>
+          <ul class="lst">
+            <li>Checks the intent against the current state</li>
+            <li>Evaluates code-owned guards and policies</li>
+            <li>Runs only configured actions</li>
+            <li>Validates and records outcomes</li>
+            <li>Speaks reviewed prompts for critical steps</li>
+          </ul></div>
+      </div>
+      <div class="guards">
+        <div class="guard"><div class="w">Intent not in current state</div><div class="t">Rejected</div></div>
+        <div class="guard"><div class="w">Unclear answer</div><div class="t">Repeat or escalate</div></div>
+        <div class="guard"><div class="w">Do not call</div><div class="t">Stop the call</div></div>
+        <div class="guard"><div class="w">Booking</div><div class="t">Only after recap</div></div>
+      </div>
+      <div class="files"><span>Flow configuration:</span><span class="chip">flow.yaml</span><span class="chip">intents.yaml</span><span class="chip">actions.yaml</span><span class="chip">policies.yaml</span><span class="chip">Hindi / English prompts</span></div>
+    </div>
+  </section>
+
+  <!-- 11. Operator console -->
+  <section class="s" id="console">
+    <div class="in stack">
+      <div>
+        <div class="eyebrow"><b>11</b> Operator console</div>
+        <h2>The console closes the loop</h2>
+        <p class="lede">Call operations, review tools and voice settings come with the agents. The Questions view is where the teacher works.</p>
+      </div>
+      <div class="caps">
+        <div class="cap"><h3>Live dashboard</h3><p>Browse bookings, start browser or phone calls, and watch call status and events.</p></div>
+        <div class="cap"><h3>Call logs</h3><p>Review the outcome, call path, structured record, transcript, duration and cost of every call.</p></div>
+        <div class="cap"><h3>Questions view</h3><p>Catch turns the bot couldn't handle. Approve a written FAQ answer or teach new phrases for a known intent.</p></div>
+        <div class="cap"><h3>Voice Studio</h3><p>Manage cloned voices with consent. Choose STT, TTS and LLM, and tune turn-taking.</p></div>
+        <div class="cap"><h3>Cost calculator</h3><p>Compares AI calling with other channels. Estimates can use measured costs from call logs.</p></div>
+        <div class="cap"><h3>Next call, smarter</h3><p>Admin answers and phrases load at the start of the next call. No redeploy needed.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12. Trust boundaries -->
+  <section class="s" id="trust">
+    <div class="in stack">
+      <div>
+        <div class="eyebrow"><b>12</b> Safety and scope</div>
+        <h2>What is safe by design, and what is still a prototype</h2>
+      </div>
+      <div class="layers">
+        <div class="box"><div class="k">Safety and data</div>
+          <ul class="lst">
+            <li>Phone calls only go to an allowlist of test numbers</li>
+            <li>The greeting says the call is recorded</li>
+            <li>A do-not-call request ends the call</li>
+            <li>No promises on prices, savings or subsidy</li>
+            <li>Voice cloning needs consent before upload</li>
+            <li>Cloud speech and LLM send audio or text to providers; local IndicConformer is an STT alternative</li>
+          </ul></div>
+        <div class="box"><div class="k">Prototype today</div>
+          <ul class="lst warn">
+            <li>Bookings are seeded from JSON and held in memory</li>
+            <li>Call logs are saved locally, with a result backup from the bot</li>
+            <li>Beat Plan / Zeus actions use a mock; real API contracts are pending</li>
+            <li>Outcomes, cost and latency are instrumented; no performance result is claimed yet</li>
+            <li>A hackathon prototype, not a production dialer</li>
+          </ul></div>
+      </div>
+      <div class="callout">Before production: connect and validate the real service APIs, add durable storage, review provider data retention, and run controlled evaluations. Credentials stay in git-ignored environment files.</div>
+    </div>
+  </section>
+
+  <!-- 13. Demo and next steps -->
+  <section class="s" id="demo">
+    <div class="in stack">
+      <div>
+        <div class="eyebrow"><b>13</b> Demo and next steps</div>
+        <h2>Show the outcome, then improve what the call reveals</h2>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="num">1</div><h3>Run a test call</h3><p>Pick a seeded test booking. Start in the browser, or show the Exotel path on an allowlisted test number.</p></div>
+        <div class="step"><div class="num">2</div><h3>Try a branch</h3><p>Confirm the slot, or ask for another day, flag a readiness issue, ask the price, request a callback or a person.</p></div>
+        <div class="step"><div class="num">3</div><h3>Inspect the record</h3><p>See the outcome, captured fields, event trail, call cost and latency, and any question sent for admin review.</p></div>
+      </div>
+      <div class="measure"><span class="lab">We measure</span><span class="pill">Outcome correctness</span><span class="pill">Call completion</span><span class="pill">Voice latency</span><span class="pill">Cost per call</span><span class="pill">Handoff and hold rate</span></div>
+      <div class="callout">Next: wire the real Beat Plan APIs, make call records durable, expand scenario tests, and measure real calls on test numbers.</div>
+    </div>
+  </section>
 </main>
 
-<footer><div class="in"><span>Krupal · AMC scheduling voice agent · SolarSquare hackathon, Nov 2026</span><span>Test numbers only. No customer data on this page.</span></div></footer>
+<footer><div class="in"><span>Krupal and Aarti · AMC scheduling voice agents · SolarSquare hackathon, Nov 2026</span><span>Test numbers only. No customer data on this page.</span></div></footer>
 
 <script>
 // Waveform on Krupal's card
@@ -838,12 +1029,7 @@ function render(){
 // Scheduler: 3 attempts at 60 / 50 / 40% (team-set target, 88% of customers reached). AI calling rates are assumptions.
 const PRESETS={
   all:{n:42499,app:[5.9],wa:[18.7,9.0,5.3,1.6],sch:[60,50,40,10,10],
-    note:'Volume: 42,499 sites with a PM visit due in Oct 2026, all clusters, SSE + NSSE (October actual: 88.3% serviced). Scheduler calling confirms 88% of customers it reaches over 3 attempts. In-app and WhatsApp rates are Lucknow + Bengaluru Nov outreach.'},
-  lko:{n:3047,app:[6.8],wa:[15.6,8.1,3.2,0.8],sch:[60,50,40,10,10],
-    note:'Lucknow: 3,047 sites due in Oct 2026 (October actual: 66.1% serviced). In-app and WhatsApp rates from 689 finished Nov outreaches.'},
-  blr:{n:1400,app:[3.5],wa:[26.9,11.5,11.8,4.2],sch:[60,50,40,10,10],
-    note:'Bengaluru: 1,400 sites due in Oct 2026 (October actual: 65.1% serviced). In-app and WhatsApp rates from 258 finished Nov outreaches.'},
-  ex:{n:10000,app:[10],wa:[20,10,5,3],sch:[50,40,30,20,10],note:'Example values, not real data.'}
+    note:'Pan India: 42,499 sites with a PM visit due in Oct 2026, SSE + NSSE (October actual: 88.3% serviced). In-app and WhatsApp conversion rates are derived from Bengaluru + Lucknow outreach in Nov 2026 (947 finished outreaches) and applied Pan India. Scheduler calling confirms 88% of customers it reaches over 3 attempts (team target).'}
 };
 const TAIL=' The split of scheduler rates across attempts and all AI calling numbers are assumptions.';
 function clearPreset(){document.querySelectorAll('.presets .btn').forEach(b=>b.classList.remove('on'))}
