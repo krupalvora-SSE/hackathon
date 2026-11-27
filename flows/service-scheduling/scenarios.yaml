@@ -367,3 +367,34 @@
   steps: [context_ready, affirm, asks_price, affirm, affirm, affirm, action_ok]
   expect: slot_confirmed
 
+- name: asks for another slot right after the planned date, then confirms
+  steps:
+    - context_ready
+    - affirm
+    - asks_other_slots
+    - {on: affirm, flags: {readiness_done: false}}
+    - affirm
+    - affirm
+    - action_ok
+  expect: slot_confirmed_alt_day
+
+- name: asks for another slot after the time window was told
+  steps:
+    - context_ready
+    - affirm
+    - ask_time
+    - asks_other_slots
+    - {on: affirm, flags: {readiness_done: false}}
+    - affirm
+    - affirm
+    - action_ok
+  expect: slot_confirmed_alt_day
+
+- name: keeps asking for other slots until none are left
+  steps:
+    - context_ready
+    - affirm
+    - asks_other_slots
+    - {on: asks_other_slots, flags: {options_remaining: true}}
+    - {on: asks_other_slots, flags: {options_remaining: false}}
+  expect: no_slot_available

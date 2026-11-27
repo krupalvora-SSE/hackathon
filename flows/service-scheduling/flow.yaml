@@ -22,7 +22,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.17.0
+version: 0.18.0
 title: Service scheduling call flow
 ticket: SSE-15559
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -191,6 +191,8 @@ states:
         say: no_exact_guarantee
       - on: wants_other_band
         to: CHECK_BAND
+      - on: asks_other_slots            # "koi aur slot hai?": offer the other days right away
+        to: ALTERNATE_DAYS
       - on: deny
         to: ALTERNATE_DAYS
       - on: proposes_date
@@ -222,6 +224,8 @@ states:
         set: {rm_callback_reason: insists_on_exact_time}
       - on: wants_other_band
         to: CHECK_BAND
+      - on: asks_other_slots
+        to: ALTERNATE_DAYS
       - on: deny
         to: ALTERNATE_DAYS
 
@@ -267,6 +271,13 @@ states:
       - on: proposes_date
         to: READINESS_CHECK
         set: {slot_source: alt_day}
+      - on: asks_other_slots            # asking for more after the options were read out
+        when: options_remaining
+        to: ALTERNATE_DAYS
+        say: next_options
+      - on: asks_other_slots
+        when: "!options_remaining"
+        to: NO_SLOT_CLOSE
       - on: deny
         when: options_remaining
         to: ALTERNATE_DAYS
