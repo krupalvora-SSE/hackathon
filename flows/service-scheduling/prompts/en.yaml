@@ -31,10 +31,10 @@ WRONG_PERSON:
   repeat_main: "Is this {name}'s home?"
 
 OFFER_PRIMARY:
-  main: "{name}, your solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will you be available that day?"
-  repeat_main: "Are you free on {weekday}, {date_spoken}?"
-  main_family: "{name}'s solar system maintenance is due. We have a slot on {weekday}, {date_spoken}. Will someone be home that day?"
-  repeat_main_family: "Will someone be home on {weekday}, {date_spoken}?"
+  main: "{name}, your solar system maintenance is due. We have a slot on {weekday}, {date_spoken}, between {band_spoken}. Will you be available that day?"
+  repeat_main: "Are you free on {weekday}, {date_spoken}, between {band_spoken}?"
+  main_family: "{name}'s solar system maintenance is due. We have a slot on {weekday}, {date_spoken}, between {band_spoken}. Will someone be home that day?"
+  repeat_main_family: "Will someone be home on {weekday}, {date_spoken}, between {band_spoken}?"
 
 TIME_BAND:
   main: "Our service hero will come between {band_spoken} that day. Does that work for you?"

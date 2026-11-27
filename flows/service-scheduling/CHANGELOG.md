@@ -2,6 +2,11 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.21.0 (2026-11-27, SSE-15551)
+From a call where the offer named only the day, and "जी क्या slot है?" was taken as a yes and the bot went straight on to the readiness questions:
+- The planned-day offer now also says the time window ("बुधवार, 2 दिसंबर को शाम तीन से छह बजे के बीच...").
+- At that offer a yes that also asks about the time ("जी, क्या slot है?") is treated as the time question: the bot tells the window and asks if it suits.
+
 ## 0.20.0 (2026-11-27, SSE-15551)
 From a call where a bare "Yes." at the recap made the bot ask the site question in English, and a reported rusting was not acknowledged:
 - After the greeting, a bare yes / no / maybe / don't know no longer switches the language; only a fuller answer can.

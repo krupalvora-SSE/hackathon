@@ -203,7 +203,7 @@ def test_repeat_request_english_and_not_counted_as_unclear():
     call.handle("affirm")
     for _ in range(4):                                     # would escalate if counted as unclear
         r = call.handle("repeat_request")
-    assert not r.end and r.speak == ["Are you free on Saturday, 28 November?"]
+    assert not r.end and r.speak[0].startswith("Are you free on Saturday, 28 November, between")
 
 
 def test_repeat_request_without_short_form_falls_back_to_lead_in_plus_full_line():
@@ -1232,14 +1232,15 @@ def test_sms_line_only_when_policy_on():
 
 # ---------- time window only when the customer asks (v0.3.0)
 
-def test_plain_yes_never_mentions_a_time_window():
+def test_the_offer_names_the_window_and_a_plain_yes_does_not_repeat_it():
     call, _, events = live()
     lines = []
     for _ in range(6):
         lines += call.handle("affirm").speak
     lines += call.handle("deny").speak
     assert call.outcome == "slot_confirmed"
-    assert not any("बजे" in ln or "सुबह" in ln for ln in lines), lines
+    assert "बजे" in lines[0] and "बजे के बीच हमारे पास slot है" in lines[0], lines[0]      # the offer says the window
+    assert not any("बजे" in ln or "सुबह" in ln for ln in lines[1:]), lines                # and later lines do not repeat it
     assert call.record()["time_window_told"] is False
     assert call.record()["confirmed_slot"]["band"] == "morning"     # Beat Plan still gets the band
 
@@ -1327,3 +1328,13 @@ def test_site_issue_shows_live_on_the_dashboard_and_none_is_shown_too():
         call2.handle("affirm")
     call2.handle("deny")
     assert [e["display"] for e in events2 if e.get("key") == "site_issues"] == ["None reported"]
+
+
+def test_ji_kya_slot_hai_at_the_offer_is_a_question_not_a_yes():
+    call, _, _ = live()
+    call.handle("affirm")                                               # greeting -> the offer
+    r = call.handle("affirm", {"asks_time": True})                      # "जी क्या slot है?" heard as a yes + time question
+    assert call.state == "TIME_BAND" and "ready रखनी" not in " ".join(r.speak)
+    assert "ठीक लगेगा" in r.speak[-1]                                   # asks again whether the window suits
+    r = call.handle("affirm")
+    assert call.state == "READINESS_CHECK"

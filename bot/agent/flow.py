@@ -288,6 +288,8 @@ class FlowCall:
                 return Step(error=f"intent '{on}' does not apply in {self.state}", state=self.state, allowed=allowed)
             if (entities or {}).get("hedged") is True and on == "affirm" and st.get("checklist"):
                 on = "unsure"           # "haan, shayad hai": a hedge inside a yes is a maybe
+            if on == "affirm" and entities.get("asks_time") is True and self.state == "OFFER_PRIMARY":
+                on = "ask_time"         # "जी, क्या slot है?" is a question, not a yes: tell the window and ask again
             self._prev_streak = self.unclear_streak
             gi0 = self.spec.global_intents.get(on)
             if (gi0 and on not in (st.get("disable_global") or []) and gi0.get("goto") == self.state

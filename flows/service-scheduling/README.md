@@ -123,7 +123,7 @@ flowchart LR
 
 #### Step 2. Offer the planned date
 
-> Rahul, your solar system maintenance is due. We have a slot on Saturday, 28 November. Will you be available that day?
+> Rahul, your solar system maintenance is due. We have a slot on Saturday, 28 November, between 8 am and 12 pm. Will you be available that day?
 
 | Customer says | What happens |
 |---|---|
