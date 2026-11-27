@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Krupal AMC Scheduler</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one scrolling deck. Each section is a "slide" band with a numbered eyebrow (the deck order), sticky top bar for jumping between them. SolarSquare tokens: blue brand, sun accent, warm paper ground. */
+:root{
+  --bg:#FBFAF7; --surface:#FFFFFF; --sunken:#F5F4EF; --fg:#0E0D0B; --fg2:#3F3E37; --muted:#5F5D54; --hint:#8E8B7E;
+  --border:#ECEAE2; --border1:#DCD9CE;
+  --blue:#2A66F2; --blue-ink:#1E4FCC; --blue-soft:#EEF4FF; --blue-line:#B3CBFF;
+  --sun:#FFC11F; --sun-soft:#FFF9E5; --sun-ink:#94600E;
+  --good:#1E8E5A; --good-soft:#E3F4EB; --bad:#C2412D; --bad-soft:#FBE7E3;
+  --f0:#0B1D4D; --f1:#173E9E; --f2:#2A66F2; --f3:#7FA8FF; --f4:#FFC11F; --fx:#DCD9CE; --f3ink:#0B1D4D;
+  --logo-bg:transparent;
+  --ui:"Noto Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E0F12; --surface:#17191E; --sunken:#1E2127; --fg:#F1F0EC; --fg2:#CFCDC6; --muted:#A3A196; --hint:#7D7B72;
+  --border:#2A2D34; --border1:#363A42;
+  --blue:#6B95F7; --blue-ink:#8FB0FA; --blue-soft:#18233D; --blue-line:#2C4580;
+  --sun:#FFC11F; --sun-soft:#2E2510; --sun-ink:#FFD24A;
+  --good:#4CC28A; --good-soft:#163527; --bad:#F07A66; --bad-soft:#3A1E1A;
+  --f0:#D9E5FF; --f1:#B3CBFF; --f2:#6B95F7; --f3:#3F63B8; --f4:#FFC11F; --fx:#3A3E46; --f3ink:#FFFFFF;
+  --logo-bg:#FFFFFF; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E0F12; --surface:#17191E; --sunken:#1E2127; --fg:#F1F0EC; --fg2:#CFCDC6; --muted:#A3A196; --hint:#7D7B72;
+  --border:#2A2D34; --border1:#363A42;
+  --blue:#6B95F7; --blue-ink:#8FB0FA; --blue-soft:#18233D; --blue-line:#2C4580;
+  --sun:#FFC11F; --sun-soft:#2E2510; --sun-ink:#FFD24A;
+  --good:#4CC28A; --good-soft:#163527; --bad:#F07A66; --bad-soft:#3A1E1A;
+  --f0:#D9E5FF; --f1:#B3CBFF; --f2:#6B95F7; --f3:#3F63B8; --f4:#FFC11F; --fx:#3A3E46; --f3ink:#FFFFFF;
+  --logo-bg:#FFFFFF; color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:calc(64px + env(safe-area-inset-top,0px))}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{background:var(--bg);color:var(--fg);font-family:var(--ui);font-size:15px;line-height:1.55}
+.in{max-width:1080px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{margin:0}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* Top bar */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+.bar .in{display:flex;align-items:center;gap:20px;height:56px}
+.logo{height:30px;width:auto;display:block;background:var(--logo-bg);border-radius:6px;padding:2px 4px}
+.nav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin-left:auto;min-width:0}
+.nav::-webkit-scrollbar{display:none}
+.nav a{font-size:13px;color:var(--muted);text-decoration:none;padding:6px 10px;border-radius:8px;white-space:nowrap}
+.nav a:hover{color:var(--fg);background:var(--sunken)}
+.nav a.on{color:var(--blue-ink);background:var(--blue-soft)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* Slides */
+section.s{padding-block:72px;border-bottom:1px solid var(--border)}
+section.s:nth-of-type(even){background:var(--surface)}
+.eyebrow{display:flex;align-items:center;gap:10px;font:600 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.eyebrow b{color:var(--blue-ink);font-weight:600}
+.s h2{font-size:clamp(26px,3.4vw,36px);line-height:1.18;letter-spacing:-.01em;max-width:24ch}
+.lede{font-size:17px;color:var(--fg2);max-width:62ch;margin-top:14px}
+.stack{display:flex;flex-direction:column;gap:32px}
+
+/* Cover */
+.cover{padding-block:88px 72px}
+.cover .tag{display:inline-flex;gap:8px;align-items:center;font:500 12.5px var(--ui);color:var(--sun-ink);background:var(--sun-soft);border-radius:999px;padding:4px 12px;margin-bottom:22px}
+.cover .tag i{width:7px;height:7px;border-radius:50%;background:var(--sun);display:block}
+.cover h1{font-size:clamp(36px,5.6vw,60px);line-height:1.06;letter-spacing:-.02em;max-width:16ch}
+.cover h1 em{font-style:normal;color:var(--blue)}
+.cover .lede{font-size:19px;margin-top:20px}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--border1);border:1px solid var(--border1);border-radius:var(--r);overflow:hidden;margin-top:44px}
+.facts>div{background:var(--surface);padding:18px 20px;min-width:0}
+.facts .v{font:600 28px var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.facts .l{font-size:13px;color:var(--muted);margin-top:2px}
+@media (max-width:640px){.facts{grid-template-columns:minmax(0,1fr)}}
+.src{font-size:12px;color:var(--hint);margin-top:10px}
+
+/* Team */
+.team{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media (max-width:860px){.team{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:480px){.team{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.person{border:1px solid var(--border);border-radius:var(--r);padding:18px;background:var(--bg);display:flex;flex-direction:column;gap:12px;min-width:0}
+.av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:600 16px var(--ui);background:var(--sunken);color:var(--fg2)}
+.person .n{font-weight:600;font-size:16px}
+.person .r{font-size:13px;color:var(--muted)}
+.person.star{border-color:var(--blue-line);background:var(--blue-soft)}
+.person.star .av{background:var(--blue);color:#fff}
+.person.star .r{color:var(--blue-ink);font-weight:500}
+
+/* Problem */
+.two{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:40px;align-items:start}
+@media (max-width:860px){.two{grid-template-columns:minmax(0,1fr)}}
+.sbar{display:flex;height:44px;border-radius:10px;overflow:hidden;gap:2px}
+.sbar div{background:var(--c);min-width:3px}
+.legend{display:grid;gap:10px;margin-top:16px}
+.legend .row{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:10px;align-items:baseline;font-size:14px}
+.legend .sw{width:12px;height:12px;border-radius:3px;background:var(--c);align-self:center}
+.legend .n{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.legend .p{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--muted);width:52px;text-align:right}
+.pains{display:grid;gap:14px}
+.pain{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.pain:last-child{border-bottom:0;padding-bottom:0}
+.pain .v{font:600 22px var(--mono);font-variant-numeric:tabular-nums;grid-row:span 2;min-width:96px}
+.pain .t{font-weight:600}
+.pain .d{font-size:14px;color:var(--muted)}
+.cluster{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chip{font:12.5px var(--mono);background:var(--sunken);border-radius:6px;padding:4px 9px;color:var(--fg2)}
+
+/* Krupal intro */
+.agent{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:40px;align-items:start}
+@media (max-width:820px){.agent{grid-template-columns:minmax(0,1fr)}}
+.idcard{border:1px solid var(--border1);border-radius:18px;background:var(--surface);padding:24px;display:flex;flex-direction:column;gap:16px}
+.idcard .top{display:flex;gap:14px;align-items:center}
+.idcard .big{width:64px;height:64px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font:700 26px var(--ui);position:relative;flex:none}
+.idcard .big::after{content:"";position:absolute;right:2px;bottom:2px;width:14px;height:14px;border-radius:50%;background:var(--good);border:3px solid var(--surface)}
+.idcard .name{font-size:22px;font-weight:700}
+.idcard .role{font-size:13.5px;color:var(--muted)}
+.wave{display:flex;align-items:center;gap:3px;height:28px}
+.wave i{display:block;width:3px;border-radius:2px;background:var(--blue);opacity:.8}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 14px;font-size:13.5px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-weight:500}
+.quote{border-left:3px solid var(--sun);padding:4px 0 4px 18px;display:flex;flex-direction:column;gap:6px}
+.quote .hi{font-size:18px;line-height:1.6}
+.quote .en{font-size:14px;color:var(--muted)}
+.rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:28px}
+@media (max-width:640px){.rules{grid-template-columns:minmax(0,1fr)}}
+.rule{border:1px solid var(--border);border-radius:12px;padding:14px 16px;min-width:0}
+.rule b{display:block;font-size:14px;margin-bottom:2px}
+.rule span{font-size:13px;color:var(--muted)}
+
+/* What Krupal does */
+.caps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:860px){.caps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:540px){.caps{grid-template-columns:minmax(0,1fr)}}
+.cap{border:1px solid var(--border);border-radius:var(--r);background:var(--bg);padding:20px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.cap .ic{width:34px;height:34px;border-radius:9px;background:var(--blue-soft);color:var(--blue-ink);display:grid;place-items:center}
+.cap .ic svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.cap h3{font-size:16px}
+.cap p{font-size:14px;color:var(--muted)}
+.cap .say{font-size:13px;color:var(--fg2);background:var(--sunken);border-radius:8px;padding:8px 10px;margin-top:auto}
+.cap.learn{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1.1fr);gap:10px 18px;align-items:center;background:var(--blue-soft);border-color:var(--blue-line)}
+.cap.learn .ic{background:var(--blue);color:#fff}
+.cap.learn .say{margin-top:0;background:var(--surface)}
+.loop{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:var(--fg2)}
+.loop span{background:var(--surface);border:1px solid var(--blue-line);border-radius:8px;padding:4px 9px}
+.loop i{font-style:normal;color:var(--hint)}
+@media (max-width:760px){.cap.learn{grid-template-columns:auto minmax(0,1fr)}.cap.learn .loop{grid-column:1/-1}}
+.outcomes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.outcomes .lab{font-size:13px;color:var(--muted);margin-right:4px}
+.pill{font:500 12.5px var(--ui);border-radius:999px;padding:4px 11px;background:var(--sunken);color:var(--fg2)}
+.pill.g{background:var(--good-soft);color:var(--good)}
+
+/* Timeline */
+.tl-wrap{overflow-x:auto;padding-bottom:4px}
+.tl{position:relative;display:grid;grid-template-columns:repeat(6,minmax(140px,1fr));min-width:860px;gap:0}
+.tl::before{content:"";position:absolute;left:0;right:0;top:15px;height:2px;background:var(--border1)}
+.tp{position:relative;padding-right:14px;display:flex;flex-direction:column;gap:8px}
+.tp .dot{width:32px;height:32px;border-radius:50%;background:var(--surface);border:2px solid var(--border1);display:grid;place-items:center;font:600 11px var(--mono);color:var(--muted);position:relative}
+.tp .day{font:600 15px var(--mono)}
+.tp .ch{font-weight:600;font-size:14.5px}
+.tp .d{font-size:13px;color:var(--muted)}
+.tp.ai .dot{background:var(--blue);border-color:var(--blue);color:#fff}
+.tp.ai .day{color:var(--blue-ink)}
+.tp.ai .ch::after{content:"Krupal";margin-left:8px;font:600 11px var(--ui);color:var(--blue-ink);background:var(--blue-soft);border-radius:999px;padding:2px 8px;vertical-align:2px}
+.tp.visit .dot{background:var(--sun);border-color:var(--sun);color:#0E0D0B}
+.flow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.2fr) auto minmax(0,1fr);gap:14px;align-items:stretch}
+@media (max-width:860px){.flow{grid-template-columns:minmax(0,1fr)}.flow .arr{transform:rotate(90deg);justify-self:center}}
+.box{border:1px solid var(--border1);border-radius:var(--r);padding:18px;background:var(--surface);min-width:0;display:flex;flex-direction:column;gap:10px}
+.box h3{font-size:15px}
+.box .k{font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.box.mid{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+.box ul{margin:0;padding:0;list-style:none;display:grid;gap:8px;font-size:13.5px}
+.box li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:baseline}
+.box li .t{font:600 11px var(--mono);color:var(--blue-ink);background:var(--blue-soft);border-radius:5px;padding:1px 6px;white-space:nowrap}
+.arr{display:grid;place-items:center;color:var(--hint)}
+.arr svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6}
+
+/* Calculator (ported from the Slot Confirmation Funnel) */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;min-width:0}
+.c-h{font:600 12px var(--ui);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px}
+.note{color:var(--muted);font-size:12.5px;max-width:85ch}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi .v{font:600 22px var(--mono);font-variant-numeric:tabular-nums}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi.save{background:var(--good-soft);border-color:transparent}
+.kpi.save .v{color:var(--good)}
+.kpi.save.neg{background:var(--bad-soft)}
+.kpi.save.neg .v{color:var(--bad)}
+.hf-wrap{overflow-x:auto}
+.hf{display:grid;grid-template-columns:repeat(6,minmax(110px,1fr));min-width:680px}
+.hcol{display:flex;flex-direction:column;min-width:0}
+.hshape{position:relative;height:140px;display:flex;gap:2px}
+.slice{flex:1;background:var(--c)}
+.hcol.excluded .slice{background:repeating-linear-gradient(135deg,var(--border1) 0 5px,transparent 5px 10px)}
+.hpct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:600 13px var(--mono);color:var(--ink,#fff);pointer-events:none;white-space:nowrap}
+.hcol.excluded .hpct{color:var(--muted);font:500 12px var(--ui)}
+.hlab{padding:10px 8px 0;border-left:1px solid var(--border);display:flex;flex-direction:column;min-width:0}
+.hcol:first-child .hlab{border-left:0;padding-left:0}
+.hlab b{font-size:13px;font-weight:600}
+.hlab span{font:11.5px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.hlab .cost{color:var(--fg);font-weight:600}
+.ctop{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 24px;align-items:start;padding-bottom:14px;border-bottom:1px solid var(--border)}
+@media (max-width:760px){.ctop{grid-template-columns:minmax(0,1fr)}}
+.srow{display:grid;grid-template-columns:200px 170px minmax(0,1fr);gap:12px 24px;padding:14px 0;border-bottom:1px solid var(--border);align-items:start}
+@media (max-width:860px){.srow{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.srow .att-wrap{grid-column:1/-1}}
+@media (max-width:520px){.srow{grid-template-columns:minmax(0,1fr)}}
+.who{display:flex;flex-direction:column;gap:7px;align-items:flex-start;min-width:0}
+.who .t{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.who .n{font:600 11px var(--mono);color:var(--muted);border:1px solid var(--border1);border-radius:4px;padding:0 5px}
+.sw2{width:10px;height:10px;border-radius:2px;background:var(--c);flex:none}
+.srow.excluded .t,.srow.excluded .costs,.srow.excluded .att-wrap{opacity:.45}
+.srow.excluded input{pointer-events:none}
+.costs{display:flex;flex-direction:column;gap:8px;min-width:0}
+.presets,.seg{display:flex;flex-wrap:wrap;gap:6px}
+.btn{font:500 12.5px var(--ui);color:var(--fg);background:var(--bg);border:1px solid var(--border1);border-radius:8px;padding:5px 10px;cursor:pointer}
+.btn:hover{border-color:var(--blue)}
+.btn.on{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-ink)}
+label{display:flex;flex-direction:column;gap:2px;font-size:11.5px;color:var(--muted);min-width:0}
+input[type=number]{font:500 14px var(--mono);color:var(--fg);background:var(--bg);border:1px solid var(--border1);border-radius:8px;padding:5px 8px;width:100%;font-variant-numeric:tabular-nums}
+.fields{display:grid;grid-template-columns:minmax(0,180px);gap:8px}
+.inc{display:inline-flex;border:1px solid var(--border1);border-radius:8px;overflow:hidden;flex:none}
+.inc button{font:500 11.5px var(--ui);border:0;background:transparent;color:var(--muted);padding:3px 9px;cursor:pointer}
+.inc button.on.y{background:var(--good-soft);color:var(--good)}
+.inc button.on.n{background:var(--bad-soft);color:var(--bad)}
+.att-wrap{overflow-x:auto;min-width:0}
+.att{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.att th,.att td{padding:4px 8px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border)}
+.att th{font:600 11px var(--ui);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-bottom-color:var(--fg)}
+.att th:first-child,.att td:first-child{text-align:left;padding-left:0}
+.att td{font:13px var(--mono)}
+.att td:first-child{font:500 13px var(--ui)}
+.att td.r{width:96px}
+.att td.r input{padding:3px 6px;font-size:13px;text-align:right}
+.att tr.st td{font-weight:700;border-bottom:0}
+.summary{margin-top:6px;border-top:2px solid var(--fg);padding-top:14px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px 28px}
+@media (max-width:900px){.summary{grid-template-columns:minmax(0,1fr)}}
+.bigrow{display:flex;flex-wrap:wrap;gap:8px 32px;margin-bottom:6px}
+.sum-total .big{font:600 28px var(--mono);font-variant-numeric:tabular-nums}
+.sum-total .capt{font-size:12.5px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip.off{color:var(--muted);text-decoration:line-through}
+.models{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media (max-width:480px){.models{grid-template-columns:minmax(0,1fr)}}
+.mbox{border:1px solid var(--border1);border-radius:10px;padding:10px 12px;min-width:0}
+.mbox.sel{border-color:var(--blue);background:var(--blue-soft)}
+.mbox .h{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.mbox.sel .h{color:var(--blue-ink)}
+.mbox .v{font:600 18px var(--mono);font-variant-numeric:tabular-nums}
+.mbox .s{font:12px var(--mono);font-variant-numeric:tabular-nums}
+.tbl-wrap{overflow-x:auto}
+table.cmp{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.cmp th,.cmp td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+.cmp th:first-child,.cmp td:first-child{text-align:left}
+.cmp th{font-size:12px;color:var(--muted);font-weight:600}
+.cmp td{font-family:var(--mono);font-size:13.5px}
+.cmp td:first-child{font-family:var(--ui);font-weight:500}
+.cmp th.sel{color:var(--blue-ink)}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+footer{padding-block:32px 48px;color:var(--hint);font-size:12.5px}
+footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
+</style>
+
+</head>
+<body>
+<header class="bar">
+  <div class="in">
+    <img class="logo" alt="SolarSquare" src="data:image/webp;base64,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">
+    <nav class="nav" aria-label="Sections">
+      <a href="#team">Team</a>
+      <a href="#problem">Problem</a>
+      <a href="#krupal">Meet Krupal</a>
+      <a href="#does">What he does</a>
+      <a href="#fit">Where he sits</a>
+      <a href="#numbers">Calculator</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- Cover -->
+  <section class="s cover" id="top">
+    <div class="in">
+      <div class="tag"><i></i>AI Voice Agent Hackathon · Service slot scheduling &amp; confirmation</div>
+      <h1>Meet <em>Krupal</em>, our own AMC scheduler</h1>
+      <p class="lede">An AI voice agent that calls customers whose solar service is due, offers the slot Beat Planning recommends, and books it in natural Hinglish. When the slot doesn't suit, he finds another one.</p>
+      <div class="facts">
+        <div><div class="v" id="c_due">42,499</div><div class="l">sites due for a service visit each month</div></div>
+        <div><div class="v" id="c_need">–</div><div class="l">still unconfirmed after app and WhatsApp</div></div>
+        <div><div class="v" id="c_calls">–</div><div class="l">scheduler calls a month to close the gap</div></div>
+      </div>
+      <p class="src">Sites due: PM visits due in Oct 2026, all clusters, SSE + NSSE. Other figures come from the funnel calculator at its default setup, without AI calling.</p>
+    </div>
+  </section>
+
+  <!-- 1. Team -->
+  <section class="s" id="team">
+    <div class="in stack">
+      <div>
+        <div class="eyebrow"><b>01</b> Team</div>
+        <h2>Five of us, one scheduler</h2>
+      </div>
+      <div class="team">
+        <div class="person"><div class="av">C</div><div><div class="n">Chaitanya</div><div class="r">Team member</div></div></div>
+        <div class="person star"><div class="av">K</div><div><div class="n">Krupal</div><div class="r">Voice artist · the voice of the agent</div></div></div>
+        <div class="person"><div class="av">D</div><div><div class="n">Dhrumil</div><div class="r">Team member</div></div></div>
+        <div class="person"><div class="av">R</div><div><div class="n">Raghav</div><div class="r">Team member</div></div></div>
+        <div class="person"><div class="av">J</div><div><div class="n">Jasir</div><div class="r">Team member</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Problem -->
+  <section class="s" id="problem">
+    <div class="in stack">
+      <div>
+        <div class="eyebrow"><b>02</b> Problem statement</div>
+        <h2>Two in three customers still need a person to call them before a service visit</h2>
+        <p class="lede">Beat Planning soft-books a slot for every site due in the next 15 days. App and WhatsApp nudges confirm only about a third of them. Our scheduling team calls everyone else, up to three times each, mostly to hear "yes, that day works".</p>
+      </div>
+      <div class="two">
+        <div class="card">
+          <h3 class="c-h">Who confirms the slot today · per month</h3>
+          <div class="sbar" id="p_bar"></div>
+          <div class="legend" id="p_legend"></div>
+          <p class="note" style="margin-top:14px">Same model as the calculator below, default setup with AI calling switched off. In-app and WhatsApp rates are Lucknow + Bengaluru outreach from Nov 2026. Scheduler rates are the team's target.</p>
+        </div>
+        <div class="pains">
+          <div class="pain"><div class="v" id="p_calls">–</div><div class="t">Scheduler calls a month</div><div class="d">Each unconfirmed customer gets up to three attempts. Most of these calls are routine.</div></div>
+          <div class="pain"><div class="v" id="p_share">–</div><div class="t">Of funnel cost is human calling</div><div class="d"><span id="p_cost">–</span> of <span id="p_total">–</span> a month goes to scheduler calls at ₹8 a call.</div></div>
+          <div class="pain"><div class="v">~66%</div><div class="t">Serviced in Lucknow and Bengaluru</div><div class="d">Share of October's due sites that got their visit. Every slot that isn't confirmed early is a visit at risk.</div>
+            <div class="cluster"><span class="chip">All clusters 88.3%</span><span class="chip">Lucknow 66.1%</span><span class="chip">Bengaluru 65.1%</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Meet Krupal -->
+  <section class="s" id="krupal">
+    <div class="in">
+      <div class="agent">
+        <div class="idcard">
+          <div class="top">
+            <div class="big">K</div>
+            <div><div class="name">Krupal</div><div class="role">Scheduler, SolarSquare service team</div></div>
+          </div>
+          <div class="wave" id="wave" aria-hidden="true"></div>
+          <dl class="kv">
+            <dt>Voice</dt><dd>Cloned from Krupal on our team</dd>
+            <dt>Speaks</dt><dd>Hinglish first, English on request</dd>
+            <dt>Works from</dt><dd>Beat Planning slots</dd>
+            <dt>Calls at</dt><dd>T-3 days before the visit</dd>
+          </dl>
+        </div>
+        <div>
+          <div class="eyebrow"><b>03</b> Introducing the agent</div>
+          <h2>Krupal is our own scheduler, on the phone</h2>
+          <p class="lede">He sounds like a member of the service team because he is one: the voice is Krupal's own. He calls, introduces himself, says the call is recorded, and gets to the point.</p>
+          <div class="quote" style="margin-top:24px">
+            <div class="hi">"नमस्ते, क्या मेरी बात शर्मा जी से हो रही है? मैं Krupal, SolarSquare से बोल रहा हूँ। यह कॉल रिकॉर्ड की जा रही है।"</div>
+            <div class="en">Hello, am I speaking with Mr Sharma? This is Krupal from SolarSquare. This call is being recorded.</div>
+          </div>
+          <div class="rules">
+            <div class="rule"><b>Says the call is recorded</b><span>In the first line of every call.</span></div>
+            <div class="rule"><b>Never quotes prices</b><span>No prices, savings or subsidy amounts.</span></div>
+            <div class="rule"><b>Stops when asked</b><span>Do-not-call requests end the call and are logged.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. What Krupal does -->
+  <section class="s" id="does">
+    <div class="in stack">
+      <div>
+        <div class="eyebrow"><b>04</b> What Krupal does</div>
+        <h2>He calls customers whose service is due and books the slot Beat Planning recommends</h2>
+        <p class="lede">One call covers the cases our schedulers handle every day. Every call ends with a clear outcome and a note on the site.</p>
+      </div>
+      <div class="caps">
+        <div class="cap">
+          <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M9 15l2 2 4-4"/></svg></div>
+          <h3>Confirms the recommended slot</h3>
+          <p>Opens with the date Beat Planning picked and books it on a yes.</p>
+          <div class="say">"Friday, 5 December ko slot hai, kya aap available rahenge?"</div>
+        </div>
+        <div class="cap">
+          <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+          <h3>Offers other slots</h3>
+          <p>Three-hour windows (9–12, 12–3, 3–6) on the same day, or other days with free slots in Beat Planning.</p>
+          <div class="say">"Friday ya Saturday mein se koi din theek rahega?"</div>
+        </div>
+        <div class="cap">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M9 3v18M15 3v18M9 7h6M9 12h6M9 17h6"/></svg></div>
+          <h3>Asks for site details</h3>
+          <p>Checks the A-type ladder, a water source and a light connection before booking, so the hero can do the job.</p>
+          <div class="say">"Kya aapke paas A-type ladder hai?"</div>
+        </div>
+        <div class="cap">
+          <div class="ic"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></div>
+          <h3>Puts a site on hold</h3>
+          <p>If the site isn't ready, he gets a date it will be and the customer's OK to pause calls until then.</p>
+          <div class="say">"Ladder kab tak arrange ho jayegi?"</div>
+        </div>
+        <div class="cap">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 0 0-7.1 7.1L12 21.5l8.8-8.8a5 5 0 0 0 0-7.1z"/></svg></div>
+          <h3>Shows empathy</h3>
+          <p>When a customer is going through a hard time, he slows down, apologises, stops the call and asks a senior to follow up later.</p>
+          <div class="say">"Yeh sunkar bahut dukh hua. Abhi hum call nahi karenge."</div>
+        </div>
+        <div class="cap">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg></div>
+          <h3>Writes the call notes</h3>
+          <p>After every call he posts a summary and the structured call record as a comment on the site in Beat Planning.</p>
+          <div class="say">Outcome, slot, readiness, hold date and callback time</div>
+        </div>
+        <div class="cap learn">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></div>
+          <div><h3>Keeps learning, call after call</h3>
+          <p>He only needs a teacher. Someone reviews calls, finds where the script failed, and writes the right answer. From the next call on, Krupal uses it.</p></div>
+          <div class="loop" aria-label="Learning loop"><span>Krupal calls</span><i>→</i><span>Teacher spots a miss</span><i>→</i><span>Adds the answer to the script</span><i>→</i><span>Next call gets it right</span></div>
+        </div>
+      </div>
+      <div class="outcomes">
+        <span class="lab">Every call ends as one of:</span>
+        <span class="pill g">Slot confirmed</span><span class="pill">Site on hold</span><span class="pill">Call back later</span><span class="pill">Senior callback</span><span class="pill">Date requested</span><span class="pill">Sensitive situation</span><span class="pill">Do not call</span><span class="pill">Wrong number</span><span class="pill">No answer</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Where it sits -->
+  <section class="s" id="fit">
+    <div class="in stack">
+      <div>
+        <div class="eyebrow"><b>05</b> Where Krupal sits in AMC</div>
+        <h2>He joins the reminder journey three days before the visit</h2>
+        <p class="lede">To start with, Krupal is linked directly to Beat Planning. Beat Planning suggests a slot and Krupal works to confirm it. If the customer can't make it, he checks Beat Planning for other free slots.</p>
+      </div>
+      <div class="tl-wrap">
+        <div class="tl">
+          <div class="tp"><div class="dot">15</div><div class="day">T-15</div><div class="ch">App notification</div><div class="d">Beat Planning soft-books the slot and the customer gets an in-app notification.</div></div>
+          <div class="tp"><div class="dot">11</div><div class="day">T-11 · T-8 · T-4</div><div class="ch">WhatsApp + in-app</div><div class="d">Three reminders asking the customer to confirm the slot.</div></div>
+          <div class="tp ai"><div class="dot">3</div><div class="day">T-3</div><div class="ch">AI calling</div><div class="d">Krupal calls everyone still unconfirmed.</div></div>
+          <div class="tp"><div class="dot">1</div><div class="day">T-1</div><div class="ch">Scheduler calling</div><div class="d">The team calls only the customers Krupal couldn't close.</div></div>
+          <div class="tp visit"><div class="dot">0</div><div class="day">T-0</div><div class="ch">Service visit</div><div class="d">The hero reaches a site that is booked and ready.</div></div>
+          <div class="tp"></div>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="box">
+          <div class="k">Input</div>
+          <h3>Beat Planning</h3>
+          <ul>
+            <li><span class="t">slot</span><span>Recommended date and service hero for the site</span></li>
+            <li><span class="t">site</span><span>Customer name, number and visit history</span></li>
+          </ul>
+        </div>
+        <div class="arr"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="box mid">
+          <div class="k">The call</div>
+          <h3>Krupal</h3>
+          <ul>
+            <li><span class="t">yes</span><span>Checks ladder, water and light, repeats the details</span></li>
+            <li><span class="t">other time</span><span>Offers a 3-hour window on the same day</span></li>
+            <li><span class="t">other day</span><span>Asks Beat Planning for alternate slots</span></li>
+            <li><span class="t">not ready</span><span>Takes a ready date and consent to hold</span></li>
+          </ul>
+        </div>
+        <div class="arr"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="box">
+          <div class="k">Written back</div>
+          <h3>Beat Planning / Zeus</h3>
+          <ul>
+            <li><span class="t">book</span><span>Slot confirmed</span></li>
+            <li><span class="t">hold</span><span>Site on hold until a date</span></li>
+            <li><span class="t">callback</span><span>Recall or senior callback task</span></li>
+            <li><span class="t">comment</span><span>Call notes on the site</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Calculator -->
+  <section class="s" id="numbers">
+    <div class="in stack">
+      <div>
+        <div class="eyebrow"><b>06</b> The numbers</div>
+        <h2>What it costs to confirm every visit, with and without Krupal</h2>
+        <p class="lede">Each step only reaches customers who are still unconfirmed. Change the costs, attempts and confirm rates to test your own assumptions. It opens with the 42,499 sites due in Oct 2026.</p>
+      </div>
+
+      <div class="kpis">
+        <div class="card kpi"><div class="v" id="k_conf">–</div><div class="l">Confirmed / month</div></div>
+        <div class="card kpi"><div class="v" id="k_cost">–</div><div class="l">Total cost / month</div></div>
+        <div class="card kpi"><div class="v" id="k_cps">–</div><div class="l">Cost per site due</div></div>
+        <div class="card kpi"><div class="v" id="k_cpc">–</div><div class="l">Cost per confirmed service</div></div>
+        <div class="card kpi save" id="k_save_card"><div class="v" id="k_save">–</div><div class="l" id="k_save_l">Saved by AI calling / month</div></div>
+      </div>
+
+      <div class="card" aria-label="Funnel">
+        <h3 class="c-h">Funnel · per month <span style="text-transform:none;letter-spacing:0;font-weight:400">· height = customers reaching the step, one slice per attempt, number = share the step confirms</span></h3>
+        <div class="hf-wrap"><div class="hf" id="hf"></div></div>
+      </div>
+
+      <div class="card" aria-label="Calculator">
+        <h3 class="c-h">Calculator</h3>
+        <div class="ctop">
+          <div class="presets" role="group" aria-label="Load numbers">
+            <button type="button" class="btn on" data-p="all">All clusters</button>
+            <button type="button" class="btn" data-p="lko">Lucknow</button>
+            <button type="button" class="btn" data-p="blr">Bengaluru</button>
+            <button type="button" class="btn" data-p="ex">Example</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+            <div class="fields"><label>Sites due / month<input type="number" id="n" value="42499" min="0" step="100"></label></div>
+            <p class="note" id="preset_note" style="font-size:11.5px"></p>
+          </div>
+        </div>
+
+        <div class="srow" id="row_app" style="--c:var(--f1)">
+          <div class="who"><div class="t"><span class="sw2"></span><span class="n">1</span>In-app notification</div>
+            <div class="inc" data-k="app"><button type="button" class="y on">Include</button><button type="button" class="n">Exclude</button></div></div>
+          <div class="costs">
+            <label>₹ per send<input type="number" id="app_cost" value="0" min="0" step="0.01"></label>
+            <label>Attempts<input type="number" id="app_n" value="1" min="1" max="6" step="1"></label>
+          </div>
+          <div class="att-wrap" id="att_app"></div>
+        </div>
+
+        <div class="srow" id="row_wa" style="--c:var(--f2)">
+          <div class="who"><div class="t"><span class="sw2"></span><span class="n">2</span>WhatsApp notification</div>
+            <div class="inc" data-k="wa"><button type="button" class="y on">Include</button><button type="button" class="n">Exclude</button></div></div>
+          <div class="costs">
+            <label>₹ per message<input type="number" id="wa_cost" value="0.13" min="0" step="0.01"></label>
+            <label>Attempts<input type="number" id="wa_n" value="3" min="1" max="6" step="1"></label>
+          </div>
+          <div class="att-wrap" id="att_wa"></div>
+        </div>
+
+        <div class="srow" id="row_ai" style="--c:var(--f3)">
+          <div class="who"><div class="t"><span class="sw2"></span><span class="n">3</span>AI calling · Krupal</div>
+            <div class="inc" data-k="ai"><button type="button" class="y on">Include</button><button type="button" class="n">Exclude</button></div>
+            <div class="seg" role="group" aria-label="AI voice model">
+              <button type="button" class="btn on" data-m="sarvam">Sarvam</button>
+              <button type="button" class="btn" data-m="oss">Open source</button>
+            </div></div>
+          <div class="costs">
+            <label>Sarvam ₹ / call<input type="number" id="ai_cost_sarvam" value="2.7" min="0" step="0.1"></label>
+            <label>Open source ₹ / call<input type="number" id="ai_cost_oss" value="1" min="0" step="0.1"></label>
+            <label>Attempts<input type="number" id="ai_n" value="2" min="1" max="6" step="1"></label>
+          </div>
+          <div class="att-wrap" id="att_ai"></div>
+        </div>
+
+        <div class="srow" id="row_sch" style="--c:var(--f4)">
+          <div class="who"><div class="t"><span class="sw2"></span><span class="n">4</span>Scheduler calling</div>
+            <div class="inc" data-k="sch"><button type="button" class="y on">Include</button><button type="button" class="n">Exclude</button></div></div>
+          <div class="costs">
+            <label>₹ per call<input type="number" id="sch_cost" value="8" min="0" step="0.5"></label>
+            <label>Attempts<input type="number" id="sch_n" value="3" min="1" max="6" step="1"></label>
+          </div>
+          <div class="att-wrap" id="att_sch"></div>
+        </div>
+
+        <p class="note" style="font-size:11.5px;margin-block:4px 12px">Confirm % is the share of customers still unconfirmed at that attempt. Attempt 2 only goes to customers attempt 1 did not confirm, and so on. Excluded steps are skipped and their customers pass to the next step.</p>
+
+        <div class="summary" aria-label="Total cost">
+          <div class="sum-total">
+            <h3 class="c-h" style="margin-bottom:6px">Total cost · current setup · 1 month</h3>
+            <div class="bigrow">
+              <div><div class="big" id="s_total">–</div><div class="capt">total cost</div></div>
+              <div><div class="big" id="s_cpsite">–</div><div class="capt">cost per site = total cost ÷ sites due</div></div>
+              <div><div class="big" id="s_cps">–</div><div class="capt">cost per confirmed service = total cost ÷ sites confirmed</div></div>
+            </div>
+            <div class="capt" id="s_cap"></div>
+            <div class="chips" id="s_chips"></div>
+          </div>
+          <div>
+            <h3 class="c-h" style="margin-bottom:6px">Same setup, by AI calling choice · 1 month</h3>
+            <div class="models" id="s_models"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="c-h">What AI calling adds · per month</h3>
+        <div class="tbl-wrap"><table class="cmp">
+          <thead><tr><th></th><th>No AI calling</th><th id="h_sarvam">Sarvam</th><th id="h_oss">Open source</th></tr></thead>
+          <tbody id="cmp"></tbody>
+        </table></div>
+        <p class="note" id="cmp_note" style="margin-top:10px"></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer><div class="in"><span>Krupal · AMC scheduling voice agent · SolarSquare hackathon, Nov 2026</span><span>Test numbers only. No customer data on this page.</span></div></footer>
+
+<script>
+// Waveform on Krupal's card
+(function(){const w=document.getElementById('wave');const h=[6,12,20,14,24,10,18,26,12,8,16,22,10,6,14,20,12,8,18,10,6];w.innerHTML=h.map(x=>`<i style="height:${x}px"></i>`).join('')})();
+
+// Active nav link
+(function(){
+  const links=[...document.querySelectorAll('.nav a')];
+  const secs=links.map(a=>document.querySelector(a.getAttribute('href')));
+  const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+e.target.id))}})},{rootMargin:'-40% 0px -55% 0px'});
+  secs.forEach(s=>s&&io.observe(s));
+})();
+
+const $=id=>document.getElementById(id);
+const num=id=>{const el=$(id);if(!el)return 0;const v=parseFloat(el.value);return isFinite(v)&&v>=0?v:0};
+const inr=v=>(v<0?'−':'')+'₹'+Math.round(Math.abs(v)).toLocaleString('en-IN');
+const inr2=v=>'₹'+v.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const cnt=v=>Math.round(v).toLocaleString('en-IN');
+const P=v=>(v*100).toFixed(v*100<10?1:0)+'%';
+
+const STEPS=[
+  {k:'app',name:'In-app notification',short:'In-app',c:'--f1'},
+  {k:'wa',name:'WhatsApp notification',short:'WhatsApp',c:'--f2'},
+  {k:'ai',name:'AI calling',short:'AI calling',c:'--f3'},
+  {k:'sch',name:'Scheduler calling',short:'Scheduler',c:'--f4',ink:'#0E0D0B'},
+];
+const MAX_ATT=6;
+const rates={app:[5.9,2,1,1,1,1],wa:[18.7,9.0,5.3,1.6,1,1],ai:[35,23,10,5,5,5],sch:[40,25.8,10,5,5,5]};
+const inc={app:true,wa:true,ai:true,sch:true};
+let model='sarvam';
+const MODEL_NAME={sarvam:'Sarvam',oss:'Open source'};
+const unitCost=(k,m)=>k==='ai'?num(m==='sarvam'?'ai_cost_sarvam':'ai_cost_oss'):num(k+'_cost');
+const nAtt=k=>Math.max(1,Math.min(MAX_ATT,Math.round(num(k+'_n'))||1));
+
+function buildAttInputs(k){
+  const n=nAtt(k);
+  let h=`<table class="att"><thead><tr><th>Attempt</th><th>Confirm %</th><th>Customers reached</th><th>Confirmed</th><th>Total cost</th></tr></thead><tbody>`;
+  for(let i=0;i<n;i++) h+=`<tr><td>Attempt ${i+1}</td><td class="r"><input type="number" id="${k}_r${i}" data-i="${i}" value="${rates[k][i]}" min="0" max="100" step="0.1" aria-label="Attempt ${i+1} confirm %"></td><td id="${k}_reach${i}">–</td><td id="${k}_conf${i}">–</td><td id="${k}_cost${i}">–</td></tr>`;
+  h+=`<tr class="st"><td>Step total</td><td id="${k}_tr">–</td><td id="${k}_treach">–</td><td id="${k}_tconf">–</td><td id="${k}_tcost">–</td></tr></tbody></table>`;
+  $('att_'+k).innerHTML=h;
+  $('att_'+k).querySelectorAll('input').forEach(inp=>inp.addEventListener('input',()=>{
+    const v=parseFloat(inp.value); rates[k][+inp.dataset.i]=isFinite(v)?Math.min(100,Math.max(0,v)):0;
+    clearPreset(); render();
+  }));
+}
+
+function runStep(k,left,m,R,nA,unitFn){
+  R=R||rates; const n=nA?nA(k):nAtt(k), unit=(unitFn||unitCost)(k,m), atts=[];
+  let cost=0,conf=0;
+  for(let i=0;i<n;i++){
+    const reach=left, r=R[k][i]/100, c=reach*r;
+    atts.push({i,reach,rate:r,conf:c,cost:reach*unit,outLeft:reach-c});
+    cost+=reach*unit; conf+=c; left-=c;
+  }
+  return {atts,cost,conf,left,sends:atts.reduce((a,x)=>a+x.reach,0)};
+}
+function run(N,opts){
+  let left=N,cum=0,total=0;const rows=[];
+  for(const s of STEPS){
+    const on=s.k==='ai'?opts.ai:(opts.inc||inc)[s.k];
+    const inLeft=left;
+    if(!on){rows.push({...s,on,reached:0,conf:0,cost:0,sends:0,atts:[],inLeft,outLeft:left});continue;}
+    const r=runStep(s.k,left,opts.model,opts.rates,opts.nAtt,opts.unit);
+    left=r.left;cum+=r.conf;total+=r.cost;
+    rows.push({...s,on,reached:inLeft,conf:r.conf,cost:r.cost,sends:r.sends,atts:r.atts,inLeft,outLeft:left});
+  }
+  return {rows,total,confirmed:cum,unconfirmed:left};
+}
+const unitsPerSite=k=>{let s=1,u=0;for(let i=0;i<nAtt(k);i++){u+=s;s*=1-rates[k][i]/100}return u};
+
+function htrap(a,b){
+  const l=Math.max(a,.12),r=Math.max(b,.12);
+  return `polygon(0 ${(1-l)/2*100}%,100% ${(1-r)/2*100}%,100% ${(1+r)/2*100}%,0 ${(1+l)/2*100}%)`;
+}
+function hcol(c,ink,slices,label,lab,excluded){
+  const s=slices.length?slices.map(x=>`<div class="slice" style="clip-path:${htrap(x.a,x.b)}"></div>`).join(''):`<div class="slice"></div>`;
+  return `<div class="hcol${excluded?' excluded':''}" style="--c:var(${c});${ink?'--ink:'+ink:''}"><div class="hshape">${s}<div class="hpct">${label}</div></div><div class="hlab">${lab}</div></div>`;
+}
+
+function render(){
+  const N=num('n');
+  const cur=run(N,{ai:inc.ai,model});
+  const none=run(N,{ai:false,model});
+  const sv=run(N,{ai:true,model:'sarvam'}), os=run(N,{ai:true,model:'oss'});
+  const withSel=model==='sarvam'?sv:os;
+  const f=v=>N?v/N:0;
+
+  $('k_conf').textContent=cnt(cur.confirmed)+' · '+(N?P(cur.confirmed/N):'0%');
+  $('k_cost').textContent=inr(cur.total);
+  $('k_cps').textContent=N?inr2(cur.total/N):'–';
+  $('k_cpc').textContent=cur.confirmed?inr2(cur.total/cur.confirmed):'–';
+  const saving=none.total-withSel.total;
+  $('k_save').textContent=inr(saving);
+  $('k_save_l').textContent=(saving>=0?'Saved':'Extra cost')+' with '+MODEL_NAME[model]+' AI calling / month';
+  $('k_save_card').classList.toggle('neg',saving<0);
+
+  let h=hcol('--f0','var(--bg)',[{a:1,b:1}],cnt(N),`<b>All sites</b><span>to confirm</span>`);
+  for(const r of cur.rows){
+    const name=r.k==='ai'?`Krupal · ${MODEL_NAME[model]}`:r.short;
+    $('row_'+r.k).classList.toggle('excluded',!r.on);
+    if(!r.on){h+=hcol(r.c,'',[],'Excluded',`<b>${name}</b><span>${cnt(r.inLeft)} pass through</span>`,true);continue;}
+    h+=hcol(r.c,r.ink||(r.k==='app'?'var(--bg)':r.k==='ai'?'var(--f3ink)':''),r.atts.map(a=>({a:f(a.reach),b:f(a.outLeft)})),P(r.reached?r.conf/r.reached:0),
+      `<b>${name}</b><span>${cnt(r.conf)} of ${cnt(r.reached)}</span><span>${r.atts.length} attempt${r.atts.length>1?'s':''}</span><span class="cost">${inr(r.cost)}</span>`);
+  }
+  h+=hcol('--fx','var(--fg)',[{a:f(cur.unconfirmed),b:f(cur.unconfirmed)}],N?P(cur.unconfirmed/N):'',`<b>Not confirmed</b><span>${cnt(cur.unconfirmed)} customers</span>`);
+  $('hf').innerHTML=h;
+
+  for(const r of cur.rows){
+    const k=r.k, n=nAtt(k);
+    for(let i=0;i<n;i++){
+      const a=r.atts[i];
+      $(`${k}_reach${i}`).textContent=r.on?cnt(a.reach):'–';
+      $(`${k}_conf${i}`).textContent=r.on?cnt(a.conf):'–';
+      $(`${k}_cost${i}`).textContent=r.on?inr(a.cost):'–';
+    }
+    $(`${k}_tr`).textContent=r.on&&r.reached?P(r.conf/r.reached):'–';
+    $(`${k}_treach`).textContent=r.on?cnt(r.reached):'–';
+    $(`${k}_tconf`).textContent=r.on?cnt(r.conf):'–';
+    $(`${k}_tcost`).textContent=r.on?inr(r.cost):'–';
+  }
+
+  const incl=cur.rows.filter(r=>r.on).map(r=>(r.k==='ai'?'AI calling ('+MODEL_NAME[model]+')':r.short)+' ×'+r.atts.length);
+  $('s_total').textContent=inr(cur.total);
+  $('s_cpsite').textContent=N?inr2(cur.total/N):'–';
+  $('s_cps').textContent=cur.confirmed?inr2(cur.total/cur.confirmed):'–';
+  $('s_cap').textContent=`${cnt(cur.confirmed)} of ${cnt(N)} sites confirmed · ${incl.length?incl.join(' → '):'no steps included'}`;
+  $('s_chips').innerHTML=cur.rows.map(r=>`<span class="chip${r.on?'':' off'}">${r.k==='ai'?'AI ('+MODEL_NAME[model]+')':r.short} ${inr(r.cost)}</span>`).join('');
+  const box=(key,lab,s)=>{
+    const sel=(key==='none'&&!inc.ai)||(inc.ai&&key===model);
+    const d=none.total-s.total;
+    return `<div class="mbox${sel?' sel':''}"><div class="h"><span>${lab}</span><span>${sel?'current':''}</span></div>
+      <div class="v">${inr(s.total)}</div>
+      <div class="s">${s.confirmed?inr2(s.total/s.confirmed):'–'} per service</div>
+      <div class="s">${cnt(s.confirmed)} confirmed</div>
+      <div class="s ${key==='none'?'':(d>=0?'pos':'neg')}">${key==='none'?'baseline':(d>=0?'saves ':'costs ')+inr(Math.abs(d))}</div></div>`;
+  };
+  $('s_models').innerHTML=box('none','No AI calling',none)+box('sarvam','Sarvam',sv)+box('oss','Open source',os);
+
+  $('h_sarvam').className=model==='sarvam'?'sel':''; $('h_oss').className=model==='oss'?'sel':'';
+  const schPer=num('sch_cost')*unitsPerSite('sch');
+  const aiPer=m=>unitCost('ai',m)*unitsPerSite('ai');
+  const be=m=>inc.sch&&schPer?(aiPer(m)/schPer*100).toFixed(1)+'%':'–';
+  const cols=[none,sv,os];
+  const sav=s=>none.total-s.total;
+  const line=(lab,fn,cls)=>`<tr><td>${lab}</td>${cols.map((s,i)=>`<td class="${cls?cls(s,i):''}">${fn(s,i)}</td>`).join('')}</tr>`;
+  const sc=(s,i)=>i?(sav(s)>=0?'pos':'neg'):'';
+  $('cmp').innerHTML=
+    line('AI calling cost',s=>inr(s.rows[2].cost))+
+    line('Scheduler calls',s=>cnt(s.rows[3].sends))+
+    line('Scheduler cost',s=>inr(s.rows[3].cost))+
+    line('Total cost',s=>inr(s.total))+
+    line('Confirmed',s=>cnt(s.confirmed))+
+    line('Cost per service',s=>s.confirmed?inr2(s.total/s.confirmed):'–')+
+    line('Saving vs no AI',(s,i)=>i?inr(sav(s)):'–',sc)+
+    line('Break-even AI confirm %',(s,i)=>i?be(i===1?'sarvam':'oss'):'–');
+  $('cmp_note').textContent=inc.sch
+    ?`AI calling costs about ${inr2(aiPer('sarvam'))} (Sarvam) or ${inr2(aiPer('oss'))} (open source) per customer it reaches, and saves about ${inr2(schPer)} of scheduler calls for each customer it confirms. Every column keeps steps 1, 2 and 4 as set above.`
+    :'Scheduler calling is excluded, so AI calling has no scheduler cost to save; it only adds confirmations.';
+}
+
+// Volume = distinct sites with a PM ticket due in Oct 2026 (Cortex, SSE + NSSE).
+// In-app and WhatsApp rates = Beat Plan outreach 1–23 Nov 2026 (Lucknow + Bengaluru).
+// Scheduler: 3 attempts at 60 / 50 / 40% (team-set target, 88% of customers reached). AI calling rates are assumptions.
+const PRESETS={
+  all:{n:42499,app:[5.9],wa:[18.7,9.0,5.3,1.6],sch:[60,50,40,10,10],
+    note:'Volume: 42,499 sites with a PM visit due in Oct 2026, all clusters, SSE + NSSE (October actual: 88.3% serviced). Scheduler calling confirms 88% of customers it reaches over 3 attempts. In-app and WhatsApp rates are Lucknow + Bengaluru Nov outreach.'},
+  lko:{n:3047,app:[6.8],wa:[15.6,8.1,3.2,0.8],sch:[60,50,40,10,10],
+    note:'Lucknow: 3,047 sites due in Oct 2026 (October actual: 66.1% serviced). In-app and WhatsApp rates from 689 finished Nov outreaches.'},
+  blr:{n:1400,app:[3.5],wa:[26.9,11.5,11.8,4.2],sch:[60,50,40,10,10],
+    note:'Bengaluru: 1,400 sites due in Oct 2026 (October actual: 65.1% serviced). In-app and WhatsApp rates from 258 finished Nov outreaches.'},
+  ex:{n:10000,app:[10],wa:[20,10,5,3],sch:[50,40,30,20,10],note:'Example values, not real data.'}
+};
+const TAIL=' The split of scheduler rates across attempts and all AI calling numbers are assumptions.';
+function clearPreset(){document.querySelectorAll('.presets .btn').forEach(b=>b.classList.remove('on'))}
+function applyPreset(k){
+  const p=PRESETS[k];
+  $('n').value=p.n;
+  ['app','wa','sch'].forEach(s=>p[s].forEach((v,i)=>rates[s][i]=v));
+  STEPS.forEach(s=>buildAttInputs(s.k));
+  $('preset_note').textContent=p.note+(k==='ex'?'':TAIL);
+  document.querySelectorAll('.presets .btn').forEach(b=>b.classList.toggle('on',b.dataset.p===k));
+  render();
+}
+document.querySelectorAll('.presets .btn').forEach(b=>b.addEventListener('click',()=>applyPreset(b.dataset.p)));
+document.querySelectorAll('.inc').forEach(g=>{
+  const k=g.dataset.k;
+  g.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    inc[k]=b.classList.contains('y');
+    g.querySelector('.y').classList.toggle('on',inc[k]);
+    g.querySelector('.n').classList.toggle('on',!inc[k]);
+    render();
+  }));
+});
+document.querySelectorAll('[data-m]').forEach(b=>b.addEventListener('click',()=>{
+  model=b.dataset.m;
+  document.querySelectorAll('[data-m]').forEach(x=>x.classList.toggle('on',x===b));
+  render();
+}));
+document.querySelectorAll('.costs input[type=number], .fields input[type=number]').forEach(i=>i.addEventListener('input',()=>{
+  if(i.id.endsWith('_n')) buildAttInputs(i.id.slice(0,-2));
+  if(i.id==='n') clearPreset();
+  render();
+}));
+applyPreset('all');
+
+// Problem slide + cover: fixed default setup without AI calling, so they don't move when the calculator is edited.
+(function(){
+  const R={app:[5.9],wa:[18.7,9.0,5.3],ai:[35,23],sch:[60,50,40]};
+  const C={app:0,wa:0.13,ai:2.7,sch:8};
+  const NA={app:1,wa:3,ai:2,sch:3};
+  const N=42499;
+  const b=run(N,{ai:false,model:'sarvam',rates:R,nAtt:k=>NA[k],unit:k=>C[k],inc:{app:true,wa:true,sch:true}});
+  const [app,wa,,sch]=b.rows;
+  const segs=[
+    {c:'--f1',lab:'In-app notification',v:app.conf},
+    {c:'--f2',lab:'WhatsApp (3 messages)',v:wa.conf},
+    {c:'--f4',lab:'Scheduler calls (3 attempts)',v:sch.conf},
+    {c:'--fx',lab:'Not confirmed',v:b.unconfirmed},
+  ];
+  $('p_bar').innerHTML=segs.map(s=>`<div style="--c:var(${s.c});flex:${s.v}"></div>`).join('');
+  $('p_legend').innerHTML=segs.map(s=>`<div class="row" style="--c:var(${s.c})"><span class="sw"></span><span>${s.lab}</span><span class="n">${cnt(s.v)}</span><span class="p">${P(s.v/N)}</span></div>`).join('');
+  $('p_calls').textContent=cnt(sch.sends);
+  $('p_share').textContent=P(sch.cost/b.total);
+  $('p_cost').textContent=inr(sch.cost);
+  $('p_total').textContent=inr(b.total);
+  $('c_need').textContent=cnt(sch.inLeft);
+  $('c_calls').textContent=cnt(sch.sends);
+})();
+</script>
+
+</body>
+</html>
