@@ -30,7 +30,14 @@
     select { width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid var(--border-1); border-radius:10px; background:#fff; font:var(--text-sm) var(--font-sans); color:var(--fg-1); }
     .item { display:block; width:100%; text-align:left; border:1px solid transparent; background:transparent; border-radius:12px; padding:10px 12px; cursor:pointer; font:inherit; color:inherit; }
     .item:hover { background:var(--bg-sunken); }
-    .item.sel { background:var(--blue-50); border-color:var(--blue-200); }
+    /* each call card takes the colour of its outcome in the chart above: faint normally, stronger when selected */
+    .item + .item { margin-top:8px; }
+    .item { --tone:var(--ink-200); background:color-mix(in srgb, var(--tone) 10%, #fff); }
+    .item:hover { background:color-mix(in srgb, var(--tone) 18%, #fff); }
+    .item.sel { background:color-mix(in srgb, var(--tone) 32%, #fff); border-color:var(--tone); }
+    .item.g-confirmed { --tone:var(--leaf-600); } .item.g-hold { --tone:var(--blue-500); } .item.g-callback { --tone:var(--sun-500, #FFC11F); }
+    .item.g-info { --tone:var(--blue-300); } .item.g-stopped { --tone:var(--rust-600); } .item.g-silent { --tone:var(--ink-400, #9a978c); }
+    .item.g-failed { --tone:#7a1f0e; } .item.g-running { --tone:var(--ink-200); }
     .item b { display:block; font-size:var(--text-sm); }
     .item .when { color:var(--fg-3); font-size:var(--text-xs); margin:2px 0 6px; }
     .detail { padding:24px; min-height:420px; }
@@ -226,7 +233,7 @@
 
     function renderList() {
       $('items').innerHTML = calls.length ? calls.map((c) => `
-        <button class="item ${c.id === selected ? 'sel' : ''}" data-id="${esc(c.id)}">
+        <button class="item g-${FINISHED(c) ? groupOf(c) : 'running'} ${c.id === selected ? 'sel' : ''}" data-id="${esc(c.id)}">
           <b>${esc(c.customerName ?? c.bookingId)}</b>
           <div class="when">${esc(fmtWhen(c.createdAt))} · ${esc(c.mode)} · ${esc(fmtDur(c.durationS))}${c.costInr != null ? ` · ₹${c.costInr.toFixed(2)}` : ''}</div>
           ${chip(c.outcome ?? c.status)}
