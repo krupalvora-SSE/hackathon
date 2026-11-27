@@ -147,6 +147,9 @@ def flow_tools(spec) -> list[dict]:
                                                             "window of the visit in this turn."},
             "hedged": {"type": "boolean", "description": "True if the customer said yes (haan / ji) but hedged "
                                                          "(shayad, lagta hai, ho sakta hai)."},
+            "will_arrange": {"type": "boolean", "description": "True if, for the ladder / water / light question, "
+                                                               "they don't have it now but will arrange it before "
+                                                               "the visit (abhi nahi hai par mil jayega)."},
             "readiness": {
                 "type": "object",
                 "description": "Ladder / water / light answers the customer gave in this turn: true = they have it, "

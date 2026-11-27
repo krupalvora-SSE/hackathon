@@ -146,6 +146,9 @@ Entities (fill only when the customer said them, using their own words):
   question about the time with no answer is the intent ask_time.
 - hedged: true when the customer says yes but hedges in the same sentence ("ji haan, shayad hai", "haan, lagta hai").
   Any hedge makes the answer unsure, so set hedged = true instead of answering a plain affirm.
+- will_arrange: true when, to the ladder / water / light question, they say it isn't there now but they will
+  arrange it before the visit ("paani ka source abhi nahi hai par mil jayega", "ladder arrange kar lenge"). Keep the
+  intent they said (affirm or deny) and add will_arrange = true; do not report it as a plain yes.
 - readiness: when the customer also answers the ladder / water / light questions in the same turn
   ("haan kal aa jao, ladder aur paani dono hain"), give {{"ladder": true, "water": true}} (true = they have it,
   false = they don't). Include only items they actually mentioned; the intent is still the answer to the current question.

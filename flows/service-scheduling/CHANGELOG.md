@@ -2,6 +2,10 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.20.0 — bot follow-up 2 (2026-11-27)
+From test call CALL-daa8ba9d (booked): "पानी का source है तो नहीं पर मिल जाएगा" was taken as a plain yes and the recap said "पानी ready है".
+- New entity `will_arrange` on the ladder / water / light questions: "not there now, but I'll have it by the visit" is recorded as an item the customer will arrange (`will_arrange` in the call record, `arranging` on the Beat Plan readiness event), and the recap says "पानी का इंतज़ाम आप visit से पहले कर लेंगे".
+
 ## 0.20.0 — bot follow-up (2026-11-27)
 From test call CALL-5b614da9, where "is there water near the panels?" was asked three times ("येस, है." / "हाँ मिजया लाँ" / "हाम में जाइबा", each read by the LLM as yes but flagged unsure by Whisper) and the call went to a senior callback:
 - Outside the booking steps (RECAP, HOLD_CONSENT), an unsure turn that opens with a plain yes and has no "no" or "शायद" is acted on; RECAP still reads every answer back.

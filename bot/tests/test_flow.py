@@ -1360,3 +1360,16 @@ def test_own_date_question_can_still_close():
     assert call.state == "ASK_OWN_DATE"
     r = call.handle("deny")
     assert r.end and call.outcome == "no_slot_available"
+
+
+def test_not_there_now_but_will_arrange_is_recorded_as_arranging():
+    """CALL-daa8ba9d: "पानी का source है तो नहीं पर मिल जाएगा" was booked as "पानी ready है"."""
+    call, _, events = live()
+    call.handle("affirm")                                        # right person
+    call.handle("affirm")                                        # planned day
+    call.handle("affirm")                                        # any time
+    call.handle("affirm")                                        # ladder yes
+    call.handle("deny", {"will_arrange": True})                  # water: not now, will get it
+    assert call.ctx["will_arrange"] == ["water"] and call.ctx["readiness"]["water"] is True
+    r = call.handle("affirm")                                    # light yes
+    assert call.state == "RECAP" and "पानी का इंतज़ाम आप visit से पहले कर लेंगे" in r.speak[0]

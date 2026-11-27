@@ -685,6 +685,10 @@ class FlowCall:
                 if on == "affirm":
                     self.ctx["will_arrange"].append(item["id"])
                 ok = on == "affirm"
+            elif e.get("will_arrange") is True and on in ("affirm", "deny", "unsure"):
+                # "abhi nahi hai, par mil jayega": not there now, they will have it by the visit (CALL-daa8ba9d)
+                self.ctx["will_arrange"].append(item["id"])
+                ok = True
             elif on in ("unsure", "dont_know") or (on == "deny" and item.get("ask_if_can_arrange")):
                 # "maybe" is never booked as ready: ask once whether they will have it by the visit
                 self.arranging = item["id"]
