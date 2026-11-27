@@ -69,6 +69,10 @@ NOT_NEEDED:
   main: "जी, आपकी बात सही है कि plan अभी नया है। इसीलिए पहली visit एक check-up की तरह होती है, ताकि कोई भी problem शुरू में ही पकड़ में आ जाए। तो क्या मैं {weekday}, {date_spoken} का slot book कर दूँ?"
   repeat_main: "क्या आप उस दिन available रहेंगे?"
 
+ASK_OWN_DATE:
+  main: "कोई बात नहीं। आपको कौन सी तारीख ठीक रहेगी? जैसे 5 दिसंबर, या अगले सोमवार।"
+  repeat_main: "आपको कौन सी तारीख ठीक रहेगी?"
+
 ASK_BAND_FOR_DATE:
   main: "ठीक है। {requested_date_spoken} को सुबह, दोपहर या शाम, कौन सा time आपके लिए ठीक रहेगा?"
   repeat_main: "सुबह, दोपहर या शाम, कौन सा time ठीक रहेगा?"

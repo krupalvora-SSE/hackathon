@@ -32,7 +32,11 @@ NUMBER_WORDS = {
     "bees": 20, "ikkis": 21, "baais": 22, "teis": 23, "chaubis": 24, "pachis": 25,
     "chhabbis": 26, "sattais": 27, "atthais": 28, "untis": 29, "tees": 30, "ikattis": 31,
     "एक": 1, "दो": 2, "तीन": 3, "चार": 4, "पांच": 5, "पाँच": 5, "छह": 6, "सात": 7, "आठ": 8,
-    "नौ": 9, "दस": 10, "ग्यारह": 11, "बारह": 12,
+    "नौ": 9, "दस": 10, "ग्यारह": 11, "बारह": 12, "तेरह": 13, "चौदह": 14, "पंद्रह": 15, "पन्द्रह": 15,
+    "सोलह": 16, "सत्रह": 17, "अठारह": 18, "उन्नीस": 19, "बीस": 20, "इक्कीस": 21, "बाईस": 22, "बाइस": 22,
+    "तेईस": 23, "तेइस": 23, "चौबीस": 24, "पच्चीस": 25, "छब्बीस": 26, "सत्ताईस": 27, "सत्ताइस": 27,
+    "अट्ठाईस": 28, "अठाईस": 28, "अट्ठाइस": 28, "उनतीस": 29, "उन्तीस": 29, "तीस": 30, "इकतीस": 31, "इकत्तीस": 31,
+    "pandra": 15, "unnees": 19, "baees": 22, "athais": 28, "atthaees": 28, "unatees": 29, "ikatees": 31,
 }
 DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
 
@@ -92,6 +96,14 @@ RELATIVE = {
 NEXT_WORDS = {"agle", "agla", "next", "अगले", "pudhchya", "पुढच्या"}
 
 
+# "tarikh" as customers say it and as Whisper spells it: तारीख / तारीख़ / तारिख / तारिक / तारीक / tareek / तारखेला
+_TARIKH = re.compile(r"(?:ता[रऱ][ीि]?[खक]़?(?:को|ला|ेला|ेस|े)?|t[a]+r[ie]*[ek]+h?(?:ko)?|tarkhela|date)")
+
+
+def _is_tarikh(tok: str) -> bool:
+    return bool(_TARIKH.fullmatch(tok))
+
+
 def _next_month_day(day: int, today: date) -> date | None:
     for add in (0, 1):
         y, m = today.year, today.month + add
@@ -149,8 +161,10 @@ def parse_date(text: str, today: date | None = None) -> date | None:
                         if d >= today:
                             return d
     for i, tok in enumerate(tokens):
-        if tok in ("tarikh", "tareekh", "tarik", "तारीख", "तारीख़", "तारखेला", "tarkhela", "date"):
-            if i > 0 and (day := _num(tokens[i - 1])) and 1 <= day <= 31:
+        prev = tokens[i - 1].translate(DEVANAGARI_DIGITS) if i > 0 else ""
+        # "30 tarikh"/"तीस तारीख"; "30 को"/"30 chahiye" only after a digit ("do ko" is not the 2nd)
+        if _is_tarikh(tok) or (tok in ("ko", "को", "chahiye", "चाहिए", "wala", "वाला", "vala") and prev.isdigit()):
+            if (day := _num(prev)) and 1 <= day <= 31:
                 return _next_month_day(day, today)
 
     # weekdays, optionally "agle"/"next"

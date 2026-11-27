@@ -2,6 +2,15 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.19.0 (2026-11-27)
+From a test call where the customer picked मंगलवार, 1 दिसंबर from the backup days, said no to its time window, and the bot hung up with "अभी हमारे पास और slots नहीं हैं":
+- A "no" to the time of a day picked from the offered days rolls back to the day question: the other days offered with it (गुरुवार, 3 दिसंबर) are offered again; the rejected day is not.
+- New step ASK_OWN_DATE: when no Beat Plan day is left (none in Beat Plan, a no to every offered day, or to the time of the last one), the customer is asked for a date of their own (free day -> ASK_SLOT, other day -> ASK_BAND_FOR_DATE) instead of closing with no slot. A no there still closes as `no_slot_available`.
+- Dates are understood in more forms: "30 तारिक" / "तारिख" / "तारीक" (Whisper spellings), Hindi number words up to 31 ("तीस तारीख"), and "30 को" / "30 चाहिए". Before, "मुझे 30 तारिक चाहिए" got "date समझ नहीं आई".
+- "एक भी नहीं" / "ek bhi nahi" / "dono nahi" added to `deny` examples (none of the offered days).
+
+Bot (STT), same day: a Whisper repetition loop of a filler sound ("जी, जी, जी, ... ज" from 1.3 s of audio, CALL-980a5cd0) is dropped instead of being read as a yes at WRONG_PERSON; other loops collapse to one copy ("नहीं नहीं नहीं" -> "नहीं"). "एक बिने" is read as "एक भी नहीं".
+
 ## 0.18.0 (2026-11-27)
 From an end-to-end test run of simulated callers:
 - HOLD_CONSENT takes `proposes_date`: "haan, Monday ko karwa lo" at the hold question books that day (same branches as ALTERNATE_DAYS) instead of pausing the site. A yes whose date differs from the hold date counts as a proposed day, and the hold is dropped from the call record.

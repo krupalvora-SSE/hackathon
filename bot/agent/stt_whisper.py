@@ -57,7 +57,10 @@ VOCAB_PROMPT = os.getenv("WHISPER_PROMPT", "हाँ जी, ठीक है, 
 MISHEARD = {**dict.fromkeys(("अजी", "आजी", "आँजी", "अँजी", "आंजी", "अंजी", "हजी", "हाजी", "हांजी", "हाँजी",
                              "हा जी", "हां जी", "aji", "aaji", "haji", "hanji", "haanji", "han ji"), "हाँ जी"),
             **dict.fromkeys(("कन फो", "कन फोल्म", "कन फॉर्म", "कनफो", "कन्फो", "कन्फोर्म", "कन्फ़ॉर्म",
-                             "कन्फॉर्म", "conform", "con four"), "confirm")}
+                             "कन्फॉर्म", "conform", "con four"), "confirm"),
+            # "एक भी नहीं" (none of them) said fast: the "भ" and nasal "नहीं" collapse
+            **dict.fromkeys(("एक बिने", "एक बीने", "एक भीने", "एक भिने", "एक भी ने", "एक बी नहीं", "एक बिनी",
+                             "एक भी नई", "ek bine", "ek bhine"), "एक भी नहीं")}
 
 # Short answers Whisper garbles when decoding freely ("हाँ" came back as "अँ़", "बढ़ी", "अ" on browser-mic
 # calls). For an unsure reply of at most two words, each of these is scored against the audio and the
@@ -116,6 +119,26 @@ def _keep(text: str) -> str:
     text = text.strip()
     bare = re.sub(r"[।॥.,!?;:'\"()\-]", " ", text).lower()
     return "" if " ".join(bare.split()) in HALLUCINATIONS else text
+
+
+LOOP_FILLERS = {"जी", "जि", "ji", "हम्म", "हम", "हं", "अ", "आ", "ह", "उम", "hmm", "um", "a"}
+
+
+def _unloop(text: str, ratio: float) -> str:
+    """A repetition loop with repeats collapsed ("नहीं नहीं नहीं" -> "नहीं"); "" when a filler sound looped
+    ("जी, जी, जी, ... ज"): Whisper running on noise or a breath, not an answer (CALL-980a5cd0 read it as a yes)."""
+    if ratio <= UNSURE_COMPRESSION:
+        return text
+    words = re.sub(r"[।॥.,!?;:'\"()\-]", " ", text).split()
+    out: list[str] = []
+    for w in words:
+        if not out or w != out[-1]:
+            out.append(w)
+    if len(out) > 1 and out[-1] != words[-1] or (len(out) > 1 and out[-2].startswith(out[-1])):
+        out.pop()                                     # the loop cut off mid-word: "जी ज"
+    if len(out) == 1 and out[0].lower() in LOOP_FILLERS:
+        return ""
+    return " ".join(out)
 
 
 def _fix(r: dict) -> dict:
@@ -201,7 +224,8 @@ def _transcribe_mlx(audio, prompt: str | None = None) -> dict:
         en = run("en")
         if en.avg_logprob > hi.avg_logprob + EN_MARGIN or (hi.compression_ratio > 2.4 >= en.compression_ratio):
             best, lang = en, "en"
-    return {"text": _keep(best.text) if best.no_speech_prob < NO_SPEECH_PROB else "", "lang": lang,
+    return {"text": _keep(_unloop(best.text, best.compression_ratio)) if best.no_speech_prob < NO_SPEECH_PROB else "",
+            "lang": lang,
             "avg_logprob": float(best.avg_logprob), "compression_ratio": float(best.compression_ratio),
             "no_speech_prob": float(best.no_speech_prob)}
 

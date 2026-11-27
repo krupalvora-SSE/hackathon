@@ -61,10 +61,11 @@
     - deny
     - {on: deny, flags: {options_remaining: true}}
     - {on: deny, flags: {options_remaining: false}}
+    - deny                               # ASK_OWN_DATE: no date of their own either
   expect: no_slot_available
 
 - name: Beat Plan has no backup slots at all
-  steps: [context_ready, affirm, deny, no_backup_slots]
+  steps: [context_ready, affirm, deny, no_backup_slots, deny]   # asked for their own date, none
   expect: no_slot_available
 
 - name: ladder missing -> site on hold with consent

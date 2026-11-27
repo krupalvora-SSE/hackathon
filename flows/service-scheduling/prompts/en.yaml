@@ -62,6 +62,10 @@ NOT_NEEDED:
   main: "You're right, the plan is new. That's why the first visit works as a check-up, so any problem is caught early. Shall I book {weekday}, {date_spoken} for you?"
   repeat_main: "Will you be available that day?"
 
+ASK_OWN_DATE:
+  main: "No problem. Which date would suit you? For example 5th December, or next Monday."
+  repeat_main: "Which date would suit you?"
+
 ASK_BAND_FOR_DATE:
   main: "Sure. On {requested_date_spoken}, would morning, afternoon or evening suit you?"
   repeat_main: "Morning, afternoon or evening?"

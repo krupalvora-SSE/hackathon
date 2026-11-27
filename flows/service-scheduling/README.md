@@ -207,7 +207,7 @@ The bot doesn't speak here. **Free (already checked)** → Step 5: Repeat the de
 
 | Customer says | What happens |
 |---|---|
-| No other days | Call ends: No free slot |
+| No other days | Ask which date suits them |
 | Yes (already checked) | Step 5: Repeat the details, get a yes |
 | Yes | Step 3: Ask which time suits |
 | Wants another time | Check another time that day |
@@ -215,7 +215,18 @@ The bot doesn't speak here. **Free (already checked)** → Step 5: Repeat the de
 | Suggests their own date (already checked) | Step 5: Repeat the details, get a yes |
 | Suggests their own date | Step 3: Ask which time suits |
 | No (more days to offer) | Bot answers and asks again |
-| No (no more days) | Call ends: No free slot |
+| No (no more days) | Ask which date suits them |
+
+**Ask which date suits them**
+
+> No problem. Which date would suit you? For example 5th December, or next Monday.
+
+| Customer says | What happens |
+|---|---|
+| Suggests their own date (Beat Plan has that day) | Step 3: Ask which time suits |
+| Suggests their own date (not in Beat Plan) | Ask the time for their date |
+| No | Call ends: No free slot |
+| Can't say / doesn't know | Call ends: No free slot |
 
 **Explain why the visit helps now**
 

@@ -23,7 +23,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.18.0
+version: 0.19.0
 title: Service scheduling call flow
 ticket: SSE-15557
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -39,7 +39,7 @@ sections:
   slot:
     title: 2. Find another date or time
     about: When the planned date or time doesn't suit, or the customer pushes back, find one that does.
-    states: [OFFER_PRIMARY, ASK_SLOT, CHECK_SLOT, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, NOT_NEEDED, ASK_BAND_FOR_DATE, NO_SLOT_CLOSE, NOT_NEEDED_CLOSE, REQUEST_CLOSE]
+    states: [OFFER_PRIMARY, ASK_SLOT, CHECK_SLOT, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, ASK_OWN_DATE, NOT_NEEDED, ASK_BAND_FOR_DATE, NO_SLOT_CLOSE, NOT_NEEDED_CLOSE, REQUEST_CLOSE]
   confirm:
     title: 3. Check readiness and book
     about: Make sure the ladder, water and light are ready, repeat the details and book the visit.
@@ -294,9 +294,11 @@ states:
     title: Offer other days
     type: conversation
     actions: [get_backup_slots]          # sorted closest-first, offered max_options_per_turn at a time
+    # A "no" to the time of a day they picked rolls back here: the other days offered with it come back,
+    # the rejected day does not. With no day left, they are asked for a date of their own.
     transitions:
       - on: no_backup_slots
-        to: NO_SLOT_CLOSE
+        to: ASK_OWN_DATE
       - on: affirm
         when: readiness_done            # changing the day from the recap: no second checklist
         to: RECAP
@@ -322,6 +324,23 @@ states:
         say: next_options
       - on: deny
         when: "!options_remaining"
+        to: ASK_OWN_DATE                 # none of our days suit: ask theirs before giving up
+
+  ASK_OWN_DATE:
+    title: Ask which date suits them
+    type: conversation
+    # Reached when no Beat Plan day is left to offer (none in Beat Plan, a no to every day, or to the time of the last one).
+    transitions:
+      - on: proposes_date
+        when: date_is_free
+        to: ASK_SLOT
+        set: {slot_source: alt_day}
+      - on: proposes_date
+        when: "!date_is_free"
+        to: ASK_BAND_FOR_DATE
+      - on: deny
+        to: NO_SLOT_CLOSE
+      - on: dont_know
         to: NO_SLOT_CLOSE
 
   NOT_NEEDED:

@@ -203,8 +203,8 @@ local:
   deny:
     label: No
     examples:
-      hi: ["नहीं", "nahi", "नहीं, नहीं हो पाएगा", "us din nahi ho payega", "ladder nahi hai", "nahi chalega"]
-      en: ["no", "I'm not available that day", "we don't have a ladder"]
+      hi: ["नहीं", "nahi", "नहीं, नहीं हो पाएगा", "us din nahi ho payega", "ladder nahi hai", "nahi chalega", "एक भी नहीं", "ek bhi nahi", "कोई भी नहीं", "dono nahi"]
+      en: ["no", "I'm not available that day", "we don't have a ladder", "none of them"]
 
   wants_exact_time:
     shares_time: true

@@ -712,6 +712,7 @@ class FlowCall:
                 return self._not_understood()
             self.ctx["selected_slot"] = chosen
             self._emit_slot()
+            self._requeue_unpicked(chosen)
 
         if on == "proposes_date":
             d = self.ctx.pop("_date", None)
@@ -729,6 +730,7 @@ class FlowCall:
             if match:
                 self.ctx["selected_slot"] = match
                 self._emit_slot()
+                self._requeue_unpicked(match)
 
         if on in ("gives_band", "wants_other_band") and self.ctx.pop("_band_outside_hours", False):
             self.ctx.pop("preferred_band", None)
@@ -766,6 +768,13 @@ class FlowCall:
         if on == "wants_other_band" and not self.ctx.get("preferred_band"):
             return self._not_understood()
         return None
+
+    def _requeue_unpicked(self, chosen: dict) -> None:
+        """Days offered alongside the one they picked go back to the front of the queue, so a "no" to its
+        time can offer them again. The picked day itself is never re-offered."""
+        rest = [o for o in self.offered if o["date"] != chosen["date"]]
+        if rest:
+            self.backup_queue = rest + [q for q in (self.backup_queue or []) if q not in rest]
 
     def _resolve_option(self, e: dict) -> dict | None:
         if not self.offered:

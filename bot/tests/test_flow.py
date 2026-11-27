@@ -133,6 +133,8 @@ def test_no_alternate_fits():
     call.handle("deny")
     assert [s["date"] for s in call.offered] == ["2026-12-05"]
     r = call.handle("deny")
+    assert call.state == "ASK_OWN_DATE" and not r.end              # none of our days: ask theirs
+    r = call.handle("deny")
     assert r.end and call.outcome == "no_slot_available"
 
 
@@ -1324,3 +1326,37 @@ def test_band_said_as_its_window(words, band):
 def test_band_from_range_needs_both_ends_of_one_window(words):
     from agent.flow import band_from_range
     assert band_from_range(words, SPEC.policies) is None
+
+
+def test_no_to_time_rolls_back_to_the_other_offered_days():
+    """Picked a backup day, said no to its time: offer the other days again (not the rejected one)."""
+    call, _, _ = live()
+    call.handle("affirm")                                        # right person
+    call.handle("deny")                                          # not the planned Saturday
+    assert [s["date"] for s in call.offered] == ["2026-11-30", "2026-12-03"]
+    call.handle("affirm", {"option": 1})                         # Monday 30th
+    assert call.state == "ASK_SLOT"
+    r = call.handle("deny")                                      # no to its time window
+    assert call.state == "ALTERNATE_DAYS" and not r.end
+    assert [s["date"] for s in call.offered] == ["2026-12-03", "2026-12-05"]
+    call.handle("proposes_date", {"date": "3 तारिक"})
+    assert call.state == "ASK_SLOT" and call.ctx["selected_slot"]["date"] == "2026-12-03"
+    call.handle("deny")
+    assert [s["date"] for s in call.offered] == ["2026-12-05"]
+    call.handle("affirm")
+    r = call.handle("deny")                                      # no day left: ask their own date
+    assert call.state == "ASK_OWN_DATE" and not r.end and "तारीख" in r.speak[0]
+    r = call.handle("proposes_date", {"date": "मुझे 10 तारीख चाहिए"})
+    assert call.state == "ASK_BAND_FOR_DATE" and call.ctx["requested_date"] == "2026-12-10"
+
+
+def test_own_date_question_can_still_close():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("deny")
+    call.handle("affirm", {"option": 1})
+    for _ in range(2):
+        call.handle("deny")                                      # no to the time, then to the next days
+    assert call.state == "ASK_OWN_DATE"
+    r = call.handle("deny")
+    assert r.end and call.outcome == "no_slot_available"
