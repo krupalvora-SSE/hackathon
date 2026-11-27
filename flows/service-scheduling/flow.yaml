@@ -22,7 +22,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.18.0
+version: 0.19.0
 title: Service scheduling call flow
 ticket: SSE-15559
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -41,8 +41,8 @@ sections:
     states: [OFFER_PRIMARY, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, NOT_NEEDED, ASK_BAND_FOR_DATE, NO_SLOT_CLOSE, NOT_NEEDED_CLOSE, REQUEST_CLOSE]
   confirm:
     title: 3. Check readiness and book
-    about: Make sure the ladder, water and light are ready, repeat the details and book the visit.
-    states: [READINESS_CHECK, RECAP, RECAP_CHANGE, BOOK, CONFIRMED_CLOSE, MANUAL_CONFIRM_CLOSE]
+    about: Make sure the ladder, water and light are ready, repeat the details, ask about any issue on the site and book the visit.
+    states: [READINESS_CHECK, RECAP, RECAP_CHANGE, SITE_ISSUES, ISSUE_DETAILS, BOOK, CONFIRMED_CLOSE, MANUAL_CONFIRM_CLOSE]
   hold:
     title: 4. Pause the site
     about: If the site isn't ready, get a date and the customer's OK to stop calls until then.
@@ -360,7 +360,7 @@ states:
     type: conversation
     transitions:
       - on: affirm
-        to: BOOK
+        to: SITE_ISSUES                  # one last question, then book
       - on: deny
         to: RECAP_CHANGE
       - on: corrects_readiness           # "actually I have no ladder": the checklist re-runs with the corrected answer
@@ -388,6 +388,36 @@ states:
       - on: proposes_date
         to: RECAP
         set: {slot_source: alt_day}
+
+  SITE_ISSUES:
+    title: Ask about any issue on the site
+    type: conversation
+    # Last question before booking: rusting, cracks, leaks... What they say is saved as `site_issues` (call record,
+    # Beat Plan comment and the confirm_slot call) so the team can look at it during the visit.
+    collects: [site_issues]
+    transitions:
+      - on: reports_issue
+        to: BOOK
+      - on: affirm                       # "yes, there is a problem" without saying which
+        to: ISSUE_DETAILS
+      - on: deny
+        to: BOOK
+      - on: dont_know
+        to: BOOK
+
+  ISSUE_DETAILS:
+    title: Ask which issue
+    type: conversation
+    collects: [site_issues]
+    transitions:
+      - on: reports_issue
+        to: BOOK
+      - on: affirm
+        to: BOOK
+      - on: deny
+        to: BOOK
+      - on: dont_know
+        to: BOOK
 
   BOOK:
     title: Book the visit

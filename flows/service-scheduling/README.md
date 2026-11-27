@@ -101,9 +101,11 @@ flowchart LR
   P2["2. Offer the planned date"]:::talk
   P3["3. Ask: ladder, water, light ready?"]:::talk
   P4["4. Repeat the details, get a yes"]:::talk
-  P5["Book the visit"]:::sys
-  P6(["Visit booked"]):::end_
-  P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6
+  P5["5. Ask about any issue on the site"]:::talk
+  P6["6. Ask which issue"]:::talk
+  P7["Book the visit"]:::sys
+  P8(["Visit booked"]):::end_
+  P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7 --> P8
   classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
   classDef sys fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
   classDef end_ fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
@@ -151,11 +153,33 @@ flowchart LR
 
 | Customer says | What happens |
 |---|---|
-| Yes | System: Book the visit |
+| Yes | Step 5: Ask about any issue on the site |
 | No | Check readiness and book: Ask what to change |
 | Corrects an earlier ladder / water / light answer | Step 3: Ask: ladder, water, light ready? |
 | Change day | Find another date or time: Offer other days |
 | Change time | Find another date or time: Tell the time window |
+
+#### Step 5. Ask about any issue on the site
+
+> Alright. One last thing: is there any problem on your site you would like us to know about, like rusting or damage?
+
+| Customer says | What happens |
+|---|---|
+| Reports a site issue | System: Book the visit |
+| Yes | Step 6: Ask which issue |
+| No | System: Book the visit |
+| Can't say / doesn't know | System: Book the visit |
+
+#### Step 6. Ask which issue
+
+> Which problem is it, could you tell me?
+
+| Customer says | What happens |
+|---|---|
+| Reports a site issue | System: Book the visit |
+| Yes | System: Book the visit |
+| No | System: Book the visit |
+| Can't say / doesn't know | System: Book the visit |
 
 ### Detours
 
@@ -220,7 +244,7 @@ The bot doesn't speak here. **Free (already checked)** → Step 4: Repeat the de
 
 #### Check readiness and book
 
-Make sure the ladder, water and light are ready, repeat the details and book the visit.
+Make sure the ladder, water and light are ready, repeat the details, ask about any issue on the site and book the visit.
 
 **Ask what to change**
 

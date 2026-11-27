@@ -108,6 +108,14 @@ RECALL:
   main: "जी बिल्कुल। आपको किस time पर call करना ठीक रहेगा?"
   repeat_main: "आपको किस time call करूँ?"
 
+SITE_ISSUES:
+  main: "ठीक है। आख़िरी बात, क्या आपकी site पर कोई problem है जो आप हमें बताना चाहेंगे, जैसे जंग लगना या कोई टूट-फूट?"
+  repeat_main: "क्या site पर कोई problem है, जैसे जंग?"
+
+ISSUE_DETAILS:
+  main: "कौन सी problem है, ज़रा बताइए?"
+  repeat_main: "बताइए, site पर क्या problem है?"
+
 CONFIRMED_CLOSE:
   main: "आपकी visit {weekday}, {date_spoken} के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
   with_time: "आपकी visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"

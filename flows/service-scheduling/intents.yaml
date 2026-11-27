@@ -244,6 +244,13 @@ local:
       hi: ["कोई और alternate slot है?", "क्या आपके पास कोई और slots है?", "koi aur din hai kya", "aur kaun si dates available hain", "doosra slot batao"]
       en: ["do you have any other slot", "any other dates available", "what else do you have"]
 
+  reports_issue:
+    label: Reports a site issue
+    entities: [site_issue]
+    examples:
+      hi: ["panels pe zang lag gaya hai", "rusting ho rahi hai", "chhat pe leakage hai", "ek panel toota hua hai", "inverter mai awaaz aati hai"]
+      en: ["there is rust on the structure", "one panel is cracked", "the roof leaks near the panels"]
+
   household_member:
     label: Family member, can decide
     examples:

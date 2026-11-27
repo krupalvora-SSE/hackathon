@@ -149,6 +149,7 @@ def flow_tools(spec, knowledge: dict | None = None) -> list[dict]:
             "exact_time": {"type": "string", "description": "Exact time they asked for."},
             "time_range": {"type": "string", "description": "When to call back, in their words."},
             "reason": {"type": "string", "description": "Why not serviceable / why they want a person."},
+            "site_issue": {"type": "string", "description": "A problem on their site they mention (rusting, crack, leak...), in their words."},
             "asks_time": {"type": "boolean", "description": "True if the customer also asks about the time / "
                                                             "window of the visit in this turn."},
             "hedged": {"type": "boolean", "description": "True if the customer said yes (haan / ji) but hedged "

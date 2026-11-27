@@ -74,6 +74,8 @@ def test_happy_path_checks_every_readiness_item_then_confirms():
     r = call.handle("affirm")
     assert call.state == "RECAP" and "बजे" not in r.speak[0]          # no time window unless asked
     r = call.handle("affirm")
+    assert call.state == "SITE_ISSUES" and "problem" in r.speak[0]      # last question before booking
+    r = call.handle("deny")                                             # no issues
     assert r.end and call.outcome == "slot_confirmed"
     sent = beatplan(events, "confirm_slot")[0]
     assert sent["date"] == "2026-11-28" and sent["band"] == "morning" and sent["readiness"] == {
@@ -104,6 +106,7 @@ def test_other_band_free_same_day():
     assert call.state == "READINESS_CHECK"
     for _ in range(4):
         r = call.handle("affirm")
+    call.handle("deny")                                                 # no site issues
     assert call.outcome == "slot_confirmed_alt_band"
     assert call.record()["confirmed_slot"]["band"] == "afternoon"
 
@@ -119,6 +122,7 @@ def test_other_band_full_offers_closest_backups_two_at_a_time():
     call.handle("affirm", {"option": 2})
     for _ in range(4):
         call.handle("affirm")
+    call.handle("deny")                                                 # no site issues
     assert call.outcome == "slot_confirmed_alt_day"
     assert beatplan(events, "confirm_slot")[0]["date"] == "2026-12-03"
 
@@ -348,6 +352,7 @@ def test_changing_the_time_at_the_recap_keeps_the_chosen_day_and_skips_the_check
     assert "क्या आपके पास A-type ladder" not in r.speak[-1]                  # the checklist is not asked again
     assert call.ctx["selected_slot"]["date"] == "2026-11-30" and call.ctx["slot_source"] == "alt_day"
     call.handle("affirm")
+    call.handle("deny")                                                 # no site issues
     assert call.outcome == "slot_confirmed_alt_day"
     assert call.record()["confirmed_slot"]["date"] == "2026-11-30"
 
@@ -760,7 +765,8 @@ def test_a_family_member_is_spoken_to_as_family_not_as_the_customer():
     assert "घर पर कोई available" in r.speak[0]
     assert call.handle("price_or_offtopic").speak[0].endswith("घर पर कोई available रहेगा?")      # short form too
     for _ in range(5):                                              # offer, ladder, water, light, recap
-        last = call.handle("affirm")
+        call.handle("affirm")
+    last = call.handle("deny")                                      # no site issues
     assert call.outcome == "slot_confirmed" and "Rahul जी की visit" in last.speak[-1] and "आपकी visit" not in last.speak[-1]
 
 
@@ -1066,6 +1072,7 @@ def test_confirm_api_failure_needs_manual_confirmation():
     call, _, events = live(b)
     for _ in range(6):
         call.handle("affirm")
+    call.handle("deny")                                             # no site issues
     assert call.outcome == "needs_manual_confirmation" and beatplan(events, "create_rm_callback")
 
 
@@ -1143,6 +1150,7 @@ def test_ladder_can_be_arranged_keeps_booking():
     call.handle("affirm")
     assert call.state == "RECAP"
     call.handle("affirm")
+    call.handle("deny")                                                 # no site issues
     rec = call.record()
     assert call.outcome == "slot_confirmed" and rec["will_arrange"] == ["ladder"] and rec["readiness"]["ladder"] is True
     assert any(e.get("display") == "will arrange before the visit" for e in events if e["type"] == "slot")
@@ -1188,6 +1196,7 @@ def test_own_date_that_beat_plan_has_is_booked():
     assert call.state == "READINESS_CHECK"
     for _ in range(4):
         call.handle("affirm")
+    call.handle("deny")                                                 # no site issues
     assert call.outcome == "slot_confirmed_alt_day"
     assert beatplan(events, "confirm_slot")[0]["date"] == "2026-12-03"
 
@@ -1215,9 +1224,9 @@ def test_sms_line_only_when_policy_on():
     spec.policies["sms_reminder"] = True
     call = FlowCall(call_id="S", booking=BOOKING, spec=spec, today=TODAY)
     call.start()
-    for _ in range(5):
+    for _ in range(6):
         call.handle("affirm")
-    r = call.handle("affirm")
+    r = call.handle("deny")                                             # no site issues
     assert "SMS" in r.speak[0] and call.outcome == "slot_confirmed"
 
 
@@ -1228,6 +1237,7 @@ def test_plain_yes_never_mentions_a_time_window():
     lines = []
     for _ in range(6):
         lines += call.handle("affirm").speak
+    lines += call.handle("deny").speak
     assert call.outcome == "slot_confirmed"
     assert not any("बजे" in ln or "सुबह" in ln for ln in lines), lines
     assert call.record()["time_window_told"] is False
@@ -1243,7 +1253,8 @@ def test_asking_the_time_shares_it_in_recap_and_close():
         call.handle("affirm")                                        # window ok, ladder, water
     r = call.handle("affirm")                                        # light -> recap
     assert "सुबह नौ से बारह बजे" in r.speak[0]
-    r = call.handle("affirm")
+    call.handle("affirm")
+    r = call.handle("deny")                                             # no site issues
     assert "सुबह नौ से बारह बजे" in r.speak[-1] and call.record()["time_window_told"] is True
 
 
@@ -1252,3 +1263,34 @@ def test_backup_days_offered_without_time_of_day_unless_asked():
     call.handle("affirm")
     r = call.handle("deny")
     assert "सोमवार" in r.speak[0] and "सुबह" not in r.speak[0] and "शाम" not in r.speak[0]
+
+
+def test_site_issue_is_asked_before_booking_and_saved_everywhere():
+    call, _, events = live()
+    for _ in range(5):
+        call.handle("affirm")                                           # greeting, offer, ladder, water, light
+    assert call.state == "RECAP"
+    r = call.handle("affirm")
+    assert call.state == "SITE_ISSUES" and not r.end and not call.outcome
+    r = call.handle("reports_issue", {"site_issue": "panels ke frame pe zang lag raha hai"})
+    assert r.end and call.outcome == "slot_confirmed"
+    assert beatplan(events, "confirm_slot")[0]["site_issues"] == ["panels ke frame pe zang lag raha hai"]
+    rec = call.record()
+    assert rec["site_issues"] == ["panels ke frame pe zang lag raha hai"] and rec["slots"]["site_issues"]
+    assert "zang" in rec["summary"] and beatplan(events, "post_beatplan_comment")[0]["record"]["site_issues"] == rec["site_issues"]
+
+
+def test_a_yes_to_the_site_question_asks_which_issue_and_none_is_recorded_as_empty():
+    call, _, events = live()
+    for _ in range(6):
+        call.handle("affirm")                                           # ... recap yes -> SITE_ISSUES
+    assert call.state == "SITE_ISSUES"
+    call.handle("affirm")                                               # "yes, there is a problem"
+    assert call.state == "ISSUE_DETAILS"
+    call.handle("reports_issue", {"site_issue": "roof leaks near the panels"})
+    assert call.outcome == "slot_confirmed" and call.record()["site_issues"] == ["roof leaks near the panels"]
+    call2, _, _ = live()
+    for _ in range(6):
+        call2.handle("affirm")
+    call2.handle("deny")
+    assert call2.outcome == "slot_confirmed" and call2.record()["site_issues"] == [] and call2.record()["slots"]["site_issues"] is None

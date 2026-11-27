@@ -131,6 +131,7 @@ Entities (fill only when the customer said them, using their own words):
 - exact_time: the exact time they asked for
 - time_range: when to call them back
 - reason: why the site can't be serviced, or why they want a person
+- site_issue: a problem on their site or panels they mention (rust, crack, leak, damage), in their own words
 - language: "en" if the customer is speaking English, "hi" if Hindi/Hinglish
 - asks_time: true when the customer also asks about the time of the visit in the same turn
   ("chalega shukrawar, but kya time hoga?"). The intent is still their answer (affirm / deny / ...); a bare

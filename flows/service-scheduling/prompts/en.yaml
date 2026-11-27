@@ -101,6 +101,14 @@ RECALL:
   main: "Of course. What time would be good to call you back?"
   repeat_main: "What time should I call you back?"
 
+SITE_ISSUES:
+  main: "Alright. One last thing: is there any problem on your site you would like us to know about, like rusting or damage?"
+  repeat_main: "Is there any problem on the site, like rusting?"
+
+ISSUE_DETAILS:
+  main: "Which problem is it, could you tell me?"
+  repeat_main: "Please tell me, what is the problem on the site?"
+
 CONFIRMED_CLOSE:
   main: "Your visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
   with_time: "Your visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{sms_line} Thank you, have a great day!"
