@@ -61,6 +61,10 @@ WORDS = {
     "priya": "प्रिया", "meena": "मीना", "nitin": "नितिन", "asha": "आशा", "neha": "नेहा", "suresh": "सुरेश",
     "kavita": "कविता", "pooja": "पूजा", "sneha": "स्नेहा", "rekha": "रेखा",
     "gupta": "गुप्ता", "verma": "वर्मा", "singh": "सिंह", "kumar": "कुमार", "joshi": "जोशी", "desai": "देसाई",
+    # filler lines and words the LLM uses in replies (2026-11-27 call: "जी, एक second" was read "सेचोन्द")
+    "second": "सेकंड", "seconds": "सेकंड्स", "moment": "मोमेंट", "nice": "नाइस", "wife": "वाइफ़",
+    "personal": "पर्सनल", "accident": "एक्सीडेंट", "phone": "फ़ोन", "tank": "टैंक", "pipe": "पाइप",
+    "bucket": "बकेट", "mop": "मॉप",
 }
 
 # Hinglish (checklist flow lines and LLM replies in Roman script). Also tells Roman Hinglish from English.

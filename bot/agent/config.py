@@ -29,19 +29,30 @@ FIELDS: list[dict[str, Any]] = [
              "(git-ignored, stays on this machine). For diagnosing mishearing and building a test set from "
              "real calls; turn off when you don't need it."},
 
+    {"key": "record_call", "group": "Speech to text", "type": "bool", "default": True,
+     "env": "RECORD_CALL", "label": "Record the whole call (both sides)",
+     "help": "Saves the conversation as one stereo WAV, customer on the left and bot on the right, to "
+             "bot/recordings/<call>/call.wav (git-ignored, stays on this machine). The dashboard plays it "
+             "after the call. The bot already tells the customer the call is recorded."},
+
     # ---- Interruptions: the usual cause of the bot going quiet mid-sentence
     {"key": "barge_in", "group": "Interruptions", "type": "bool", "default": True,
      "env": "BARGE_IN", "label": "Customer can interrupt the bot",
      "help": "When on, any speech the turn detector hears while the bot talks cuts the bot off. "
              "Line noise, echo or a cough can do that, so the bot stops mid-sentence. Turn this off to "
              "make the bot always finish its sentence. The customer is still heard afterwards."},
+    {"key": "barge_in_secs", "group": "Interruptions", "type": "float", "default": 0.6,
+     "min": 0, "max": 2, "step": 0.1, "env": "BARGE_IN_SECS", "label": "Talk over the bot for (s) to interrupt",
+     "help": "While the bot talks, the customer must keep speaking this long before it stops, so echo and "
+             "coughs don't cut it off. When the bot is quiet, even a short \"हाँ\" is heard at once (that is "
+             "Silero start below: keep it at 0.2-0.3 s, higher misses हाँ / जी / नहीं)."},
     {"key": "vad_confidence", "group": "Interruptions", "type": "float", "default": 0.7,
      "min": 0.1, "max": 1, "step": 0.05, "env": "VAD_CONFIDENCE", "label": "Silero confidence",
      "help": "Higher ignores more noise."},
     {"key": "vad_start_secs", "group": "Interruptions", "type": "float", "default": 0.2,
      "min": 0.05, "max": 2, "step": 0.05, "env": "VAD_START_SECS", "label": "Silero start (s)",
-     "help": "Speech must last this long to count. 0.4-0.6 s stops brief "
-             "noises from interrupting."},
+     "help": "Speech must last this long to count. Above 0.3 s short answers (हाँ, जी, नहीं) are "
+             "never heard; to make the bot harder to interrupt raise the talk-over time above instead."},
     {"key": "vad_stop_secs", "group": "Interruptions", "type": "float", "default": 0.2,
      "min": 0.05, "max": 2, "step": 0.05, "env": "VAD_STOP_SECS", "label": "Silero stop (s)",
      "help": "Silence needed before speech counts as stopped."},

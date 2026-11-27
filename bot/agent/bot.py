@@ -43,15 +43,16 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.llm_service import FunctionCallParams
 from pipecat.services.openai.llm import OpenAILLMService
-from pipecat.turns.user_start import TranscriptionUserTurnStartStrategy, VADUserTurnStartStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies, default_user_turn_stop_strategies
 
 from . import config as call_config
 from . import normalize as N
+from .barge_in import PatientBargeInStrategy
 from .events import Emitter, save_result
 from .engine import make_engine
 from .filler import Filler
 from .prompts import HANDOVER_BROWSER_NOTE
+from .recording import CallRecorder
 from .tools import Action
 
 # Rough INR rates for the cost-per-call estimate; override in .env with real contract prices.
@@ -204,11 +205,10 @@ def _ask_again(args: dict, stt, engine) -> str | None:
 
 
 def _turn_strategies(cfg: dict) -> UserTurnStrategies:
-    """Local Silero VAD + Smart Turn decide when the customer starts and stops: neither local STT streams."""
-    interrupt = cfg["barge_in"]
+    """Local Silero VAD + Smart Turn decide when the customer starts and stops (Whisper doesn't stream);
+    talking over the bot needs barge_in_secs of speech (agent/barge_in.py)."""
     return UserTurnStrategies(
-        start=[VADUserTurnStartStrategy(enable_interruptions=interrupt),
-               TranscriptionUserTurnStartStrategy(enable_interruptions=interrupt)],
+        start=[PatientBargeInStrategy(barge_in_secs=cfg["barge_in_secs"], enable_interruptions=cfg["barge_in"])],
         stop=default_user_turn_stop_strategies(),
     )
 
@@ -327,9 +327,11 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
 
     gate = GreetingGate(speak_opening)
+    recorder = CallRecorder(call_id, sample_rate) if cfg["record_call"] else None
     pipeline = Pipeline([
         transport.input(), stt, aggregators.user(), gate, llm, tts,
         transport.output(),
+        *([recorder.processor] if recorder else []),  # after output: hears the customer and the bot
         aggregators.assistant(), metrics,
     ])
     worker = PipelineWorker(
@@ -350,6 +352,11 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
                   "cost_inr": metrics.metrics()["cost_inr"], "mode": "phone" if telephony else "browser"}
         if call_sid:
             record["call_sid"] = call_sid
+        if recorder:
+            await recorder.stop()  # writes the WAV now, so the record can point at it
+            if recorder.saved():
+                record["recording"] = {"url": f"/api/recordings/{call_id}.wav", "seconds": recorder.seconds,
+                                       "channels": "left: customer, right: bot"}
         save_result(record)
         emitter.emit(metrics.metrics())
         emitter.emit({"type": "result", "record": record})

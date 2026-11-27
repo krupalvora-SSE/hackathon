@@ -81,11 +81,12 @@ def warm_up() -> None:
             return
         import numpy as np
 
-        silence = np.zeros(16000, dtype=np.float32)
         if use_mlx():
-            import mlx_whisper
-
-            mlx_whisper.transcribe(silence, path_or_hf_repo=MLX_MODEL, language="hi")
+            # the call's own path (shared encoder pass, prompted Hindi decode): mlx compiles kernels per
+            # shape on first use, so warming with mlx_whisper.transcribe left the first reply at ~5.5 s
+            rng = np.random.default_rng(0)
+            for secs in (1.5, 3.0):
+                transcribe_detailed((rng.standard_normal(int(16000 * secs)) * 0.01).astype(np.float32), mlx=True)
         else:
             _cpu_model()
         _warmed = True
