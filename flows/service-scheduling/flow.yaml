@@ -23,7 +23,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.22.0
+version: 0.23.0
 title: Service scheduling call flow
 ticket: SSE-15557
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -356,6 +356,10 @@ states:
         to: TIME_BAND
       - on: deny
         to: NOT_NEEDED_CLOSE
+      - on: change_date                  # "visit नहीं करनी … date change करना है" (CALL-5d90b5f3)
+        to: ALTERNATE_DAYS
+      - on: change_time
+        to: ASK_SLOT
 
   ASK_BAND_FOR_DATE:
     title: Ask the time for their date
@@ -384,6 +388,14 @@ states:
         to: READINESS_CHECK
       - on: dont_know
         to: READINESS_CHECK
+      # "time slot change करना है" / "visit का date change करना है" mid-checklist (CALL-5d90b5f3): the LLM read
+      # them right but this step had no branch, so the bot said "ठीक से सुनाई नहीं दिया". Answers so far are kept.
+      - on: change_date
+        to: ALTERNATE_DAYS
+      - on: change_time
+        to: ASK_SLOT
+      - on: wants_other_band
+        to: CHECK_BAND
 
   ASK_READY_DATE:
     title: Ask when it will be ready

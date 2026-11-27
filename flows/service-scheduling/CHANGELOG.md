@@ -2,6 +2,12 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.23.0 — date / time change mid-checklist (2026-11-27)
+From test call CALL-5d90b5f3 (hung up): at the ladder / water questions the customer said "time slot change करना है" and "विजिट का डेट चेंज करना है". The LLM read both right (`wants_other_band`, `change_date`), but READINESS_CHECK had no branch for them, so the bot said "माफ़ कीजिए, ठीक से सुनाई नहीं दिया" and asked about the ladder again.
+- READINESS_CHECK: `change_date` -> ALTERNATE_DAYS, `change_time` -> ASK_SLOT, `wants_other_band` -> CHECK_BAND (no time named -> ASK_SLOT). Answers already given are kept; the checklist after the new day / time asks only what is left (an arrangeable "no" is asked again).
+- NOT_NEEDED: `change_date` / `change_time` too ("visit नहीं करनी … date change करना है").
+- Examples from the call: "विजिट नहीं करनी" (not_needed_now), "विजिट का डेट चेंज करना है" (change_date), "मुझे time slot change करना है" (change_time).
+
 ## 0.22.0 — light can't be arranged (2026-11-27)
 From test call CALL-6517ea26 (light: "नहीं arrange हो पाएगा"):
 - New local intent `cannot_arrange` at ASK_READY_DATE: straight to a senior callback with `rm_callback_reason: prerequisite_unavailable` (it was read as `dont_know` and logged `customer_unsure`). The flow already asked the ready-date question only once; there was no date loop.

@@ -749,6 +749,15 @@ class FlowCall:
             self.ctx.pop("preferred_band", None)
             return self._step([f"{self._global_line('service_hours')} {self._reask()}".strip()])
 
+        if self.state == "READINESS_CHECK" and on in ("change_date", "change_time", "wants_other_band"):
+            # "time slot change करना है" mid-checklist (CALL-5d90b5f3): keep what they already answered, so the
+            # checklist after the new day / time only asks what is left (a "no" to an arrangeable item is asked
+            # again: the new day may give them time to arrange it)
+            self.ctx["known_readiness"] = {**self.ctx.get("known_readiness", {}), **self.ctx["readiness"]}
+            self.ctx["readiness"], self.ctx["missing_items"], self.arranging = {}, [], None
+            if on == "wants_other_band" and not self.ctx.get("preferred_band"):   # "slot change" with no time named
+                return self._step(self._enter("ASK_SLOT"))
+
         if on == "corrects_readiness" and self.state in ("RECAP", "RECAP_CHANGE"):
             ids = {i["id"] for i in self.policies["readiness_items"]}
             fixes = {k: v for k, v in (e.get("readiness") or {}).items() if k in ids and isinstance(v, bool)}

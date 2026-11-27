@@ -161,6 +161,9 @@ flowchart LR
 | No | Pause the site: Ask when it will be ready |
 | Maybe / not sure (to a yes-no question) | Bot answers and asks again |
 | Can't say / doesn't know | Bot answers and asks again |
+| Change day | Find another date or time: Offer other days |
+| Change time | Step 3: Ask which time suits |
+| Wants another time | Find another date or time: Check another time that day |
 
 #### Step 5. Repeat the details, get a yes
 
@@ -237,6 +240,8 @@ The bot doesn't speak here. **Free (already checked)** → Step 5: Repeat the de
 | Yes | Step 3: Ask which time suits |
 | Asks the time | Tell the time window |
 | No | Call ends: Not needed yet, call later |
+| Change day | Offer other days |
+| Change time | Step 3: Ask which time suits |
 
 **Ask the time for their date**
 

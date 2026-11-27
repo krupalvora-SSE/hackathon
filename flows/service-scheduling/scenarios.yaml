@@ -91,6 +91,53 @@
     - action_ok
   expect: rm_callback
 
+- name: mid-checklist "time slot change करना है" -> slot question, checklist resumes (CALL-5d90b5f3)
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - affirm                      # ASK_SLOT: morning
+    - change_time                 # READINESS_CHECK, at the ladder question
+    - gives_band
+    - band_available
+    - affirm                      # remaining readiness answers
+    - affirm                      # RECAP
+    - action_ok
+  expect: slot_confirmed
+
+- name: mid-checklist "visit का date change करना है" -> other days (CALL-5d90b5f3)
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - affirm                      # ASK_SLOT
+    - change_date                 # READINESS_CHECK
+    - {on: affirm, flags: {readiness_done: false}}   # ALTERNATE_DAYS: picks a day
+    - affirm                      # ASK_SLOT
+    - affirm                      # READINESS_CHECK
+    - affirm                      # RECAP
+    - action_ok
+  expect: slot_confirmed_alt_day
+
+- name: says visit not wanted (विजिट नहीं करनी) mid-checklist, then declines
+  steps: [context_ready, affirm, affirm, affirm, not_needed_now, deny]
+  expect: not_needed_now
+
+- name: says visit not wanted (विजिट नहीं करनी), then asks to change the date instead
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - affirm
+    - not_needed_now
+    - change_date
+    - {on: affirm, flags: {readiness_done: false}}   # ALTERNATE_DAYS
+    - affirm
+    - affirm
+    - affirm
+    - action_ok
+  expect: slot_confirmed_alt_day
+
 - name: ladder missing, policy reschedules after ready date
   steps:
     - context_ready

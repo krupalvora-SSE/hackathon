@@ -58,7 +58,7 @@ global:
     label: Not needed yet
     goto: NOT_NEEDED
     examples:
-      hi: ["abhi to plan naya hai, zaroorat nahi", "panel abhi saaf hain", "abhi 2 din hi hue hain", "baad mai karwa lenge"]
+      hi: ["abhi to plan naya hai, zaroorat nahi", "panel abhi saaf hain", "abhi 2 din hi hue hain", "baad mai karwa lenge", "विजिट नहीं करनी"]
       en: ["the plan just started, no need yet", "the panels are clean already"]
 
   outside_service_hours:
@@ -289,11 +289,11 @@ local:
   change_date:
     label: Change day
     examples:
-      hi: ["date badalni hai", "us din nahi, koi aur din"]
+      hi: ["date badalni hai", "us din nahi, koi aur din", "विजिट का डेट चेंज करना है"]
       en: ["can we change the date", "a different day"]
 
   change_time:
     label: Change time
     examples:
-      hi: ["time badal do", "shaam ka kar do"]
+      hi: ["time badal do", "shaam ka kar do", "मुझे time slot change करना है"]
       en: ["change the time", "make it evening"]

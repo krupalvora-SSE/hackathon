@@ -487,6 +487,59 @@ def test_dont_know_when_the_site_will_be_ready_goes_to_a_senior(path):
     assert r.end and call.outcome == "rm_callback" and call.record()["rm_callback_reason"] == "customer_unsure"
 
 
+def _to_readiness():
+    call, _, events = live()
+    call.handle("affirm")                                         # identity
+    call.handle("affirm")                                         # offered day
+    call.handle("affirm")                                         # ASK_SLOT -> ladder question
+    assert call.state == "READINESS_CHECK"
+    return call, events
+
+
+def test_slot_change_mid_checklist_asks_the_time_not_didnt_hear():
+    """CALL-5d90b5f3: "Sorry sorry, मुझे time slot change करना है" at the ladder question was read as
+    wants_other_band (no time named); the step had no branch and the bot said "ठीक से सुनाई नहीं दिया"."""
+    call, _ = _to_readiness()
+    r = call.handle("wants_other_band")
+    assert call.state == "ASK_SLOT" and "सुनाई नहीं" not in " ".join(r.speak)
+    r = call.handle("gives_band", {"band": "dopahar"})
+    assert call.state == "READINESS_CHECK" and "ladder" in r.speak[-1]
+
+
+def test_date_change_mid_checklist_keeps_the_answers_already_given():
+    """Water answered, then "विजिट का डेट चेंज करना है": other days, and after the new day only the
+    questions not yet answered are asked; nothing is counted twice."""
+    call, _ = _to_readiness()
+    call.handle("affirm")                                         # ladder yes -> water
+    call.handle("affirm")                                         # water yes -> light
+    r = call.handle("change_date")
+    assert call.state == "ALTERNATE_DAYS" and "सुनाई नहीं" not in " ".join(r.speak)
+    call.handle("affirm", {"option": 1})                          # first offered day
+    assert call.state == "ASK_SLOT"
+    r = call.handle("affirm")
+    assert call.state == "READINESS_CHECK" and "light" in r.speak[-1]   # ladder and water not asked again
+    call.handle("affirm")                                         # light -> RECAP
+    assert call.state == "RECAP"
+    assert call.ctx["readiness"] == {"ladder": True, "water": True, "light": True} and call.ctx["missing_items"] == []
+
+
+def test_no_ladder_then_date_change_asks_once_more_if_they_can_arrange_it():
+    call, _ = _to_readiness()
+    call.handle("deny", {"readiness": {"ladder": False}})         # "A tap ladder नहीं है" -> can you arrange?
+    call.handle("change_date")                                    # "date और time slot दोनों change करने हैं"
+    call.handle("affirm", {"option": 1})
+    r = call.handle("affirm")                                     # ASK_SLOT -> checklist
+    assert call.state == "READINESS_CHECK" and "arrange" in r.speak[-1]
+
+
+def test_visit_not_wanted_then_date_change():
+    call, _ = _to_readiness()
+    call.handle("not_needed_now")                                 # "विजिट नहीं करनी"
+    assert call.state == "NOT_NEEDED"
+    call.handle("change_date")                                    # "विजिट का डेट चेंज करना है"
+    assert call.state == "ALTERNATE_DAYS"
+
+
 def test_light_that_can_never_be_arranged_goes_to_a_senior_once():
     """CALL-6517ea26: ladder yes, water yes, light no, then "Light का connection तो नहीं arrange हो पाएगा".
     One ready-date question, then a senior callback for the real reason (was read as dont_know: customer_unsure)."""
