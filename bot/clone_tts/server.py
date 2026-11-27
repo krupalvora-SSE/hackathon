@@ -32,6 +32,16 @@ from openvoice.models import SynthesizerTrn  # noqa: E402
 HERE = Path(__file__).resolve().parent
 TARGET_WAV = Path(os.getenv("LOCAL_VOICE_WAV", HERE.parent / "local_voice.wav"))
 CACHE = HERE / "cache"
+# OpenVoice's tau: how much of the source (Piper) voice survives. Its 0.3 over-transfers on Piper audio
+# (metallic, phasey); 0.22 by default, CLONE_TAU to tune, always kept inside TAU_RANGE.
+TAU_RANGE = (0.05, 0.5)
+DEFAULT_TAU = float(os.getenv("CLONE_TAU", "0.22"))
+
+
+def clamp_tau(tau: float | None) -> float:
+    return min(max(DEFAULT_TAU if tau is None else tau, TAU_RANGE[0]), TAU_RANGE[1])
+
+
 DEVICE = os.getenv("CLONE_DEVICE") or ("mps" if torch.backends.mps.is_available() else "cpu")
 
 _ckpt = Path(snapshot_download("myshell-ai/OpenVoiceV2", allow_patterns=["converter/*"])) / "converter"
@@ -63,6 +73,24 @@ def _pcm(body: bytes, sr: int) -> np.ndarray:
     return librosa.resample(audio, orig_sr=sr, target_sr=SR) if sr != SR else audio
 
 
+def normalize_reference(audio: np.ndarray, top_db: float = 35, peak: float = 0.95) -> np.ndarray:
+    """Trim leading/trailing silence and peak-normalize, so a quiet or loud /voice recording gives the same
+    speaker embedding (ref_enc reads the magnitude spectrogram, which scales with loudness)."""
+    audio, _ = librosa.effects.trim(audio, top_db=top_db)
+    m = float(np.abs(audio).max()) if audio.size else 0.0
+    return (audio * (peak / m)).astype(np.float32) if m > 1e-4 else audio
+
+
+def normalize_reference_wav(src: str | Path, dst: str | Path) -> Path:
+    """Offline clean-up of a reference clip: mono, converter rate, silence trimmed, peak-normalized.
+        cd bot/clone_tts && uv run python server.py in.wav ../local_voice.wav"""
+    import soundfile as sf
+
+    audio, _ = librosa.load(src, sr=SR, mono=True)
+    sf.write(dst, normalize_reference(audio), SR, subtype="PCM_16")
+    return Path(dst)
+
+
 def _target_se() -> torch.Tensor | None:
     """Speaker embedding of bot/local_voice.wav, recomputed whenever the file changes."""
     try:
@@ -72,7 +100,7 @@ def _target_se() -> torch.Tensor | None:
         return None
     if mtime != _target["mtime"]:
         audio, _ = librosa.load(TARGET_WAV, sr=SR)
-        audio, _ = librosa.effects.trim(audio, top_db=35)
+        audio = normalize_reference(audio)
         # several ~4 s windows average out better than one long spectrogram
         win = 4 * SR
         clips = [audio[i:i + win] for i in range(0, max(len(audio) - SR, 1), win)] or [audio]
@@ -112,14 +140,14 @@ async def set_source(src: str, request: Request, sr: int):
 
 
 @app.post("/convert")
-async def convert(request: Request, src: str, sr: int, tau: float = 0.3):
+async def convert(request: Request, src: str, sr: int, tau: float | None = None):
     """Body: raw PCM16 mono at `sr`. Returns raw PCM16 mono at the converter's rate (X-Sample-Rate)."""
     tgt, src_se = _target_se(), _source_se(src)
     if tgt is None:
         raise HTTPException(409, f"no target voice: record one on the /voice page ({TARGET_WAV.name})")
     if src_se is None:
         raise HTTPException(409, f"source voice {src} not calibrated")
-    audio = _pcm(await request.body(), sr)
+    audio, tau = _pcm(await request.body(), sr), clamp_tau(tau)
     t = time.perf_counter()
     with _lock, torch.no_grad():
         s = _spec(audio)
@@ -135,5 +163,13 @@ def _warm_up():
     with _lock, torch.no_grad():  # first MPS pass compiles kernels; pay it here, not on a call
         s = _spec(np.zeros(SR, dtype=np.float32))
         g = torch.zeros(1, _hps.model.gin_channels, 1, device=DEVICE)
-        _model.voice_conversion(s, torch.LongTensor([s.size(-1)]).to(DEVICE), sid_src=g, sid_tgt=g, tau=0.3)
+        _model.voice_conversion(s, torch.LongTensor([s.size(-1)]).to(DEVICE), sid_src=g, sid_tgt=g, tau=DEFAULT_TAU)
     logger.info(f"converter ready on {DEVICE}, target={'yes' if _target_se() is not None else 'none yet'}")
+
+
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) != 3:
+        sys.exit("usage: python server.py <reference.wav> <cleaned.wav>")
+    print(normalize_reference_wav(sys.argv[1], sys.argv[2]))

@@ -80,6 +80,17 @@
     - action_ok
   expect: site_on_hold
 
+- name: ladder + water yes, light can never be arranged -> RM callback, no date loop (CALL-6517ea26)
+  steps:
+    - context_ready
+    - affirm
+    - affirm
+    - affirm                      # ASK_SLOT: morning
+    - deny                        # readiness checklist: ladder yes, water yes, light no
+    - cannot_arrange              # ASK_READY_DATE: "नहीं arrange हो पाएगा"
+    - action_ok
+  expect: rm_callback
+
 - name: ladder missing, policy reschedules after ready date
   steps:
     - context_ready

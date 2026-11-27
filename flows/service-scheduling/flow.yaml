@@ -23,7 +23,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.20.0
+version: 0.22.0
 title: Service scheduling call flow
 ticket: SSE-15557
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -399,6 +399,9 @@ states:
       - on: dont_know
         to: ESCALATE_RM
         set: {rm_callback_reason: customer_unsure}
+      - on: cannot_arrange               # "light का connection नहीं arrange हो पाएगा" (CALL-6517ea26): no date to hold for
+        to: ESCALATE_RM
+        set: {rm_callback_reason: prerequisite_unavailable}
 
   FIND_SLOT_AFTER_READY:
     title: Find a free day after that

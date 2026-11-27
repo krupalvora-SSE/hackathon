@@ -68,7 +68,7 @@ def test_happy_path_checks_every_readiness_item_then_confirms():
     call, _, events = live()
     call.handle("affirm")
     r = call.handle("affirm")                       # yes to primary slot
-    assert call.state == "ASK_SLOT" and "सुबह नौ से बारह बजे या दोपहर बारह से तीन बजे" in r.speak[0]   # only the free bands
+    assert call.state == "ASK_SLOT" and "सुबह नौ से बारह बजे के बीच, या दोपहर बारह से तीन बजे के बीच" in r.speak[0]   # only the free bands
     r = call.handle("affirm")                       # any time is fine -> the planned band
     assert call.state == "READINESS_CHECK" and "ladder" in r.speak[-1]
     assert "पानी" in call.handle("affirm").speak[0]  # ladder yes -> water
@@ -485,6 +485,26 @@ def test_dont_know_when_the_site_will_be_ready_goes_to_a_senior(path):
     assert call.state == "ASK_READY_DATE"
     r = call.handle("dont_know")
     assert r.end and call.outcome == "rm_callback" and call.record()["rm_callback_reason"] == "customer_unsure"
+
+
+def test_light_that_can_never_be_arranged_goes_to_a_senior_once():
+    """CALL-6517ea26: ladder yes, water yes, light no, then "Light का connection तो नहीं arrange हो पाएगा".
+    One ready-date question, then a senior callback for the real reason (was read as dont_know: customer_unsure)."""
+    call, _, _ = live()
+    assert "cannot_arrange" not in call.spec.allowed_intents("READINESS_CHECK")
+    call.handle("affirm")
+    call.handle("affirm")
+    call.handle("affirm")                                         # ASK_SLOT
+    call.handle("affirm")                                         # ladder
+    call.handle("affirm")                                         # water
+    r = call.handle("deny")                                       # light -> ASK_READY_DATE
+    assert call.state == "ASK_READY_DATE" and "light" in r.speak[0]
+    assert "cannot_arrange" in call.spec.allowed_intents("ASK_READY_DATE")
+    r = call.handle("cannot_arrange")
+    assert r.end and call.outcome == "rm_callback"
+    rec = call.record()
+    assert rec["rm_callback_reason"] == "prerequisite_unavailable" and rec["readiness"]["light"] is False
+    assert rec["path"].count("ASK_READY_DATE") == 1
 
 
 def test_dont_know_in_site_on_hold_and_recall_goes_to_a_senior():
@@ -1408,3 +1428,29 @@ def test_will_arrange_by_the_visit_still_counts():
         call.handle("affirm")                                    # person, day, time, ladder
     call.handle("deny", {"will_arrange": True, "date": "kal"})   # water: "kal tak mil jayega", visit is the 28th
     assert call.ctx["will_arrange"] == ["water"]
+
+
+def test_spoken_lines_never_contain_action_or_step_names():
+    """Beat Plan actions (check_band_availability, ...) and step ids reach the dashboard as `beatplan` /
+    `flow_state` events only; no prompt line may speak one."""
+    import re
+
+    import yaml
+
+    call, _, _ = live()
+    internal = {*call.spec.actions, *(s for s in call.spec.states if "_" in s)}
+    for lang in ("hi", "en"):
+        prompts = yaml.safe_load((call.spec.dir / "prompts" / f"{lang}.yaml").read_text())
+        lines = []
+
+        def walk(x):
+            if isinstance(x, dict):
+                [walk(v) for v in x.values()]
+            elif isinstance(x, list):
+                [walk(v) for v in x]
+            elif isinstance(x, str):
+                lines.append(x)
+        walk(prompts)
+        for line in lines:
+            words = set(re.findall(r"[A-Za-z_]+", re.sub(r"\{[^}]*\}", "", line)))
+            assert not words & internal, (lang, line, words & internal)

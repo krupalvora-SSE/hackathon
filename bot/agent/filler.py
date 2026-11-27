@@ -8,7 +8,9 @@ from typing import Awaitable, Callable
 # "जी, देखता हूँ" garbled before "आपकी visit … confirm हो गई है" (CALL-7b3aafb3): "देखता" is not in the training
 # lines either. Every filler must use only words the Hindi voice was trained on (voice_training/script_*.txt).
 # Neutral on purpose: "हाँ जी…" sounded like agreement right before "माफ़ कीजिए, ठीक से सुनाई नहीं दिया".
-FILLERS = ["जी, एक मिनट।", "जी…", "एक मिनट रुकिए।"]
+# Varied short acknowledgements, so back-to-back slow turns don't repeat "एक मिनट रुकिए" (all trained words).
+# Left out "बिल्कुल": it agrees, and can land right before "माफ़ कीजिए, उस दिन वह time खाली नहीं है".
+FILLERS = ["जी, एक मिनट।", "अच्छा…", "जी…", "समझ गया।"]
 
 
 class Filler:

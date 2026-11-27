@@ -72,3 +72,25 @@ def test_only_local_stt_and_no_downloads():
     f = config.BY_KEY["stt_provider"]
     assert [o[0] for o in f["options"]] == ["whisper"] and f["default"] == "whisper"
     assert os.environ.get("HF_HUB_OFFLINE") == "1"
+
+
+def test_first_sentence_gets_lead_in_silence_only_once(monkeypatch):
+    """The first syllable of "Hello?" was clipped while the browser's WebRTC audio settled: the first
+    sentence of a call starts with LEAD_IN_MS of silence, later ones don't."""
+    from pipecat.frames.frames import TTSAudioRawFrame
+    from pipecat.services.piper.tts import PiperTTSService
+
+    tts = voice_local.BilingualPiperTTSService(settings=PiperTTSService.Settings(voice="hi_IN-pratham-medium"))
+
+    async def noop(*a, **k):
+        pass
+    tts.start_tts_usage_metrics = tts.stop_ttfb_metrics = noop
+
+    async def audio(text):
+        return b"".join(f.audio for f in [f async for f in tts.run_tts(text, "ctx")]
+                        if isinstance(f, TTSAudioRawFrame))
+    first, second = asyncio.run(audio("Hello?")), asyncio.run(audio("Hello?"))
+    lead = 2 * (tts._voice.config.sample_rate * voice_local.LEAD_IN_MS // 1000)
+    assert voice_local.LEAD_IN_MS >= 150
+    assert first[:lead] == bytes(lead)
+    assert second[:lead] != bytes(lead)

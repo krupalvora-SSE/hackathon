@@ -280,6 +280,12 @@ local:
       hi: ["pata nahi", "abhi nahi bata sakta", "dekhna padega", "mujhe nahi pata kab tak"]
       en: ["I don't know", "I can't say right now", "I'll have to check"]
 
+  cannot_arrange:
+    label: Can't arrange the missing item at all (not "don't know when")
+    examples:
+      hi: ["Light का connection तो नहीं arrange हो पाएगा", "nahi ho payega", "ladder nahi mil sakti", "पानी का इंतज़ाम नहीं हो सकता"]
+      en: ["I can't arrange it", "that won't be possible", "there's no way to get a ladder"]
+
   change_date:
     label: Change day
     examples:

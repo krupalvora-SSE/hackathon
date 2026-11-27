@@ -2,6 +2,17 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.22.0 — light can't be arranged (2026-11-27)
+From test call CALL-6517ea26 (light: "नहीं arrange हो पाएगा"):
+- New local intent `cannot_arrange` at ASK_READY_DATE: straight to a senior callback with `rm_callback_reason: prerequisite_unavailable` (it was read as `dont_know` and logged `customer_unsure`). The flow already asked the ready-date question only once; there was no date loop.
+
+## 0.21.0 — voice polish (2026-11-27)
+- Time choices each say "के बीच" and are split by a comma: "सुबह नौ से बारह बजे के बीच, या शाम तीन से छह बजे के बीच?" (the one-band prompts no longer add their own "के बीच").
+- Fillers vary: "जी, एक मिनट।" / "अच्छा…" / "जी…" / "समझ गया।" instead of repeating "एक मिनट रुकिए" (all trained words; "बिल्कुल" left out, it agrees right before a "माफ़ कीजिए").
+- Voice: 180 ms of silence before the first sentence of a call, so the browser doesn't clip the start of "Hello?" (`TTS_LEAD_IN_MS`).
+- Voice: last-step text clean-up before Piper (`agent/tts_normalizer.py`): "सर्विस हिरो" -> "हीरो", orphan "के" before the end dropped, "क्या/कब/कैसे…" questions end with "?". Digits stay digits (espeak-ng already says 52 as "बावन").
+- My-voice converter: tau 0.3 -> 0.22, clamped to 0.05-0.5; the reference sample is peak-normalized after trimming, and `python server.py in.wav out.wav` cleans a clip offline.
+
 ## 0.20.0 — bot follow-up 3 (2026-11-27)
 From test call CALL-2c3e81bb (ended as do-not-call) and an LLM benchmark:
 - Bot: Whisper's doubt about a turn is kept until the LLM has acted on it. When the customer went on talking before the reply, the doubt of three garbled segments ("प्रवाइब नियुक्त …") was wiped and the LLM read them as `do_not_call`; that turn is now asked again.

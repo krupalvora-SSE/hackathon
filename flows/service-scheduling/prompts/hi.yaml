@@ -43,11 +43,11 @@ OFFER_PRIMARY:
 
 ASK_SLOT:
   main: "{weekday}, {date_spoken} को आपको कौन सा time ठीक रहेगा? {bands_spoken}?"
-  one_band: "{weekday}, {date_spoken} को हमारे service hero {bands_spoken} के बीच आ सकते हैं। यह time आपको ठीक रहेगा?"
+  one_band: "{weekday}, {date_spoken} को हमारे service hero {bands_spoken} आ सकते हैं। यह time आपको ठीक रहेगा?"
   band_full: "माफ़ कीजिए, उस दिन वह time खाली नहीं है। {bands_spoken} का time खाली है, चलेगा?"
   no_exact_guarantee: "Exact time की guarantee तो नहीं दे सकता, पर पूरी कोशिश करेंगे। {bands_spoken}, कौन सा time ठीक रहेगा?"
   repeat_main: "{bands_spoken}, कौन सा time ठीक रहेगा?"
-  repeat_one_band: "{bands_spoken} के बीच चलेगा?"
+  repeat_one_band: "{bands_spoken} चलेगा?"
   repeat_band_full: "{bands_spoken} चलेगा?"
   repeat_no_exact_guarantee: "{bands_spoken}, कौन सा time ठीक रहेगा?"
 

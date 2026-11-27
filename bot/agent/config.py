@@ -82,10 +82,10 @@ FIELDS: list[dict[str, Any]] = [
      "options": [["en_US-ryan-medium", "Ryan (male, US English)"], ["en_GB-alan-medium", "Alan (male, UK English)"]],
      "help": "Speaks the English lines when the customer switches to English (the Hindi voices read "
              "English with a Hindi accent). Male; loaded from ~/.cache/pipecat/piper/ like the Hindi voice."},
-    {"key": "clone_tau", "group": "Bot voice", "type": "float", "default": 0.3,
-     "min": 0.1, "max": 1, "step": 0.05, "env": "CLONE_TAU", "label": "My-voice conversion strength (tau)",
+    {"key": "clone_tau", "group": "Bot voice", "type": "float", "default": 0.22,
+     "min": 0.05, "max": 0.5, "step": 0.01, "env": "CLONE_TAU", "label": "My-voice conversion strength (tau)",
      "help": "Piper + my voice only. OpenVoice's tau: lower sticks closer to your sample's voice, higher keeps "
-             "more of Piper's clarity. 0.3 is OpenVoice's default; try 0.2-0.5."},
+             "more of Piper's clarity. 0.22 cuts the metallic over-transfer of OpenVoice's 0.3; range 0.05-0.5."},
     {"key": "piper_noise_scale", "group": "Bot voice", "type": "float", "default": 0.33,
      "min": 0, "max": 1, "step": 0.01, "env": "PIPER_NOISE_SCALE", "label": "Voice variation (noise scale)",
      "help": "How much Piper varies the sound. Lower is steadier and clearer; Piper's default is 0.667. "

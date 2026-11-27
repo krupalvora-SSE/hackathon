@@ -27,6 +27,9 @@ BOT_DIR = Path(__file__).resolve().parent.parent
 LOCAL_VOICE_WAV = BOT_DIR / "local_voice.wav"
 LOCAL_VOICE_META = BOT_DIR / "local_voice.json"
 CONVERTER_URL = os.getenv("CLONE_TTS_URL", "http://127.0.0.1:7861")
+# Silence before the first sentence of a call ("Hello?"): the browser's WebRTC track / jitter buffer is still
+# settling when it starts, and the first syllable got swallowed. Later sentences start without it.
+LEAD_IN_MS = int(os.getenv("TTS_LEAD_IN_MS", "180"))
 
 # Spoken by Piper once per speaker so the converter learns Piper's own voice (what to change from).
 CALIBRATION_EN = [
@@ -148,13 +151,14 @@ class BilingualPiperTTSService(PiperTTSService):
     """Piper TTS with a Hindi voice (settings.voice) and an English one (en_voice) picked per sentence,
     optionally re-voiced through the local converter (clone=True)."""
 
-    def __init__(self, *, en_voice: str | None = None, clone: bool = False, tau: float = 0.3, **kwargs):
+    def __init__(self, *, en_voice: str | None = None, clone: bool = False, tau: float = 0.22, **kwargs):
         super().__init__(**kwargs)
         self._clone, self._tau = clone, tau
         self._hi = (assert_given(self._settings.voice), self._voice)
         self._en = (en_voice, load_piper_voice(en_voice)) if en_voice else None
         self._client = _client(timeout=5) if clone else None  # live call: a hung converter -> plain Piper
         self._warned = False
+        self._lead_in_done = False
 
     def _pick(self, text: str):
         from .devanagari import is_english
@@ -180,6 +184,9 @@ class BilingualPiperTTSService(PiperTTSService):
                     if not self._warned:
                         logger.warning(f"local voice converter unavailable, speaking plain Piper: {e!r}")
                         self._warned = True
+            if not self._lead_in_done:
+                self._lead_in_done = True
+                pcm = bytes(2 * (sr * LEAD_IN_MS // 1000)) + pcm  # PCM16 mono zeros
             async for frame in self._stream_audio_frames_from_iterator(once(pcm), in_sample_rate=sr,
                                                                        context_id=context_id):
                 await self.stop_ttfb_metrics()

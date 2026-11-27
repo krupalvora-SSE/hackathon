@@ -115,6 +115,7 @@ HI_HOUR = ["बारह", "एक", "दो", "तीन", "चार", "पा
 HI_PART = {"morning": "सुबह", "afternoon": "दोपहर", "evening": "शाम"}
 EN_PART = {"morning": "morning", "afternoon": "afternoon", "evening": "evening"}
 OR = {"hi": " या ", "en": " or "}
+BAND_OR = {"hi": ", या ", "en": " or "}  # "सुबह नौ से बारह बजे के बीच, या शाम तीन से छह बजे के बीच?"
 
 
 def _hour(hhmm: str) -> int:
@@ -139,9 +140,9 @@ def speak_band(band: str, policies: dict, lang: str) -> str:
 
 
 def speak_band_choice(band: str, policies: dict, lang: str) -> str:
-    """A band as one of several choices: "सुबह नौ से बारह बजे" / "the morning (9 am to 12 pm)"."""
+    """A band as one of several choices: "सुबह नौ से बारह बजे के बीच" / "the morning (9 am to 12 pm)"."""
     if lang == "hi":
-        return speak_band(band, policies, lang)
+        return f"{speak_band(band, policies, lang)} के बीच"
     return f"the {EN_PART[band]} ({speak_band(band, policies, lang).replace(' and ', ' to ')})"
 
 
@@ -894,7 +895,7 @@ class FlowCall:
             v["weekday"] = speak_weekday(d, self.lang)
             v["date_spoken"] = speak_day(d, self.lang)
             v["band_spoken"] = speak_band(band or slot["band"], self.policies, self.lang)
-        v["bands_spoken"] = OR[self.lang].join(speak_band_choice(b, self.policies, self.lang)
+        v["bands_spoken"] = BAND_OR[self.lang].join(speak_band_choice(b, self.policies, self.lang)
                                                for b in self._free_bands())
         v["options_spoken"] = OR[self.lang].join(speak_slot(s, self.policies, self.lang, self.ctx.get("time_shared"))
                                                  for s in self.offered)

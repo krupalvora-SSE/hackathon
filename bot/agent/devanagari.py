@@ -183,7 +183,9 @@ def to_devanagari(text: str, today: date | None = None, *, near_dates: bool = Tr
         return text
     today = today or today_ist()
     text = _DAY_MONTH.sub(lambda m: _near_day(m, today), text)
-    return _VOICE_SPELLING.sub(lambda m: VOICE_SPELLINGS[m[1]], text)
+    from .tts_normalizer import NORMALIZER
+
+    return NORMALIZER.normalize(_VOICE_SPELLING.sub(lambda m: VOICE_SPELLINGS[m[1]], text))
 
 
 async def devanagari_transform(text: str, _text_type=None) -> str:

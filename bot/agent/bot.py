@@ -395,7 +395,7 @@ def _piper_tts(cfg: dict, call_id: str, sample_rate: int | None = None):
                                         noise_scale=cfg["piper_noise_scale"], noise_w_scale=cfg["piper_noise_w"])
     try:
         tts = BilingualPiperTTSService(en_voice=cfg.get("piper_voice_en") or None,
-                                       clone=cfg["tts_provider"] == "piper_clone", tau=cfg.get("clone_tau", 0.3),
+                                       clone=cfg["tts_provider"] == "piper_clone", tau=cfg.get("clone_tau", 0.22),
                                        settings=settings, sample_rate=sample_rate,
                                        text_transforms=DEVANAGARI_TEXT_TRANSFORMS)
     except Exception as e:  # missing package, voice download failed

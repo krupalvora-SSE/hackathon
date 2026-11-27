@@ -277,6 +277,7 @@ If the site isn't ready, get a date and the customer's OK to stop calls until th
 | Gives a date (if rebooking is on) | Find a free day after that |
 | Gives a date (default) | Ask OK to pause calls |
 | Can't say / doesn't know | Call back or hand over: Ask a senior to call |
+| Can't arrange the missing item at all (not 'don't know when') | Call back or hand over: Ask a senior to call |
 
 **Find a free day after that**
 
