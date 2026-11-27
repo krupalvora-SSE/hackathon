@@ -51,6 +51,14 @@ HALLUCINATIONS = {"thank you", "thanks for watching", "thank you for watching", 
 VOCAB_PROMPT = os.getenv("WHISPER_PROMPT", "हाँ जी, ठीक है, नहीं जी, चलेगा, कर दो। शनिवार सुबह, सोमवार शाम। "
                                            "सीढ़ी है, पानी है, light है। SolarSquare, slot, confirm.")
 
+# Whole replies Whisper keeps writing for short answers it half-hears (live calls, browser mic): the
+# "h" and nasal of "हाँ जी" get lost and it comes back as "अजी"/"आजी" however it is decoded; "confirm"
+# comes back as "कन फो". Only an exact whole-reply match is replaced, so a real "अजी सुनिए" is untouched.
+MISHEARD = {**dict.fromkeys(("अजी", "आजी", "आँजी", "अँजी", "आंजी", "अंजी", "हजी", "हाजी", "हांजी", "हाँजी",
+                             "हा जी", "हां जी", "aji", "aaji", "haji", "hanji", "haanji", "han ji"), "हाँ जी"),
+            **dict.fromkeys(("कन फो", "कन फोल्म", "कन फॉर्म", "कनफो", "कन्फो", "कन्फोर्म", "कन्फ़ॉर्म",
+                             "कन्फॉर्म", "conform", "con four"), "confirm")}
+
 _warm = threading.Lock()
 _warmed = False
 
@@ -100,8 +108,19 @@ def _keep(text: str) -> str:
     return "" if " ".join(bare.split()) in HALLUCINATIONS else text
 
 
+def _fix(r: dict) -> dict:
+    """Replace a known whole-reply mishearing (MISHEARD); such a fix is not an unsure transcript."""
+    bare = " ".join(re.sub(r"[।॥.,!?;:'\"()\-]", " ", r["text"]).lower().split())
+    if bare in MISHEARD:
+        logger.debug(f"Whisper [{r['text']}] read as [{MISHEARD[bare]}]")
+        return {**r, "text": MISHEARD[bare], "heard_as": r["text"], "fixed": True}
+    return r
+
+
 def is_unsure(r: dict) -> bool:
     """True when Whisper itself isn't confident in the transcript (see UNSURE_*)."""
+    if r.get("fixed"):
+        return False
     return bool(r["text"]) and (r["avg_logprob"] < UNSURE_LOGPROB or r["compression_ratio"] > UNSURE_COMPRESSION)
 
 
@@ -115,7 +134,7 @@ def transcribe_detailed(audio, mlx: bool | None = None, prompt: str | None = VOC
     """16 kHz float32 mono -> {text, lang, avg_logprob, compression_ratio, no_speech_prob}. Blocking."""
     mlx = use_mlx() if mlx is None else mlx
     if mlx:
-        return _transcribe_mlx(audio, prompt)
+        return _fix(_transcribe_mlx(audio, prompt))
 
     def run(language):
         segs, info = _cpu_model().transcribe(audio, language=language, beam_size=1, condition_on_previous_text=False,
@@ -126,10 +145,10 @@ def transcribe_detailed(audio, mlx: bool | None = None, prompt: str | None = VOC
     lang = "en" if info.language == "en" and info.language_probability >= EN_MIN_PROB else "hi"
     segs, _ = run(lang)
     kept = [s for s in segs if s.no_speech_prob < NO_SPEECH_PROB]
-    return {"text": _keep("".join(s.text for s in kept)), "lang": lang,
-            "avg_logprob": min((s.avg_logprob for s in kept), default=0.0),
-            "compression_ratio": max((s.compression_ratio for s in kept), default=0.0),
-            "no_speech_prob": max((s.no_speech_prob for s in segs), default=1.0)}
+    return _fix({"text": _keep("".join(s.text for s in kept)), "lang": lang,
+                 "avg_logprob": min((s.avg_logprob for s in kept), default=0.0),
+                 "compression_ratio": max((s.compression_ratio for s in kept), default=0.0),
+                 "no_speech_prob": max((s.no_speech_prob for s in segs), default=1.0)})
 
 
 def _transcribe_mlx(audio, prompt: str | None = None) -> dict:
@@ -157,6 +176,13 @@ def _transcribe_mlx(audio, prompt: str | None = None) -> dict:
     # Whisper *translates* it). So decode Hindi always, English only when it is plausible, and keep
     # English only if it is clearly more confident or the Hindi attempt is a repetition loop.
     hi = run("hi")
+    if prompt and hi.compression_ratio > UNSURE_COMPRESSION:
+        # a repetition loop seeded by the vocab prompt ("confirm" -> "कर दो, कर दो, ..."): decode unprompted
+        bare = decode(model, features, DecodingOptions(
+            language="hi", temperature=0.0, without_timestamps=True, fp16=True, sample_len=max_tokens))
+        bare = bare[0] if isinstance(bare, list) else bare
+        if bare.compression_ratio <= UNSURE_COMPRESSION:
+            hi = bare
     best, lang = hi, "hi"
     if probs[0].get("en", 0) >= EN_PLAUSIBLE:
         en = run("en")
