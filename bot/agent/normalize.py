@@ -342,7 +342,7 @@ NO = {"nahi", "nahin", "nai", "nahi", "no", "nope", "false", "naa", "mat", "nahi
 CLEAR_YES = {"haan", "han", "haa", "haanji", "hanji", "yes", "yeah", "yep", "ok", "okay", "theek", "thik",
              "bilkul", "sahi", "correct", "confirm", "chalega", "pakka", "done", "sure",
              "हाँ", "हां", "हा", "हाँजी", "ठीक", "बिल्कुल", "सही", "कन्फर्म", "कन्फ़र्म", "चलेगा", "पक्का", "ओके",
-             "ओक", "श्योर", "डन"}
+             "ओक", "श्योर", "डन", "येस", "यस", "येह"}
 CLEAR_YES_PHRASES = ("kar do", "kar dijiye", "कर दो", "कर दीजिए", "कर दीजिये", "go ahead")
 
 

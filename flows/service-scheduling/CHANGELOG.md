@@ -2,6 +2,12 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.20.0 — bot follow-up (2026-11-27)
+From test call CALL-5b614da9, where "is there water near the panels?" was asked three times ("येस, है." / "हाँ मिजया लाँ" / "हाम में जाइबा", each read by the LLM as yes but flagged unsure by Whisper) and the call went to a senior callback:
+- Outside the booking steps (RECAP, HOLD_CONSENT), an unsure turn that opens with a plain yes and has no "no" or "शायद" is acted on; RECAP still reads every answer back.
+- Outside the booking steps, the same LLM reading of two unsure turns in a row at the same step is taken instead of asking a third time.
+- "येस" / "यस" count as a clear yes.
+
 ## 0.20.0 (2026-11-27)
 From test call CALL-418d20ee, where the customer picked "सोमवार, 30 नवंबर" and Whisper heard "सुमार थीस लंड", so the bot said "ठीक से सुनाई नहीं दिया" twice:
 - Bot: at ALTERNATE_DAYS, a turn that would be asked again is matched by sound against the days just offered (weekday names and day of the month, with aspirates and vowels ignored: "सुमार थीस" -> Monday 30th). Only when exactly one offered day fits and the turn has no "no"; number words below 11 ("दो" in "कर दो") never count.

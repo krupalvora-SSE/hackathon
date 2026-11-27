@@ -207,6 +207,22 @@ def _offered_day_heard(args: dict, stt, engine) -> str | None:
     return d.isoformat() if d else None
 
 
+def _opens_with_yes(heard: str) -> bool:
+    """An unsure turn that still starts with a plain yes and has no "no" ("येस, है." / "हाँ मिल जाएगा" heard
+    as "हाँ मिजया लाँ", CALL-5b614da9). Enough outside the booking steps: RECAP reads every answer back."""
+    words = N._clean(heard).split()
+    return bool(words) and words[0] in N.CLEAR_YES and N.parse_bool(heard) is not False \
+        and not set(words) & {"मत", "mat", "शायद", "shayad", "maybe", "पता"}
+
+
+def _same_reading_again(args: dict, state: str | None, engine) -> bool:
+    """Outside the booking steps, the LLM read an unsure turn the same way as the unsure turn just before it
+    at the same step: take it rather than ask a third time and hand the call to a senior (CALL-5b614da9)."""
+    key = (state, args.get("intent"), repr(sorted((k, repr(v)) for k, v in args.items() if k != "language")))
+    prev, engine._last_unsure_reading = getattr(engine, "_last_unsure_reading", None), key
+    return state not in COMMIT_STATES and prev == key
+
+
 def _yes_and_confirm(heard: str) -> bool:
     """An unsure transcript that still plainly says yes: it opens with a yes word and also says "confirm"
     ("हाँ, confirm पुटू" in CALL-fc2f980f was asked twice at RECAP). Two separate yes signals, no "no"."""
@@ -238,8 +254,12 @@ def _ask_again(args: dict, stt, engine) -> str | None:
     call = getattr(engine, "call", None)
     state = getattr(call, "state", None)
     heard = " ".join(h["text"] for h in getattr(stt, "turn_heard", []))
+    if not getattr(stt, "turn_unsure", False):
+        engine._last_unsure_reading = None
     if getattr(stt, "turn_unsure", False) and not _offered_band_heard(args, heard, call) \
-            and not (intent == "affirm" and _yes_and_confirm(heard)):
+            and not (intent == "affirm" and _yes_and_confirm(heard)) \
+            and not (state not in COMMIT_STATES and intent == "affirm" and _opens_with_yes(heard)) \
+            and not _same_reading_again(args, state, engine):
         return "Whisper unsure of the transcript"
     if state in COMMIT_STATES and intent == "affirm" and heard and not N.clear_yes(heard):
         return f"no clear yes at {state}"

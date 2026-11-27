@@ -92,3 +92,37 @@ def test_garbled_day_choice_becomes_that_day():
     assert _offered_day_heard({"intent": "unclear"}, _STT("सुमार थीस लंड"), _Offering()) == "2026-11-30"
     assert _offered_day_heard({"intent": "unclear"}, _STT("नहीं, सुमार नहीं"), _Offering()) is None
     assert _offered_day_heard({"intent": "deny"}, _STT("सुमार थीस"), _Offering()) is None
+
+
+# CALL-5b614da9: water question asked three times, then handed to a senior
+@pytest.mark.parametrize("heard,ask", [
+    ("येस, है.", False), ("हाँ मिजया लाँ", False),
+    ("हाँ, शायद", True), ("हाँ नहीं है", True), ("हाम में जाइबा", True),
+])
+def test_unsure_plain_yes_at_readiness(heard, ask):
+    from agent.bot import _ask_again
+    engine = _Engine(state="READINESS_CHECK")
+    assert bool(_ask_again({"intent": "affirm", "readiness": {"water": True}}, _STT(heard), engine)) is ask
+
+
+def test_unsure_yes_still_asked_again_at_recap():
+    from agent.bot import _ask_again
+    assert _ask_again({"intent": "affirm"}, _STT("हाँ मिजया लाँ"), _Engine(state="RECAP"))
+
+
+def test_same_reading_twice_is_taken_outside_booking_steps():
+    from agent.bot import _ask_again
+    args, engine = {"intent": "affirm", "readiness": {"water": True}}, _Engine(state="READINESS_CHECK")
+    assert _ask_again(args, _STT("हाम में जाइबा"), engine)            # first time: ask again
+    assert not _ask_again(args, _STT("हाम में जाइबा"), engine)        # same reading again: take it
+    recap = _Engine(state="RECAP")
+    assert _ask_again({"intent": "affirm"}, _STT("हाम में"), recap)
+    assert _ask_again({"intent": "affirm"}, _STT("हाम में"), recap)   # never at a booking step
+
+
+def test_a_clear_turn_forgets_the_last_unsure_reading():
+    from agent.bot import _ask_again
+    args, engine = {"intent": "affirm", "readiness": {"water": True}}, _Engine(state="READINESS_CHECK")
+    _ask_again(args, _STT("हाम में जाइबा"), engine)
+    _ask_again(args, _STT("हाँ जी", unsure=False), engine)
+    assert _ask_again(args, _STT("हाम में जाइबा"), engine)
