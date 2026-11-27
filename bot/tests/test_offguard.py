@@ -94,6 +94,9 @@ def test_the_prompt_lists_approved_answers_and_taught_phrases():
     dnc = next(line for line in prompt.splitlines() if line.startswith("- do_not_call"))
     assert "mat karo call" in dnc
 
+    assert "same topic and need" in prompt and "even when the wording" in prompt   # reworded / 'yes, but' questions still match
+    assert "asks_meaning, never an approved answer" in prompt                      # but "what does X mean" does not
+
 
 def test_without_anything_taught_the_prompt_has_no_approved_section():
     prompt = flow_system_prompt(call_with())
