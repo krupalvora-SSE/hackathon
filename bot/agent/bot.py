@@ -401,6 +401,8 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     async def handle_tool(params: FunctionCallParams) -> None:
         filler.cancel()  # the LLM has answered; the real line follows in a moment
         args = dict(params.arguments or {})
+        if args.get("intent") == "known_question" and not args.get("faq_id"):
+            args["_said"] = last_said["text"]        # lets the flow pick the approved answer itself
         action = engine.dispatch(params.function_name, args)
         logger.info(f"tool {params.function_name}({args}) -> {action.result}")
         if action.offguard and last_said["text"]:        # shown on the dashboard's Questions view for an admin

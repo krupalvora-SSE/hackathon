@@ -165,6 +165,15 @@ def _part_and_hour(text: str) -> tuple[str | None, int | None]:
     return part, h
 
 
+def best_faq(faqs: list[dict], said: str) -> dict | None:
+    """The approved answer whose question shares at least two longer words with what the customer said
+    (first five letters, so "report" matches "reports"). shortcut: word overlap, upgrade to embeddings if it misfires."""
+    stems = lambda t: {w[:5] for w in re.findall(r"\w+", (t or "").lower()) if len(w) >= 5}
+    mine = stems(said)
+    scored = sorted(((len(mine & stems(f.get("question"))), f) for f in faqs), key=lambda x: -x[0])
+    return scored[0][1] if scored and scored[0][0] >= 2 else None
+
+
 def parse_band(text: str, policies: dict) -> str | None:
     """Customer's words -> morning/afternoon/evening, using the policy's band hours."""
     t = (text or "").strip().lower()
@@ -534,6 +543,10 @@ class FlowCall:
             self.ctx["time_shared"] = True
         if e.get("faq_id"):
             self.ctx["_faq_id"] = str(e["faq_id"])
+        elif on == "known_question":          # the model chose it but forgot the id: match on the customer's words
+            faq = best_faq(self.knowledge.get("faqs", []), e.get("_said") or "")
+            if faq:
+                self.ctx["_faq_id"] = faq["id"]
         if e.get("exact_time"):
             self.ctx["preferred_exact_time"] = e["exact_time"]
         self.ctx.pop("_band_outside_hours", None)
