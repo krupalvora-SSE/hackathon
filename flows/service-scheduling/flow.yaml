@@ -23,7 +23,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.19.0
+version: 0.19.1
 title: Service scheduling call flow
 ticket: SSE-15557
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.

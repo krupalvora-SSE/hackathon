@@ -2,6 +2,11 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.19.1 (2026-11-27)
+From test call CALL-fc2f980f (booked correctly, but RECAP took three tries):
+- English time lines say "between": the RECAP re-ask was "Saturday, 28 November, 12 pm and 3 pm. Shall I confirm?"; TIME_BAND's exact-time lines read "Does 9 am and 12 pm work?".
+- Bot: a re-ask after an unsure transcript keeps the call's language (a garbled "Yes, I'm from India." switched it to English mid-call), and an unsure "हाँ, confirm …" (an opening yes plus "confirm", no "no") is acted on instead of asked again.
+
 ## 0.19.0 (2026-11-27)
 From a test call where the customer picked मंगलवार, 1 दिसंबर from the backup days, said no to its time window, and the bot hung up with "अभी हमारे पास और slots नहीं हैं":
 - A "no" to the time of a day picked from the offered days rolls back to the day question: the other days offered with it (गुरुवार, 3 दिसंबर) are offered again; the rejected day is not.

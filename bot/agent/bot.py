@@ -188,6 +188,16 @@ COMMIT_STATES = {"RECAP", "HOLD_CONSENT"}
 KEEP_ON_UNSURE = {"unclear", "other_language", "repeat_request"}  # already the safe reading
 
 
+def _yes_and_confirm(heard: str) -> bool:
+    """An unsure transcript that still plainly says yes: it opens with a yes word and also says "confirm"
+    ("हाँ, confirm पुटू" in CALL-fc2f980f was asked twice at RECAP). Two separate yes signals, no "no"."""
+    words = N._clean(heard).split()
+    confirm = {"confirm", "कन्फर्म", "कन्फ़र्म"}
+    return (bool(words) and words[0] in N.CLEAR_YES - confirm and N.parse_bool(heard) is not False
+            and not set(words) & {"मत", "mat", "मात", "रुको", "ruko", "wait"}
+            and bool(set(words[1:]) & confirm))
+
+
 def _offered_band_heard(args: dict, heard: str, call) -> bool:
     """An unsure transcript that is still safe to act on: at ASK_SLOT the customer repeated one of the windows
     just offered ("नौ से बारह" heard as "नो से बारा"). Code, not the LLM, must find both ends of exactly one
@@ -209,7 +219,8 @@ def _ask_again(args: dict, stt, engine) -> str | None:
     call = getattr(engine, "call", None)
     state = getattr(call, "state", None)
     heard = " ".join(h["text"] for h in getattr(stt, "turn_heard", []))
-    if getattr(stt, "turn_unsure", False) and not _offered_band_heard(args, heard, call):
+    if getattr(stt, "turn_unsure", False) and not _offered_band_heard(args, heard, call) \
+            and not (intent == "affirm" and _yes_and_confirm(heard)):
         return "Whisper unsure of the transcript"
     if state in COMMIT_STATES and intent == "affirm" and heard and not N.clear_yes(heard):
         return f"no clear yes at {state}"
@@ -412,7 +423,10 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         args = dict(params.arguments or {})
         if params.function_name == "customer_said" and (why := _ask_again(args, stt, engine)):
             logger.info(f"call {call_id} asking again ({why}): heard {stt.turn_heard}, LLM said {args}")
-            args = {"intent": "unclear", "language": args.get("language", "hi")}
+            # keep the call's language: a garbled turn read as English ("Yes, I'm from India.") must not
+            # switch the re-ask to English
+            args = {"intent": "unclear", "language": getattr(getattr(engine, "call", None), "lang", None)
+                    or args.get("language", "hi")}
         action = engine.dispatch(params.function_name, args)
         logger.info(f"tool {params.function_name}({args}) -> {action.result}")
         if action.ask_next:

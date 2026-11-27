@@ -34,3 +34,31 @@ def test_real_word_loop_kept_once():
 
 def test_ek_bhi_nahi_mishearing():
     assert _fix({"text": "एक बिने."})["text"] == "एक भी नहीं"
+
+
+# CALL-fc2f980f: RECAP asked three times; the first re-ask switched to English
+class _STT:
+    def __init__(self, text, unsure=True):
+        self.turn_unsure, self.turn_heard = unsure, [{"text": text, "unsure": unsure}]
+
+
+class _Engine:
+    def __init__(self, state="RECAP", lang="hi"):
+        self.call = type("C", (), {"state": state, "lang": lang, "policies": {}})()
+
+
+@pytest.mark.parametrize("heard,ask", [
+    ("हाँ, confirm पुटू.", False),          # yes + confirm: act on it
+    ("हाँ, confirm मत करो", True),           # a "no" inside
+    ("confirm पुटू", True),                  # no opening yes
+    ("Yes, I'm from India.", True),          # yes, but no second signal
+])
+def test_unsure_yes_with_confirm(heard, ask):
+    from agent.bot import _ask_again
+    assert bool(_ask_again({"intent": "affirm"}, _STT(heard), _Engine())) is ask
+
+
+def test_recap_english_line_says_between():
+    from agent.flow import FlowSpec
+    line = FlowSpec.load().prompts["en"]["RECAP"]["repeat_with_time"]
+    assert "between {band_spoken}" in line

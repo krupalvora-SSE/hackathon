@@ -46,9 +46,9 @@ ASK_SLOT:
 
 TIME_BAND:
   main: "Our service hero will come between {band_spoken} that day. Does that work for you?"
-  no_exact_guarantee: "I can't guarantee an exact time, but we'll do our best to send the hero at your preferred time. Does {band_spoken} work?"
+  no_exact_guarantee: "I can't guarantee an exact time, but we'll do our best to send the hero at your preferred time. Would a visit between {band_spoken} work?"
   repeat_main: "The hero will come between {band_spoken}. Is that okay?"
-  repeat_no_exact_guarantee: "Does {band_spoken} work for you?"
+  repeat_no_exact_guarantee: "Does a visit between {band_spoken} work for you?"
 
 ALTERNATE_DAYS:
   main: "No problem. Would {options_spoken} work for you?"
@@ -96,7 +96,7 @@ RECAP:
   main: "So that's {weekday}, {date_spoken}. {ready_note}. Shall I confirm it?"
   with_time: "So that's {weekday}, {date_spoken}, between {band_spoken}. {ready_note}. Shall I confirm it?"
   repeat_main: "{weekday}, {date_spoken}. Shall I confirm?"
-  repeat_with_time: "{weekday}, {date_spoken}, {band_spoken}. Shall I confirm?"
+  repeat_with_time: "{weekday}, {date_spoken}, between {band_spoken}. Shall I confirm?"
 
 RECAP_CHANGE:
   main: "Okay, what would you like to change, the day or the time?"
