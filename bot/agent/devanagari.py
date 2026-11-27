@@ -162,8 +162,17 @@ def _near_day(m: re.Match, today: date) -> str:
     return m[0]
 
 
+# Spoken-only respellings for the trained Krupal voice (hi_IN-krupal-medium, retrained 2026-11-27), picked by
+# speaking each candidate and checking what local Whisper hears. The standard spellings came out as:
+# सोलरस्क्वेयर -> "सुलार सुए" (heard as "soluable"), सोलर -> "सुलर", नवंबर -> "नॉम्बर", जनवरी -> "जहनेवारी".
+# Applied only on the voice path, never to training transcripts (near_dates=False).
+VOICE_SPELLINGS = {"सोलरस्क्वेयर": "सौलर स्क्वैर", "सोलर": "सौलर", "नवंबर": "नोवेंबर", "जनवरी": "जैनुअरी"}
+_VOICE_SPELLING = re.compile(rf"(?<![ऀ-ॿ])({'|'.join(VOICE_SPELLINGS)})(?![ऀ-ॿ])")
+
+
 def to_devanagari(text: str, today: date | None = None, *, near_dates: bool = True) -> str:
-    """near_dates=False keeps every month (training transcripts must match what was read aloud)."""
+    """near_dates=False keeps every month and the standard spellings (training transcripts must match what
+    was read aloud); the default is the voice path."""
     from .normalize import today_ist
 
     text = _dates(text)
@@ -173,7 +182,8 @@ def to_devanagari(text: str, today: date | None = None, *, near_dates: bool = Tr
     if not near_dates:
         return text
     today = today or today_ist()
-    return _DAY_MONTH.sub(lambda m: _near_day(m, today), text)
+    text = _DAY_MONTH.sub(lambda m: _near_day(m, today), text)
+    return _VOICE_SPELLING.sub(lambda m: VOICE_SPELLINGS[m[1]], text)
 
 
 async def devanagari_transform(text: str, _text_type=None) -> str:

@@ -24,8 +24,8 @@ def test_flow_and_fixed_lines_end_up_fully_devanagari():
 
 
 def test_known_words_names_and_mai():
-    assert to_devanagari("आपके solar plant का slot") == "आपके सोलर प्लांट का स्लॉट"
-    assert to_devanagari("SolarSquare, A-type ladder") == "सोलरस्क्वेयर, ए-टाइप लैडर"
+    assert to_devanagari("आपके solar plant का slot") == "आपके सौलर प्लांट का स्लॉट"
+    assert to_devanagari("SolarSquare, A-type ladder") == "सौलर स्क्वैर, ए-टाइप लैडर"
     assert to_devanagari("Sharma ji") == "शर्मा जी"          # unknown name: final vowel lengthened
     assert to_devanagari("Dhrumil") == "ध्रुमिल"              # no trailing halant
     assert to_devanagari("mai baad mai call karunga") .startswith("मैं बाद में कॉल")
@@ -38,11 +38,11 @@ FAR = date(2026, 1, 1)  # months away: dates keep their month
 
 
 def test_dates_are_spoken_as_written():
-    assert to_devanagari("Shanivar, 29 November", FAR) == "शनिवार, 29 नवंबर"
+    assert to_devanagari("Shanivar, 29 November", FAR) == "शनिवार, 29 नोवेंबर"
     assert to_devanagari("Somvar, 1 December ko", FAR) == "सोमवार, 1 दिसंबर को"
-    assert to_devanagari("2026-11-29 ko", FAR) == "29 नवंबर को"
-    assert to_devanagari("29/11", FAR) == "29 नवंबर"
-    assert to_devanagari("Saturday 29th Nov", FAR) == "सैटरडे 29 नवंबर"
+    assert to_devanagari("2026-11-29 ko", FAR) == "29 नोवेंबर को"
+    assert to_devanagari("29/11", FAR) == "29 नोवेंबर"
+    assert to_devanagari("Saturday 29th Nov", FAR) == "सैटरडे 29 नोवेंबर"
 
 
 def test_near_dates_drop_the_month():
@@ -52,7 +52,7 @@ def test_near_dates_drop_the_month():
     assert to_devanagari("30 नवंबर या 7 दिसंबर", today) == "30 या 7"
     assert to_devanagari("2026-12-11 ko", today) == "11 को"          # day 14: still near
     assert to_devanagari("12 दिसंबर", today) == "12 दिसंबर"          # day 15: keep the month
-    assert to_devanagari("26 नवंबर", today) == "26 नवंबर"            # past date: keep it
+    assert to_devanagari("26 नवंबर", today) == "26 नोवेंबर"            # past date: keep it
     assert to_devanagari("2 जनवरी", date(2026, 12, 25)) == "2"       # across the new year
 
 
@@ -113,3 +113,13 @@ def test_hinglish_words_get_real_spellings_not_letter_by_letter():
     from agent.devanagari import WORDS
     unknown = {w for w in re.findall(r"[A-Za-z][A-Za-z'’-]*", script) if w.lower() not in WORDS}
     assert not unknown, f"training script words without a real spelling: {unknown}"
+
+
+def test_voice_respells_words_the_krupal_voice_garbles():
+    """CALL-6517ea26: "SolarSquare" was heard as "soluable" (सुलार सुए), solar as सुलर, नवंबर as नॉम्बर."""
+    assert to_devanagari("मैं SolarSquare से बोल रहा हूँ", FAR) == "मैं सौलर स्क्वैर से बोल रहा हूँ"
+    assert to_devanagari("आपके solar system का", FAR) == "आपके सौलर सिस्टम का"
+    assert to_devanagari("25 जनवरी या 20 नवंबर", FAR) == "25 जैनुअरी या 20 नोवेंबर"
+    assert to_devanagari("नवंबर में", FAR) == "नोवेंबर में"
+    assert to_devanagari("सोलरस्क्वेयर", FAR, near_dates=False) == "सोलरस्क्वेयर"   # training text untouched
+    assert to_devanagari("15 नवंबर", FAR, near_dates=False) == "15 नवंबर"
