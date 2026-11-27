@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { breakEvenPct, costPerConversion, observed, rank } from '../public/calculator.js';
+import { breakEvenPct, costPerConversion, observed, rank, savings } from '../public/calculator.js';
 import { createCalculator, DEFAULTS, validate } from './calculator.js';
 
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} !== ${b}`);
@@ -34,6 +34,14 @@ test('break-even is the conversion rate at which AI calling costs the same as an
   close(costPerConversion({ costPerCall: 1.23, attempts: 1.5, conversionPct: be }), 10);
 });
 
+test('saving against a channel, per customer, as a share and in total', () => {
+  const r = savings({ aiCost: 5.01, otherCost: 24, customers: 1000 });
+  close(r.perCustomer, 18.99); close(r.pct, 79.125); close(r.total, 18990);
+  assert.ok(savings({ aiCost: 30, otherCost: 24, customers: 10 }).perCustomer < 0);                  // dearer than the channel: negative
+  for (const bad of [{ aiCost: null, otherCost: 24 }, { aiCost: 5, otherCost: null }, { aiCost: 5, otherCost: 0 }]) assert.equal(savings(bad), null);
+  assert.equal(savings({ aiCost: 5, otherCost: 24 }).total, null);
+});
+
 test('channels are ranked cheapest first, those without a number last', () => {
   const rows = [{ n: 'a', cost: 9 }, { n: 'b', cost: null }, { n: 'c', cost: 3 }, { n: 'd', cost: 5 }];
   assert.deepEqual(rank(rows).map((r) => r.n), ['c', 'd', 'a', 'b']);
@@ -53,7 +61,7 @@ test('the call logs give the cost per call and the confirmed rate over finished 
 });
 
 // ---- the saved settings
-const good = () => ({ aiConversionPct: 35, attempts: 1.4, aiCostMode: 'manual', aiCostPerCall: 2.5,
+const good = () => ({ aiConversionPct: 35, attempts: 1.4, aiCostMode: 'manual', aiCostPerCall: 2.5, customers: 500,
   channels: [{ name: 'Manual calling', costPerConversion: 40 }, { name: 'Push', costPerConversion: 6 }, { name: 'WhatsApp', costPerConversion: 12 }] });
 
 test('valid settings are accepted and tidied', () => {
@@ -73,7 +81,7 @@ test('blank numbers stay blank and attempts defaults to 1', () => {
 test('settings outside the limits are refused and name the field', () => {
   const cases = [
     [{ aiConversionPct: 0 }, 'aiConversionPct'], [{ aiConversionPct: 101 }, 'aiConversionPct'], [{ aiConversionPct: 'abc' }, 'aiConversionPct'],
-    [{ attempts: 0.5 }, 'attempts'], [{ attempts: 11 }, 'attempts'], [{ aiCostPerCall: -1 }, 'aiCostPerCall'],
+    [{ customers: 0 }, 'customers'], [{ attempts: 0.5 }, 'attempts'], [{ attempts: 11 }, 'attempts'], [{ aiCostPerCall: -1 }, 'aiCostPerCall'],
     [{ channels: good().channels.slice(0, 2) }, 'channels'], [{ channels: 'x' }, 'channels'],
     [{ channels: [{ name: '', costPerConversion: 1 }, ...good().channels.slice(1)] }, 'channels[0]'],
     [{ channels: [good().channels[0], { name: 'x', costPerConversion: -3 }, good().channels[2]] }, 'channels[1]'],

@@ -14,6 +14,13 @@ export const breakEvenPct = ({ costPerCall, attempts = 1, otherCost }) =>
   ok(costPerCall, attempts, otherCost) && costPerCall >= 0 && attempts >= 1 && otherCost > 0
     ? ((costPerCall * attempts) / otherCost) * 100 : null;
 
+// What AI calling saves against another channel: per converted customer, as a share of that channel's cost, and over `customers`.
+// A negative saving means AI calling costs more.
+export const savings = ({ aiCost, otherCost, customers }) =>
+  ok(aiCost, otherCost) && otherCost > 0
+    ? { perCustomer: otherCost - aiCost, pct: ((otherCost - aiCost) / otherCost) * 100, total: ok(customers) ? (otherCost - aiCost) * customers : null }
+    : null;
+
 // Cheapest first; channels without a number yet go last.
 export const rank = (rows) => [...rows].sort((a, b) => (a.cost ?? Infinity) - (b.cost ?? Infinity));
 

@@ -4,14 +4,15 @@ import { dirname } from 'node:path';
 // The settings of the channel cost calculator, kept on the server so everyone sees the same numbers.
 // shortcut: one small JSON file rewritten on every save.
 export const DEFAULTS = {
-  aiConversionPct: null,                 // blank until someone enters it (the call logs' rate is offered as a reference)
+  aiConversionPct: 40,                   // starting point; the call logs' real rate is offered as a reference
   attempts: 1,                           // calls per customer
   aiCostMode: 'logs',                    // 'logs' = average cost per call from the call logs, 'manual' = aiCostPerCall
   aiCostPerCall: null,
-  channels: [
-    { name: 'Manual calling', costPerConversion: null },
-    { name: 'Push notification', costPerConversion: null },
-    { name: 'Third channel', costPerConversion: null },
+  customers: 1000,                       // converted customers per month, to turn the saving into a monthly figure
+  channels: [                            // the first one is the human-calling baseline the saving is measured against
+    { name: 'Manual calling', costPerConversion: 24 },
+    { name: 'Push notification', costPerConversion: 0 },
+    { name: 'Whatsapp', costPerConversion: 1.1 },
   ],
 };
 
@@ -28,9 +29,10 @@ export function validate(b = {}) {
     attempts: num(b.attempts ?? 1, 1, 10) ?? 1,
     aiCostMode: b.aiCostMode === 'manual' ? 'manual' : 'logs',
     aiCostPerCall: num(b.aiCostPerCall, 0, 100000),
+    customers: num(b.customers ?? DEFAULTS.customers, 1, 100000000) ?? DEFAULTS.customers,
     channels: [],
   };
-  for (const k of ['aiConversionPct', 'attempts', 'aiCostPerCall']) if (Number.isNaN(out[k])) return { error: 'invalid_settings', field: k };
+  for (const k of ['aiConversionPct', 'attempts', 'aiCostPerCall', 'customers']) if (Number.isNaN(out[k])) return { error: 'invalid_settings', field: k };
   if (!Array.isArray(b.channels) || b.channels.length !== 3) return { error: 'invalid_settings', field: 'channels' };
   for (const [i, c] of b.channels.entries()) {
     const name = String(c?.name ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);

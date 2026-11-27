@@ -60,6 +60,12 @@
     .be li { border:1px solid var(--border-2); border-radius:12px; padding:10px 14px; font-size:var(--text-sm); line-height:1.5; }
     .be li.win { background:#E8F6EC; border-color:transparent; }
     .be li.lose { background:#FBEAE4; border-color:transparent; }
+    .save { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin:12px 0 18px; padding:16px 20px; border-radius:16px; background:#E8F6EC; color:var(--leaf-600); }
+    .save.neg { background:#FBEAE4; color:var(--rust-600); }
+    .save small { display:block; font-size:var(--text-xs); font-weight:700; }
+    .save b { display:block; font-size:34px; line-height:1.1; }
+    .save .mo { text-align:right; color:var(--fg-1); }
+    .save .mo b { font-size:22px; color:inherit; }
     .empty { padding:36px 12px; text-align:center; color:var(--fg-3); font-size:var(--text-sm); }
     @media (max-width: 900px) { .layout { grid-template-columns:1fr; } .brand-name { display:none; } .row { grid-template-columns:1fr 100px; } .row .track { grid-column:1 / -1; order:3; } }
   </style>
@@ -84,13 +90,12 @@
   <main>
     <div class="eyebrow">Does AI calling pay off?</div>
     <h1>Cost per conversion</h1>
-    <p class="sub">For the other channels you enter what a converted customer costs on average. For AI calling it is worked out: the cost of the calls it takes to reach a customer, divided by how many customers convert. Change the conversion rate to see where AI calling beats each channel.</p>
+    <p class="sub">What one converted customer costs on each channel, and what AI calling saves.</p>
     <div class="layout">
       <section class="card" aria-label="Inputs">
         <span class="saved" id="saved" hidden>Saved</span>
         <h2>AI calling</h2>
-        <div class="hint">Cost comes from your call logs. Conversion rate is yours to set.</div>
-
+        
         <label for="rate">Conversion rate</label>
         <div class="unit"><input id="rate" type="number" min="0.1" max="100" step="0.1" placeholder="e.g. 35"><em>%</em></div>
         <div class="hint" id="obs-rate"></div>
@@ -105,25 +110,26 @@
 
         <label for="attempts">Calls per customer</label>
         <input id="attempts" type="number" min="1" max="10" step="0.1" value="1">
-        <div class="hint">Average calls it takes to deal with one customer (no answer, call back later, retries). 1 means one call each.</div>
+        <div class="hint">Average calls to reach one customer, including retries.</div>
+
+        <label for="customers">Converted customers a month</label>
+        <input id="customers" type="number" min="1" step="1" value="1000">
 
         <h3>Other channels</h3>
         <div id="channels"></div>
-        <div class="hint" style="margin-top:10px">Average cost of one converted customer through that channel. Rename a channel if it is something else.</div>
+        
       </section>
 
       <section class="card" aria-label="Result" aria-live="polite">
         <h2>Cost of one converted customer</h2>
-        <div class="hint" id="result-hint"></div>
+                <div class="save" id="save" hidden></div>
         <div id="rows"></div>
-        <p class="formula" id="formula" hidden></p>
-        <h3>When does AI calling win?</h3>
         <ul class="be" id="be"></ul>
       </section>
     </div>
   </main>
   <script type="module">
-    import { breakEvenPct, costPerConversion, observed, rank } from './calculator.js';
+    import { breakEvenPct, costPerConversion, observed, rank, savings } from './calculator.js';
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const inr = (n) => `₹${n >= 100 ? Math.round(n).toLocaleString('en-IN') : Number(n.toFixed(6)).toFixed(2)}`;   // 3.0749999 shows as 3.08, not 3.07
@@ -137,6 +143,7 @@
     function fill() {
       $('rate').value = s.aiConversionPct ?? '';
       $('attempts').value = s.attempts;
+      $('customers').value = s.customers;
       $('cost').value = s.aiCostPerCall ?? '';
       document.querySelector(`input[name=costmode][value=${s.aiCostMode}]`).checked = true;
       $('cost-box').hidden = s.aiCostMode !== 'manual';
@@ -149,7 +156,7 @@
     }
     function read() {
       return {
-        aiConversionPct: num($('rate').value), attempts: num($('attempts').value) ?? 1,
+        aiConversionPct: num($('rate').value), attempts: num($('attempts').value) ?? 1, customers: num($('customers').value) ?? 1000,
         aiCostMode: document.querySelector('input[name=costmode]:checked').value, aiCostPerCall: num($('cost').value),
         channels: s.channels.map((c, i) => ({ name: $(`cn-${i}`).value.trim() || c.name, costPerConversion: num($(`cc-${i}`).value) })),
       };
@@ -172,28 +179,32 @@
       const cpc = costPerCall(), att = s.attempts, rate = s.aiConversionPct;
       const ai = costPerConversion({ costPerCall: cpc, attempts: att, conversionPct: rate });
       const rows = rank([
-        { name: 'AI calling', ai: true, cost: ai, sub: ai == null ? (cpc == null ? 'needs a cost per call' : 'enter a conversion rate') : `${inr(cpc)} × ${att} ÷ ${pct(rate)}` },
-        ...s.channels.map((c) => ({ name: c.name, cost: c.costPerConversion, sub: c.costPerConversion == null ? 'enter its cost' : 'average you entered' })),
+        { name: 'AI calling', ai: true, cost: ai, sub: ai == null ? (cpc == null ? 'needs a cost per call' : 'enter a conversion rate') : `${inr(cpc)} a call ÷ ${pct(rate)}` },
+        ...s.channels.map((c) => ({ name: c.name, cost: c.costPerConversion, sub: c.costPerConversion == null ? 'enter its cost' : '' })),
       ]);
       const known = rows.filter((r) => r.cost != null), max = Math.max(...known.map((r) => r.cost), 0);
-      const best = known.length > 1 ? known[0] : null;
-      $('result-hint').textContent = known.length > 1 ? 'Lower is better. Cheapest first.' : 'Enter a number for AI calling and for at least one other channel to compare.';
       $('rows').innerHTML = rows.map((r) => `
-        <div class="row ${r.ai ? 'ai' : ''} ${best === r ? 'best' : ''}">
-          <div class="name">${esc(r.name)}${best === r ? '<span class="badge">Cheapest</span>' : ''}<small>${esc(r.sub)}</small></div>
+        <div class="row ${r.ai ? 'ai' : ''}">
+          <div class="name">${esc(r.name)}<small>${esc(r.sub)}</small></div>
           <div class="track" aria-hidden="true"><span class="fill" style="width:${r.cost != null && max ? (r.cost / max) * 100 : 0}%"></span></div>
           <div class="val ${r.cost == null ? 'none' : ''}">${r.cost == null ? '–' : inr(r.cost)}</div>
         </div>`).join('');
-      $('formula').hidden = ai == null;
-      if (ai != null) $('formula').innerHTML = `AI calling: <b>${inr(cpc)}</b> per call × <b>${att}</b> call${att === 1 ? '' : 's'} per customer ÷ <b>${pct(rate)}</b> conversion = <b>${inr(ai)}</b> for each converted customer.`;
-      const others = s.channels.filter((c) => c.costPerConversion != null);
-      $('be').innerHTML = !others.length ? '<li>Enter a cost for another channel to see the conversion rate AI calling needs to beat it.</li>'
+      const base = s.channels[0], sv = savings({ aiCost: ai, otherCost: base.costPerConversion, customers: s.customers });
+      $('save').hidden = !sv;
+      if (sv) {
+        const more = sv.perCustomer < 0, abs = Math.abs(sv.perCustomer), tot = Math.abs(sv.total);
+        $('save').className = `save ${more ? 'neg' : ''}`;
+        const lakh = (n) => (n >= 1e7 ? `₹${+(n / 1e7).toFixed(1)} Cr` : n >= 1e5 ? `₹${+(n / 1e5).toFixed(1)} L` : inr(n));
+        $('save').innerHTML = `<div><small>${more ? 'Extra cost' : 'Saved'} per converted customer vs ${esc(base.name)}</small><b>${inr(abs)}</b><small>${pct(+Math.abs(sv.pct).toFixed(0))} ${more ? 'costlier' : 'cheaper'}</small></div>
+          <div class="mo"><small>For ${s.customers.toLocaleString('en-IN')} customers a month</small><b>${lakh(tot)} a month</b><small>${lakh(tot * 12)} a year</small></div>`;
+      }
+      const others = s.channels.slice(0, 1).filter((c) => c.costPerConversion != null);   // only the human-calling baseline
+      $('be').innerHTML = !others.length ? ''
         : others.map((c) => {
           const be = breakEvenPct({ costPerCall: cpc, attempts: att, otherCost: c.costPerConversion });
           if (be == null) return `<li>${esc(c.name)}: needs a cost per call first.</li>`;
-          if (be > 100) return `<li class="lose"><b>${esc(c.name)}</b> (${inr(c.costPerConversion)}): AI calling cannot beat it at ${inr(cpc)} per call and ${att} call${att === 1 ? '' : 's'} per customer, even at 100% conversion.</li>`;
-          const state = rate == null ? '' : rate > be ? 'win' : 'lose';
-          return `<li class="${state}"><b>${esc(c.name)}</b> (${inr(c.costPerConversion)}): AI calling is cheaper above <b>${pct(+be.toFixed(1))}</b> conversion.${rate == null ? '' : rate > be ? ` You are at ${pct(rate)}, so it wins.` : ` You are at ${pct(rate)}, so it does not yet.`}</li>`;
+          if (be > 100) return `<li>${esc(c.name)} costs less than AI calling at ${inr(cpc)} a call.</li>`;
+          return `<li class="${rate != null && rate > be ? 'win' : ''}">Beats ${esc(c.name)} above <b>${pct(+be.toFixed(1))}</b> conversion${rate == null ? '' : ` (you are at ${pct(rate)})`}.</li>`;
         }).join('');
     }
 
