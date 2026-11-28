@@ -2,6 +2,14 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.24.0 — re-ask wording, repeat requests, opener (2026-11-28)
+From test call CALL-3f18802d:
+- `_global.didnt_catch` (hi): "माफ़ कीजिए, मैं समझ नहीं पाया।" instead of "…ठीक से सुनाई नहीं दिया।". The krupal voice says "बढ़िया" after "…नहीं दिया" (its training clip 0032 held the next line's first word), so the re-ask came out as "माफ़ कीजिए, ठीक से सुनाई नहीं दिया। बढ़िया, आपके पास A-type ladder है?".
+- `_global.repeat_lead` (hi): "जी, फिर से बताता हूँ।" (shorter; "बता देता" was garbled by the voice).
+- No praise word ("बढ़िया।", "Great.") after an apology / re-ask line in the same reply, or on an `unclear` / `repeat_request` turn (`FlowCall._no_praise_after_sorry`).
+- New `_global.opener`: the call's first words. Hindi "नमस्ते जी?" (the voice never trained on "hello": "हॅलो?" came out as "काई दो"); English stays "Hello?". GREET (hi) no longer starts with a second "नमस्ते".
+- Bot (not flow): a turn VAD split mid-sentence is decoded whole ("क्या आप, | फिर से दोहराएंगे?"; the second half alone was "शलिसे, नहाँ है।"); a garbled short reply that scores as a repeat phrase is read as one; repeat requests skip the LLM (fast path), even when Whisper is unsure.
+
 ## 0.23.0 — date / time change mid-checklist (2026-11-27)
 From test call CALL-5d90b5f3 (hung up): at the ladder / water questions the customer said "time slot change करना है" and "विजिट का डेट चेंज करना है". The LLM read both right (`wants_other_band`, `change_date`), but READINESS_CHECK had no branch for them, so the bot said "माफ़ कीजिए, ठीक से सुनाई नहीं दिया" and asked about the ladder again.
 - READINESS_CHECK: `change_date` -> ALTERNATE_DAYS, `change_time` -> ASK_SLOT, `wants_other_band` -> CHECK_BAND (no time named -> ASK_SLOT). Answers already given are kept; the checklist after the new day / time asks only what is left (an arrangeable "no" is asked again).

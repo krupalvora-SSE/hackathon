@@ -31,6 +31,9 @@ class ChecklistEngine:
     def outcome(self):
         return self.state.outcome
 
+    def opener(self) -> str:
+        return "Hello?"
+
     def opening(self) -> list[str]:
         return [greeting(self.booking)]
 
@@ -67,6 +70,10 @@ class FlowEngine:
     @property
     def outcome(self):
         return self.call.outcome
+
+    def opener(self) -> str:
+        """The first words of the call ("नमस्ते जी?"), said before the customer speaks; the flow's _global.opener."""
+        return self.call._global_line("opener") or "Hello?"
 
     def opening(self) -> list[str]:
         return self._start.speak

@@ -71,9 +71,26 @@ SHORT_YES = ("हाँ", "हाँ जी", "जी", "जी हाँ", "ह
 SHORT_OTHER = ("नहीं", "नहीं जी", "ना", "हेलो", "कौन")
 SHORT_MIN_LOGPROB = -0.9
 SHORT_MARGIN = 0.25
+# "क्या आप फिर से दोहराएंगे?" / "सुनाई नहीं दिया" garbled on its own ("शलिसे, नहाँ है।", CALL-3f18802d). An unsure
+# reply of at most REPEAT_MAX_WORDS words is also scored against these; a repeat phrase is kept when it beats every
+# answer by REPEAT_MARGIN. Loose on purpose: a wrong pick only makes the bot say its question again.
+# Calibrated on recordings/ + eval/corpus (113 unsure short clips): only two prefer a repeat phrase, both real
+# repeat requests: CALL-3f18802d/006 (+0.17 over "ठीक है") and CALL-47973406/008 "सुना इनिदी आ" (+1.01).
+SHORT_REPEAT = ("फिर से दोहराएंगे", "फिर से बोलिए", "सुनाई नहीं दिया", "क्या बोला", "दोबारा बोलिए", "समझ नहीं आया")
+SHORT_ANSWERS = ("हाँ है", "नहीं है", "पता नहीं", "हाँ जी", "नहीं जी", "ठीक है")
+REPEAT_MAX_WORDS = 4
+REPEAT_MIN_LOGPROB = -1.5
+REPEAT_MARGIN = 0.15
+# A segment after a mid-sentence pause is decoded together with the turn's earlier segments (see run_stt).
+JOIN_MAX_S = 20.0
+JOIN_GAP_S = 0.25
 
 _warm = threading.Lock()
 _warmed = False
+# One MLX decode at a time: MLX inference is not thread-safe. server.py warms Whisper on a background thread at
+# import; a decode running beside it came back empty after ~40 s or crashed the process (seen in the test suite;
+# two calls at once would hit the same).
+_mlx_lock = threading.Lock()
 
 
 def use_mlx() -> bool:
@@ -167,7 +184,8 @@ def transcribe_detailed(audio, mlx: bool | None = None, prompt: str | None = VOC
     """16 kHz float32 mono -> {text, lang, avg_logprob, compression_ratio, no_speech_prob}. Blocking."""
     mlx = use_mlx() if mlx is None else mlx
     if mlx:
-        return _fix(_transcribe_mlx(audio, prompt))
+        with _mlx_lock:
+            return _fix(_transcribe_mlx(audio, prompt))
 
     def run(language):
         segs, info = _cpu_model().transcribe(audio, language=language, beam_size=1, condition_on_previous_text=False,
@@ -217,7 +235,7 @@ def _transcribe_mlx(audio, prompt: str | None = None) -> dict:
         if bare.compression_ratio <= UNSURE_COMPRESSION:
             hi = bare
     best, lang = hi, "hi"
-    short = _short_answer(model, features, prompt, hi)
+    short = _short_answer(model, features, prompt, hi) or _repeat_request(model, features, prompt, hi)
     if short:
         return short
     if probs[0].get("en", 0) >= EN_PLAUSIBLE:
@@ -230,13 +248,8 @@ def _transcribe_mlx(audio, prompt: str | None = None) -> dict:
             "no_speech_prob": float(best.no_speech_prob)}
 
 
-def _short_answer(model, features, prompt: str | None, hi) -> dict | None:
-    """The likeliest SHORT_YES/SHORT_OTHER answer for a garbled short reply, or None (see SHORT_*)."""
-    text = hi.text.strip()
-    if not text or len(text.split()) > 2 or re.search(r"[A-Za-z]", text) or hi.no_speech_prob >= NO_SPEECH_PROB:
-        return None
-    if not is_unsure({"text": text, "avg_logprob": hi.avg_logprob, "compression_ratio": hi.compression_ratio}):
-        return None
+def _scores(model, features, prompt: str | None, cands: tuple[str, ...]) -> dict[str, float]:
+    """Mean log-prob of each candidate transcript (incl. end of text, as Whisper scores) for this audio."""
     import mlx.core as mx
     import numpy as np
     from mlx_whisper.tokenizer import get_tokenizer
@@ -244,7 +257,6 @@ def _short_answer(model, features, prompt: str | None, hi) -> dict | None:
     tok = get_tokenizer(model.is_multilingual, num_languages=model.num_languages, language="hi", task="transcribe")
     pre = ([tok.sot_prev] + tok.encode(" " + prompt.strip()) if prompt else []) \
         + list(tok.sot_sequence_including_notimestamps)
-    cands = SHORT_YES + SHORT_OTHER
     seqs = [pre + tok.encode(" " + c) + [tok.eot] for c in cands]
     width = max(map(len, seqs))
     batch = mx.array([q + [tok.eot] * (width - len(q)) for q in seqs])
@@ -254,7 +266,26 @@ def _short_answer(model, features, prompt: str | None, hi) -> dict | None:
     scores = {}
     for i, (c, q) in enumerate(zip(cands, seqs)):
         pos = np.arange(len(pre) - 1, len(q) - 1)
-        scores[c] = float(lp[i, pos, q[len(pre):]].sum()) / (len(q) - len(pre))  # incl. eot, as Whisper
+        scores[c] = float(lp[i, pos, q[len(pre):]].sum()) / (len(q) - len(pre))
+    return scores
+
+
+def _garbled(hi, max_words: int) -> str | None:
+    """The text of an unsure, short, Devanagari-only decode (worth rescoring), else None."""
+    text = hi.text.strip()
+    if not text or len(text.split()) > max_words or re.search(r"[A-Za-z]", text) or hi.no_speech_prob >= NO_SPEECH_PROB:
+        return None
+    if not is_unsure({"text": text, "avg_logprob": hi.avg_logprob, "compression_ratio": hi.compression_ratio}):
+        return None
+    return text
+
+
+def _short_answer(model, features, prompt: str | None, hi) -> dict | None:
+    """The likeliest SHORT_YES/SHORT_OTHER answer for a garbled short reply, or None (see SHORT_*)."""
+    text = _garbled(hi, 2)
+    if text is None:
+        return None
+    scores = _scores(model, features, prompt, SHORT_YES + SHORT_OTHER)
     pick = max(scores, key=scores.get)
     side = SHORT_YES if pick in SHORT_YES else SHORT_OTHER
     rival = max(v for c, v in scores.items() if c not in side)
@@ -263,6 +294,41 @@ def _short_answer(model, features, prompt: str | None, hi) -> dict | None:
     logger.debug(f"Whisper [{text}] ({hi.avg_logprob:.2f}) rescored as [{pick}] ({scores[pick]:.2f})")
     return {"text": pick, "lang": "hi", "avg_logprob": scores[pick], "compression_ratio": 0.0,
             "no_speech_prob": float(hi.no_speech_prob), "heard_as": text, "fixed": True}
+
+
+def _repeat_request(model, features, prompt: str | None, hi) -> dict | None:
+    """A garbled short reply that is most likely "please repeat" (see SHORT_REPEAT), else None."""
+    text = _garbled(hi, REPEAT_MAX_WORDS)
+    if text is None:
+        return None
+    scores = _scores(model, features, prompt, SHORT_REPEAT + SHORT_ANSWERS + SHORT_YES + SHORT_OTHER)
+    pick = max(SHORT_REPEAT, key=scores.get)
+    rival = max(v for c, v in scores.items() if c not in SHORT_REPEAT)
+    if scores[pick] < REPEAT_MIN_LOGPROB or scores[pick] - rival < REPEAT_MARGIN:
+        return None
+    logger.debug(f"Whisper [{text}] ({hi.avg_logprob:.2f}) rescored as repeat [{pick}] ({scores[pick]:.2f})")
+    return {"text": pick, "lang": "hi", "avg_logprob": scores[pick], "compression_ratio": 0.0,
+            "no_speech_prob": float(hi.no_speech_prob), "heard_as": text, "fixed": True}
+
+
+def _norm_words(text: str) -> list[str]:
+    return re.sub(r"[।॥.,!?;:'\"()\-]", " ", text).lower().split()
+
+
+def continuation(earlier: str, joined: dict) -> dict | None:
+    """The new words of a turn decoded whole: `joined` minus the `earlier` segments' text it starts with.
+    None when the joined decode doesn't start with what was already sent (then the segment is decoded alone)."""
+    tokens = (joined.get("text") or "").split()
+    before = _norm_words(earlier)
+    seen: list[str] = []
+    for i, tok in enumerate(tokens):
+        if seen == before:
+            rest = " ".join(tokens[i:]).strip()
+            return {**joined, "text": rest, "turn_text": joined["text"], "joined": True} if rest else None
+        seen += _norm_words(tok)
+        if seen != before[:len(seen)]:
+            return None
+    return None
 
 
 _cpu = None
@@ -294,6 +360,7 @@ class WhisperHiEnSTTService(SegmentedSTTService):
         self.turn_unsure = False
         self.turn_heard: list[dict] = []
         self.turn_consumed = True
+        self._turn_audio: list[bytes] = []   # this turn's earlier segments, re-decoded with the next one
         self._dir = RECORDINGS / call_id if (record and call_id) else None
         self._n = 0
 
@@ -304,6 +371,7 @@ class WhisperHiEnSTTService(SegmentedSTTService):
         if self.turn_consumed:
             self.turn_unsure = False
             self.turn_heard = []
+            self._turn_audio = []
             self.turn_consumed = False
 
     def consume_turn(self) -> None:
@@ -345,21 +413,43 @@ class WhisperHiEnSTTService(SegmentedSTTService):
     async def run_stt(self, audio: bytes) -> AsyncGenerator[Frame, None]:
         import numpy as np
 
+        def pcm(b: bytes):
+            return np.frombuffer(b, dtype=np.int16).astype(np.float32) / 32768.0
+
         await self.start_processing_metrics()
         t = time.monotonic()
+        joined = None
         try:
-            x = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
-            r = await asyncio.to_thread(transcribe_detailed, x)
+            prev = [] if self.turn_consumed else self._turn_audio
+            if prev and self.turn_heard and sum(map(len, prev)) + len(audio) <= JOIN_MAX_S * 32000:
+                # The customer paused mid-sentence and VAD cut it ("क्या आप, | फिर से दोहराएंगे?"): alone, the
+                # second half came back as "शलिसे, नहाँ है।" (CALL-3f18802d); decoded with the first half it is
+                # exact. Whisper pads every input to 30 s, so the joined decode costs about the same.
+                gap = bytes(2 * int(16000 * JOIN_GAP_S))
+                rj = await asyncio.to_thread(transcribe_detailed, pcm(b"".join(p + gap for p in prev) + audio))
+                joined = continuation(" ".join(h["text"] for h in self.turn_heard), rj)
+            r = joined or await asyncio.to_thread(transcribe_detailed, pcm(audio))
         except Exception as e:  # noqa: BLE001
             logger.exception("Whisper transcription failed")
             yield ErrorFrame(f"Whisper: {e}")
             return
         finally:
             await self.stop_processing_metrics()
+        self._turn_audio = [*([] if self.turn_consumed else self._turn_audio), audio]
         text, lang, unsure = r["text"], r["lang"], is_unsure(r)
         secs = time.monotonic() - t
         if self._dir:
             self._record(audio, r, unsure, secs)
+        if joined:
+            # the whole turn was decoded again: its confidence replaces the pieces' (they were guesses)
+            logger.debug(f"Whisper turn re-decoded joined: [{r['turn_text']}]")
+            self.turn_heard = [{"text": r["turn_text"], "unsure": unsure}]
+            self.turn_unsure = unsure
+            if text:
+                await self._handle_transcription(text, True, Language.EN_IN if lang == "en" else Language.HI_IN)
+                yield TranscriptionFrame(text, self._user_id, time_now_iso8601(),
+                                         Language.EN_IN if lang == "en" else Language.HI_IN)
+            return
         logger.debug(f"Whisper {len(audio) / 32000:.1f}s audio -> {secs:.2f}s [{lang}] "
                      f"lp={r['avg_logprob']:.2f} cr={r['compression_ratio']:.2f}{' UNSURE' if unsure else ''}: [{text}]")
         if text:

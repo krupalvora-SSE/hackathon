@@ -8,15 +8,18 @@
 # Keep each line under ~20 words, one question per turn. The LLM may paraphrase lightly.
 
 _global:
+  # First words of the call, before the customer has spoken. The krupal voice never trained on "hello" (script lines
+  # 155/249 were dropped): "हॅलो?" came out as "काई दो" (CALL-3f18802d). Back to "हैलो?" once a retrained voice says it.
+  opener: "नमस्ते जी?"
   recall_as_told: "आपके बताए time पर"   # call-back time we could not turn into words (RECALL_CLOSE)
   deflection: "इसकी जानकारी हमारी टीम आपको अलग से देगी।"
   reprompt: "हैलो, क्या आप मुझे सुन पा रहे हैं?"
   sms_reminder: "Visit से पहले आपको reminder SMS भी आ जाएगा।"
   service_hours: "हमारी visits सुबह 9 से शाम 6 बजे के बीच ही होती हैं।"
   time_window: "उस दिन हमारे service hero {band_spoken} के बीच आएँगे।"
-  didnt_catch: "माफ़ कीजिए, ठीक से सुनाई नहीं दिया।"
+  didnt_catch: "माफ़ कीजिए, मैं समझ नहीं पाया।"   # "…नहीं दिया।" made the krupal voice add "बढ़िया" (CALL-3f18802d)
   didnt_catch_date: "माफ़ कीजिए, date समझ नहीं आई। जैसे 5 दिसंबर, या एक महीने बाद?"
-  repeat_lead: "जी, फिर से बता देता हूँ।"
+  repeat_lead: "जी, फिर से बताता हूँ।"
   hold_ack: "जी, मैं line पर हूँ, आप देख लीजिए।"
   identity_who: "मैं {bot_name} बोल रहा हूँ, SolarSquare से, आपके solar system के maintenance के बारे में।"
   identity_source: "आपका number SolarSquare के पास आपके solar system की service के records में है।"
@@ -28,7 +31,7 @@ _global:
   not_a_visit_day: "हमारी visits सोमवार से शनिवार तक ही होती हैं।"
 
 GREET:
-  main: "नमस्ते, क्या {name} जी बोल रहे हैं? मैं SolarSquare से {bot_name}।"
+  main: "क्या {name} जी बोल रहे हैं? मैं SolarSquare से {bot_name}।"   # the opener already said नमस्ते
   repeat_main: "जी, क्या मैं {name} जी से बात कर रहा हूँ?"
 
 WRONG_PERSON:

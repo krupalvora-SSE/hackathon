@@ -75,17 +75,42 @@ def _band(words: list[str], call, heard: str) -> str | None:
     return band if all(w in allowed or _number(w) for w in words) else None
 
 
+# "क्या आप फिर से दोहराएंगे?", "सुनाई नहीं दिया", "फिर से बोलिए", "repeat please": the customer didn't hear the
+# question. Every word must be one of these; at least one must be a clear cue (REPEAT_CUE, or "फिर से" + a verb).
+REPEAT_WORDS = {"क्या", "आप", "फिर", "से", "दोहराएंगे", "दोहराएँगे", "दोहराइए", "दोहराओ", "दोहरा", "दोराएंगे",
+                "दोबारा", "बोलिए", "बोलिये", "बोलो", "बोला", "बोले", "बताइए", "कहा", "कहिए", "सुनाई", "नहीं", "दिया",
+                "दी", "समझ", "आया", "एक", "बार", "और", "जी", "sorry", "सॉरी", "please", "प्लीज़", "प्लीज", "repeat",
+                "रिपीट", "again", "pardon", "what", "kya", "phir", "se", "dobara", "boliye", "bolo", "suna", "sunai",
+                "nahi", "diya", "आवाज़", "आवाज", "आई", "आ", "रही", "हैलो", "hello", "करिए", "कीजिए", "can", "you", "say",
+                "that", "it", "आपने", "ज़रा", "जरा"}
+REPEAT_CUE = {"दोहराएंगे", "दोहराएँगे", "दोहराइए", "दोहराओ", "दोहरा", "दोराएंगे", "दोबारा", "सुनाई", "repeat",
+              "रिपीट", "again", "pardon", "dobara", "sunai"}
+REPEAT_VERB = {"बोलिए", "बोलिये", "बोलो", "बताइए", "कहिए", "boliye", "bolo"}
+
+
+def _repeat(words: list[str]) -> bool:
+    if not words or len(words) > 8 or any(w not in REPEAT_WORDS for w in words):
+        return False
+    pairs = set(zip(words, words[1:]))
+    return (any(w in REPEAT_CUE for w in words) or any(p in (("फिर", "से"), ("phir", "se")) for p in pairs)
+            and any(w in REPEAT_VERB for w in words) or ("क्या", "बोला") in pairs or ("क्या", "कहा") in pairs
+            or ("समझ", "नहीं") in pairs)
+
+
 def fast_intent(call, heard: str, unsure: bool) -> dict | None:
     """customer_said arguments for a turn code can read on its own, else None (ask the LLM)."""
     state = getattr(call, "state", None)
     ref = getattr(call, "last_ref", None) or (None, None)
-    if unsure or not heard or getattr(call, "outcome", None) or ref[0] != state:
+    if not heard or getattr(call, "outcome", None) or ref[0] != state:
         return None
     words = _words(heard)
-    if not words or len(words) > 8:
-        return None
     allowed = set(call.spec.allowed_intents(state))
     lang = getattr(call, "lang", None) or "hi"
+    # A repeat request is the safe reading even when Whisper is unsure: the bot just says the question again.
+    if "repeat_request" in allowed and _repeat(words):
+        return {"intent": "repeat_request", "language": lang}
+    if unsure or not words or len(words) > 8:
+        return None
     if state in YES_NO_STATES:
         if state == "READINESS_CHECK" and not str(ref[1]).startswith("ask_"):
             return None

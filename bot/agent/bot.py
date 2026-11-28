@@ -421,6 +421,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     logger.info(f"call {call_id} config {cfg}")
     stt = make_whisper_stt(call_id, record=cfg["record_stt_audio"])
     tts = _piper_tts(cfg, call_id, sample_rate)
+    await tts.warm(engine.opener())  # cold ONNX run / converter calibration must not delay the opener
     llm = _llm(cfg)
     spoken = CallTranscript(call_id)  # Bot / Human lines as actually spoken (bot/recordings/<call>/transcript.*)
     tts.on_spoken = spoken.bot
@@ -642,7 +643,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             await worker.queue_frames([EndFrame()])
             return
         gate.protect(float(os.getenv("OPENER_PROTECT_S", "2")))
-        await worker.queue_frames([TTSSpeakFrame("Hello?", append_to_context=True)])
+        await worker.queue_frames([TTSSpeakFrame(engine.opener(), append_to_context=True)])
 
     @transport.event_handler("on_client_disconnected")
     async def _disconnected(_t, _client):

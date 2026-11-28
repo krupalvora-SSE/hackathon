@@ -44,6 +44,8 @@ MIN_PIECE = 0.35    # shorter bursts are clicks / breaths
 PAD = 0.12          # silence kept around each clip
 MATCH = 0.72        # similarity a piece (or run of pieces) needs to count as a script line
 MAX_SPAN = 5        # most pieces one line may be split into
+OVERRUN = 4         # transcript letters before / after the line's own text that reject a clip: a neighbour's word
+                    # (0032 "…सुनाई नहीं दिया" kept the next line's "बढ़िया", and the voice learned to say it)
 LOOK_BACK, LOOK_AHEAD = 3, 12  # script lines searched around the expected one
 
 NUM = ("शून्य एक दो तीन चार पाँच छह सात आठ नौ दस ग्यारह बारह तेरह चौदह पंद्रह सोलह सत्रह अठारह उन्नीस बीस "
@@ -121,6 +123,17 @@ REANCHOR_AFTER = 5   # pieces in a row matching nothing near the expected line: 
 REANCHOR_MATCH = 0.82  # ... but only jump on a confident match
 
 
+def overrun(h: str, line: str) -> int:
+    """Letters at either end that only one side has (both norm()ed): speech before / after the line (a neighbour's
+    word), or the line's own first / last word missing from the clip. 0032 + 0033 had both: "बढ़िया" was cut from
+    the start of 0033 and glued onto the end of 0032."""
+    blocks = [b for b in difflib.SequenceMatcher(None, h, line, autojunk=False).get_matching_blocks() if b.size]
+    if not blocks:
+        return max(len(h), len(line))
+    first, last = blocks[0], blocks[-1]
+    return max(first.a, first.b, len(h) - (last.a + last.size), len(line) - (last.b + last.size))
+
+
 def align(texts: list[str], script: list[tuple[str, str]], ptr: int = 0):
     """Greedy in reading order from script line `ptr` (carry it across recordings read in order).
 
@@ -141,7 +154,7 @@ def align(texts: list[str], script: list[tuple[str, str]], ptr: int = 0):
                 if not 0.8 <= len(h) / max(1, len(lines[j])) <= 1.3:
                     continue             # half a line (or two lines) under one line's text: bad data
                 sc = difflib.SequenceMatcher(None, h, lines[j], autojunk=False).ratio()
-                if sc > best[0]:
+                if sc > best[0] and overrun(h, lines[j]) < OVERRUN:
                     best = (sc, span, j)
         return best
 

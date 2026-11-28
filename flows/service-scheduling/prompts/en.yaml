@@ -1,6 +1,7 @@
 # English lines per state. Same keys and placeholders as prompts/hi.yaml.
 
 _global:
+  opener: "Hello?"                 # first words of the call, before the customer speaks
   recall_as_told: "at the time you mentioned"   # call-back time we could not turn into words (RECALL_CLOSE)
   deflection: "Our team will share those details with you separately."
   reprompt: "Hello, can you hear me?"

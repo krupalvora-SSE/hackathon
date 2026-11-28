@@ -161,6 +161,19 @@ class BilingualPiperTTSService(PiperTTSService):
         self._lead_in_done = False
         self.on_spoken = None  # called with each text Piper reads (after respelling): the call transcript
 
+    async def warm(self, text: str = "नमस्ते जी?") -> None:
+        """Before the call connects: run Piper's ONNX graph once (its first run is slow) and, re-voiced, teach the
+        converter the Piper speaker and run one conversion. Otherwise all of that lands on the opener, which then
+        starts late, after the opener's interruption guard is already counting down. Never raises."""
+        try:
+            src, voice = self._hi
+            synth = _synth_fn(voice)
+            pcm = await asyncio.to_thread(synth, text)
+            if self._clone:
+                await convert(self._client, pcm, voice.config.sample_rate, src=src, synth=synth, tau=self._tau)
+        except Exception as e:  # noqa: BLE001 - a cold first sentence beats no call
+            logger.warning(f"TTS warm-up skipped: {e!r}")
+
     def _pick(self, text: str):
         from .devanagari import is_english
 

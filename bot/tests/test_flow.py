@@ -277,7 +277,7 @@ def test_repeat_request_without_short_form_falls_back_to_lead_in_plus_full_line(
     call.handle("affirm")
     call.last_ref = ("OFFER_PRIMARY", "no_such_key")
     r = call.handle("repeat_request")
-    assert r.speak[0].startswith("जी, फिर से बता देता हूँ।") and r.speak[0].endswith(call.last_line)
+    assert r.speak[0].startswith("जी, फिर से बताता हूँ।") and r.speak[0].endswith(call.last_line)
 
 
 def test_hold_on_acknowledges_alone_and_asks_for_a_longer_silence_timeout():
@@ -872,7 +872,7 @@ def test_what_does_that_mean_is_explained_not_answered_with_could_not_hear(asked
     for on in asked_at:
         call.handle(on)
     r = call.handle("asks_meaning")                                 # "ये A type ladder क्या होता है?"
-    assert words in r.speak[0] and "सुनाई नहीं दिया" not in r.speak[0] and call.unclear_streak == 0
+    assert words in r.speak[0] and "समझ नहीं पाया" not in r.speak[0] and call.unclear_streak == 0
     assert r.speak[0].endswith(call._reask())                       # then the question again, short
 
 

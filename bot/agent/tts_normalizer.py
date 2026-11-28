@@ -48,7 +48,8 @@ class HindiHinglishTTSNormalizer:
         for pat, rep in self._replacements:
             text = pat.sub(rep, text)
         text = self._dangling_ke.sub("", text)
-        if self._question.match(text) and not text.endswith("?"):  # rising contour on direct questions
+        last = re.split(r"(?<=[?.।!])\s+", text)[-1]   # only the last sentence: "क्या … हैं? मैं … से कृपाल।"
+        if self._question.match(last) and not text.endswith("?"):  # rising contour on direct questions
             text = re.sub(r"[.।!]+$", "", text).rstrip() + "?"
         return text
 

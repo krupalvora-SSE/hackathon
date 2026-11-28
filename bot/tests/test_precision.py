@@ -45,12 +45,11 @@ def test_booking_needs_a_clear_yes_at_the_recap():
 def test_whisper_service_flags_unsure_turns_and_records(tmp_path, monkeypatch):
     from agent import stt_whisper as W
 
-    results = iter([
-        {"text": "हाँ जी", "lang": "hi", "avg_logprob": -0.3, "compression_ratio": 1.1, "no_speech_prob": 0.01},
-        {"text": "कर दो कर दो कर दो कर दो", "lang": "hi", "avg_logprob": -0.4, "compression_ratio": 3.1,
-         "no_speech_prob": 0.02},
-    ])
-    monkeypatch.setattr(W, "transcribe_detailed", lambda x: next(results))
+    first = {"text": "हाँ जी", "lang": "hi", "avg_logprob": -0.3, "compression_ratio": 1.1, "no_speech_prob": 0.01}
+    # the second segment of the same turn is decoded joined with the first (CALL-3f18802d): longer audio
+    joined = {"text": "हाँ जी कर दो कर दो कर दो कर दो", "lang": "hi", "avg_logprob": -0.4, "compression_ratio": 3.1,
+              "no_speech_prob": 0.02}
+    monkeypatch.setattr(W, "transcribe_detailed", lambda x: joined if len(x) > 16000 else first)
     monkeypatch.setattr(W, "RECORDINGS", tmp_path)
     svc = W.make_whisper_stt("CALL-T", record=True)
 
@@ -66,11 +65,12 @@ def test_whisper_service_flags_unsure_turns_and_records(tmp_path, monkeypatch):
     asyncio.run(run())
     assert not svc.turn_unsure
     asyncio.run(run())
-    assert svc.turn_unsure and [h["text"] for h in svc.turn_heard][0] == "हाँ जी"
+    assert svc.turn_unsure and [h["text"] for h in svc.turn_heard] == [joined["text"]]   # the whole turn
     rows = [json.loads(line) for line in (tmp_path / "CALL-T" / "segments.jsonl").read_text().splitlines()]
     assert [r["unsure"] for r in rows] == [False, True] and (tmp_path / "CALL-T" / "002.wav").exists()
+    assert rows[1]["text"] == "कर दो कर दो कर दो कर दो" and rows[1]["joined"]                 # only the new words
     svc.start_turn()                                  # still talking before the LLM acted: keep the doubt
-    assert svc.turn_unsure and len(svc.turn_heard) == 2
+    assert svc.turn_unsure and len(svc.turn_heard) == 1
     svc.consume_turn()                                # the LLM acted on it
     svc.start_turn()
     assert not svc.turn_unsure and svc.turn_heard == []

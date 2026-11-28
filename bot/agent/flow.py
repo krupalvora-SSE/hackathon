@@ -25,6 +25,8 @@ from .beatplan import BeatPlan, MockBeatPlan
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_FLOW = "service-scheduling"
+# A praise word opening a line ("बढ़िया।" before the checklist): never right after a sorry or on a re-ask.
+PRAISE = re.compile(r"^\s*(?:बहुत\s+)?(?:बढ़िया|बढ़िया|great|perfect|wonderful)\s*[।.!,]+\s*", re.IGNORECASE)
 
 
 # ------------------------------------------------------------------ loading
@@ -399,7 +401,30 @@ class FlowCall:
         if ((entities or {}).get("asks_time") is True and on != "ask_time" and not step.error and not step.end
                 and step.speak and step.state not in ("TIME_BAND", "ASK_SLOT")):   # those lines say the time themselves
             step.speak = [f"{self._time_answer()} {step.speak[0]}".strip(), *step.speak[1:]]
+        if step.speak:
+            step.speak = self._no_praise_after_sorry(step.speak, re_ask=on in ("unclear", "repeat_request"))
         return step
+
+    # Keys of _global lines that apologise or re-ask: no "बढ़िया" / "Great" may follow them in the same reply.
+    SORRY_KEYS = ("didnt_catch", "didnt_catch_date", "repeat_lead", "complaint_ack", "empathy_personal",
+                  "language_not_supported", "not_a_visit_day")
+
+    def _no_praise_after_sorry(self, lines: list[str], re_ask: bool = False) -> list[str]:
+        """Drop a leading praise word ("बढ़िया।", "Great.") from any line that follows an apology / re-ask line,
+        and from every line of a re-ask turn: "माफ़ कीजिए, … बढ़िया" sounds like the bot understood (CALL-3f18802d)."""
+        sorry = [s for s in (self._global_line(k) for k in self.SORRY_KEYS) if s]
+        after_sorry = re_ask
+        out = []
+        for line in lines:
+            if after_sorry:
+                line = PRAISE.sub("", line, count=1)
+            for s in sorry:
+                if s in line:
+                    after_sorry = True
+                    i = line.index(s) + len(s)
+                    line = line[:i] + PRAISE.sub(" ", line[i:], count=1).rstrip() if line[i:].strip() else line
+            out.append(" ".join(line.split()))
+        return [l for l in out if l]
 
     def _time_answer(self) -> str:
         """The window for the chosen day, or just the service hours while no day is chosen yet."""
