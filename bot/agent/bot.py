@@ -57,6 +57,7 @@ from .filler import Filler
 from .prompts import HANDOVER_BROWSER_NOTE
 from .recording import CallRecorder
 from .tools import Action
+from .transcript import CallTranscript
 
 # Rough INR rates for the cost-per-call estimate; override in .env with real contract prices.
 RATE = {
@@ -421,6 +422,8 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     stt = make_whisper_stt(call_id, record=cfg["record_stt_audio"])
     tts = _piper_tts(cfg, call_id, sample_rate)
     llm = _llm(cfg)
+    spoken = CallTranscript(call_id)  # Bot / Human lines as actually spoken (bot/recordings/<call>/transcript.*)
+    tts.on_spoken = spoken.bot
 
     tools = ToolsSchema(standard_tools=[
         FunctionSchema(name=t["name"], description=t["description"], properties=t["properties"],
@@ -473,7 +476,11 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
 
     filler = Filler(say_filler, cfg["filler_delay_ms"] / 1000, enabled=cfg["filler"],
                     active=lambda: not engine.outcome)
-    metrics = CallMetrics(emitter, telephony, on_cut_in=yield_floor, on_bot_started=filler.cancel)
+    def cut_in() -> None:
+        spoken.interrupted()
+        yield_floor()
+
+    metrics = CallMetrics(emitter, telephony, on_cut_in=cut_in, on_bot_started=filler.cancel)
 
     async def speak_opening() -> None:
         await worker.queue_frames([TTSSpeakFrame(t, append_to_context=True) for t in engine.opening()])
@@ -511,6 +518,8 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             if recorder.saved():
                 record["recording"] = {"url": f"/api/recordings/{call_id}.wav", "seconds": recorder.seconds,
                                        "channels": "left: customer, right: bot"}
+        if spoken.save():
+            record["transcript"] = {"url": f"/api/transcripts/{call_id}", "lines": len(spoken.lines)}
         save_result(record)
         emitter.emit(metrics.metrics())
         emitter.emit({"type": "result", "record": record})
@@ -604,6 +613,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             await end_hold()
             filler.customer_stopped(unsure=getattr(stt, "turn_unsure", False))
             yielded["turns"] += 1
+            spoken.human(message.content)
             emitter.emit({"type": "transcript", "role": "customer", "text": message.content})
 
     @aggregators.user().event_handler("on_user_turn_idle")

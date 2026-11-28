@@ -76,6 +76,15 @@
     .msg { max-width: 85%; padding: 8px 12px; border-radius: var(--radius-lg); white-space: normal; }
     .msg.agent { background: var(--blue-50); color: var(--blue-900); align-self: flex-start; }
     .msg.customer { background: var(--sun-50); color: var(--sun-900); align-self: flex-end; }
+    .msg b.who { display: block; font-size: var(--text-xs); opacity: .7; margin-bottom: 2px; }
+    .msg.cut { opacity: .75; } .msg.cut::after { content: ' (interrupted)'; font-size: var(--text-xs); }
+    .tx-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+    .tx-head small { color: var(--fg-3); font-size: var(--text-xs); }
+    #chats { margin-top: var(--space-6); padding: var(--space-5); }
+    .chat-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); max-height: 420px; overflow-y: auto; }
+    .chat-list button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--bg-page); border: 1px solid var(--border-2); cursor: pointer; font: inherit; font-size: var(--text-sm); color: var(--fg-1); }
+    .chat-list button.on { border-color: var(--blue-600); background: var(--blue-50); }
+    .chat-list small { color: var(--fg-3); font-size: var(--text-xs); }
     .msg.sys { align-self: center; color: var(--fg-3); font-size: var(--text-xs); background: none; padding: 2px; }
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); margin-bottom: var(--space-4); }
     .stats div { padding: 10px 12px; border-radius: var(--radius-md); background: var(--bg-page); border: 1px solid var(--border-2); }
@@ -239,7 +248,7 @@
           <div id="record-wrap" hidden><h4>Final record</h4><pre id="record"></pre></div>
         </div>
         <div>
-          <h4>Live transcript</h4>
+          <div class="tx-head"><h4 id="tx-title">Live transcript</h4><button class="action" id="copy-live" title="Copy as Bot: / Human: lines"><i data-lucide="copy"></i><span>Copy chat</span></button></div>
           <div class="transcript" id="transcript"></div>
         </div>
       </div>
@@ -251,6 +260,18 @@
         </div>
       </div>
       <audio id="bot-audio" autoplay></audio>
+    </section>
+
+    <section id="chats" class="card">
+      <div class="live-head"><b>Call chats</b><small style="color:var(--fg-3)">What the bot actually said (fillers and respelling included) and what the customer said</small><span class="spacer"></span><button class="action" id="chats-refresh"><i data-lucide="refresh-cw"></i>Refresh</button></div>
+      <div class="grid">
+        <ul class="chat-list" id="chat-list"><li class="empty">Loading…</li></ul>
+        <div>
+          <div class="tx-head"><h4 id="chat-title">Pick a call</h4><button class="action" id="copy-chat" disabled title="Copy as Bot: / Human: lines"><i data-lucide="copy"></i><span>Copy chat</span></button></div>
+          <div class="transcript" id="chat-view"></div>
+          <div id="chat-audio-wrap" hidden><audio id="chat-audio" controls preload="metadata" style="width:100%;margin-top:var(--space-3)"></audio></div>
+        </div>
+      </div>
     </section>
   </main>
   <script>
@@ -279,7 +300,8 @@
     let allBookings = [];
     let bookingFilter = 'all';
     let bookingQuery = '';
-    fetch('/api/config').then((r) => r.json()).then((c) => { botUrl = c.botUrl; document.getElementById('voice-link').href = `${botUrl}/voice`; loadFlowDef(); }).catch(() => {});
+    fetch('/api/config').then((r) => r.json()).then((c) => { botUrl = c.botUrl; document.getElementById('voice-link').href = `${botUrl}/voice`; loadFlowDef(); }).catch(() => {})
+      .finally(() => loadChats());
 
     const banner = (el, html, kind = '') => { $(el).innerHTML = html ? `<div class="banner ${kind}">${html}</div>` : ''; };
 
@@ -361,6 +383,7 @@
       $('hangup').hidden = false;
       $('hangup').lastChild.textContent = 'Hang up';
       $('transcript').innerHTML = '';
+      $('tx-title').textContent = 'Live transcript';
       $('lat').innerHTML = '';
       $('record-wrap').hidden = true;
       $('recording-wrap').hidden = true;
@@ -408,11 +431,64 @@
       }).join('');
     }
 
+    const WHO = { agent: 'Bot', customer: 'Human' };
     function say(cls, text) {
       const t = $('transcript');
-      t.insertAdjacentHTML('beforeend', `<div class="msg ${cls}">${esc(text)}</div>`);
+      const who = WHO[cls];
+      t.insertAdjacentHTML('beforeend', `<div class="msg ${cls}" ${who ? `data-who="${who}"` : ''}>${who ? `<b class="who">${who}</b>` : ''}<span class="tx">${esc(text)}</span></div>`);
       t.scrollTop = t.scrollHeight;
     }
+
+    // ---- Spoken transcripts (bot server: bot/recordings/<call>/transcript.jsonl), Bot vs Human
+    const chatHtml = (lines) => lines.map((l) => {
+      const cls = l.who === 'bot' ? 'agent' : 'customer';
+      const who = l.who === 'bot' ? 'Bot' : 'Human';
+      return `<div class="msg ${cls}${l.interrupted ? ' cut' : ''}" data-who="${who}" title="${l.t}s"><b class="who">${who} · ${Number(l.t).toFixed(1)}s</b><span class="tx">${esc(l.text)}</span></div>`;
+    }).join('');
+    const boxText = (box) => [...box.querySelectorAll('.msg[data-who]')]
+      .map((m) => `${m.dataset.who}: ${m.querySelector('.tx').textContent}${m.classList.contains('cut') ? ' [interrupted]' : ''}`).join('\n');
+    async function copyText(btn, text) {
+      const label = btn.querySelector('span');
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {  // clipboard API blocked (non-secure origin): fall back to a hidden textarea
+        const ta = Object.assign(document.createElement('textarea'), { value: text });
+        document.body.append(ta); ta.select(); document.execCommand('copy'); ta.remove();
+      }
+      label.textContent = 'Copied'; setTimeout(() => { label.textContent = 'Copy chat'; }, 1500);
+    }
+    $('copy-live').addEventListener('click', (e) => copyText(e.currentTarget, boxText($('transcript'))));
+    $('copy-chat').addEventListener('click', (e) => copyText(e.currentTarget, boxText($('chat-view'))));
+    const fetchTranscript = (id) => fetch(`${botUrl}/api/transcripts/${encodeURIComponent(id)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+
+    let chatCalls = [];
+    async function loadChats(openId) {
+      chatCalls = await fetch(`${botUrl}/api/transcripts`).then((r) => r.json()).catch(() => null);
+      if (!chatCalls) { $('chat-list').innerHTML = '<li class="empty">Bot server not reachable.</li>'; return; }
+      const want = openId ?? location.hash.slice(1) ?? '';
+      $('chat-list').innerHTML = chatCalls.length ? chatCalls.map((c) => `<li><button data-chat="${esc(c.call_id)}">
+          <span class="mono">${esc(c.call_id)}</span>
+          <small>${esc(c.booking_id ?? '')} · ${esc(LABEL[c.outcome] ?? c.outcome ?? '')}${c.started_at ? ` · ${new Date(c.started_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}${c.duration_s != null ? ` · ${fmtDuration(c.duration_s)}` : ''}</small>
+        </button></li>`).join('') : '<li class="empty">No saved chats yet. They appear here after each call.</li>';
+      const pick = chatCalls.find((c) => c.call_id === want) ?? chatCalls[0];
+      if (pick) openChat(pick.call_id);
+    }
+    async function openChat(id) {
+      document.querySelectorAll('#chat-list button').forEach((b) => b.classList.toggle('on', b.dataset.chat === id));
+      const t = await fetchTranscript(id);
+      $('chat-title').textContent = t ? id : `${id}: no transcript`;
+      $('chat-view').innerHTML = t ? chatHtml(t.lines) : '';
+      $('copy-chat').disabled = !t;
+      const rec = chatCalls.find((c) => c.call_id === id)?.recording;
+      $('chat-audio-wrap').hidden = !rec;
+      if (rec) $('chat-audio').src = `${botUrl}${rec}`; else $('chat-audio').removeAttribute('src');
+      history.replaceState(null, '', `#${id}`);
+    }
+    $('chat-list').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-chat]');
+      if (b) openChat(b.dataset.chat);
+    });
+    $('chats-refresh').addEventListener('click', () => loadChats($('chat-list').querySelector('.on')?.dataset.chat));
 
     function onEvent(e) {
       if (!active) return;
@@ -459,6 +535,15 @@
           say('sys end', `Call ended${e.record?.duration_s != null ? ` · ${fmtDuration(e.record.duration_s)}` : ''}`);
           $('record').textContent = JSON.stringify(e.record, null, 2);
           $('record-wrap').hidden = false;
+          if (e.record?.transcript?.url) {
+            const id = active.callId;
+            fetchTranscript(id).then((t) => {
+              if (!t || active?.callId !== id) return;
+              $('transcript').innerHTML = chatHtml(t.lines);  // replace the written chat with what was spoken
+              $('tx-title').textContent = 'Transcript (as spoken)';
+              loadChats(id);
+            });
+          }
           if (e.record?.recording?.url) {
             const src = `${botUrl}${e.record.recording.url}`;
             $('recording').src = src;

@@ -159,6 +159,7 @@ class BilingualPiperTTSService(PiperTTSService):
         self._client = _client(timeout=5) if clone else None  # live call: a hung converter -> plain Piper
         self._warned = False
         self._lead_in_done = False
+        self.on_spoken = None  # called with each text Piper reads (after respelling): the call transcript
 
     def _pick(self, text: str):
         from .devanagari import is_english
@@ -171,6 +172,8 @@ class BilingualPiperTTSService(PiperTTSService):
             yield data
 
         try:
+            if self.on_spoken:
+                self.on_spoken(text)
             src, voice = self._pick(text)
             synth = _synth_fn(voice)
             cfg = SynthesisConfig(**{n: assert_given(getattr(self._settings, n)) for n in _SYNTHESIS_FIELDS})

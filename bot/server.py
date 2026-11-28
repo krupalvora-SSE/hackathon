@@ -101,6 +101,40 @@ async def call_recording(call_id: str):
     return FileResponse(path, media_type="audio/wav", filename=f"{call_id}.wav")
 
 
+# ------------------------------------------------------------------ Spoken transcripts (Bot / Human)
+@app.get("/api/transcripts")
+async def list_transcripts():
+    """Calls that have a saved transcript, newest first (survives app and bot restarts)."""
+    import json
+
+    from agent.events import RESULTS_DIR
+    from agent.stt_whisper import RECORDINGS
+    from agent.transcript import JSONL
+
+    files = sorted(RECORDINGS.glob(f"CALL-*/{JSONL}"), key=lambda p: p.stat().st_mtime, reverse=True)
+    out = []
+    for f in files[:100]:
+        call_id = f.parent.name
+        try:
+            rec = json.loads((RESULTS_DIR / f"{call_id}.json").read_text())
+        except Exception:  # noqa: BLE001 - transcript without a record is still listed
+            rec = {}
+        out.append({"call_id": call_id, "booking_id": rec.get("booking_id"), "outcome": rec.get("outcome"),
+                    "started_at": rec.get("started_at"), "duration_s": rec.get("duration_s"),
+                    "recording": (rec.get("recording") or {}).get("url")})
+    return out
+
+
+@app.get("/api/transcripts/{call_id}")
+async def call_transcript(call_id: str):
+    from agent.transcript import as_text, load
+
+    lines = load(call_id)
+    if lines is None:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    return {"call_id": call_id, "lines": lines, "text": as_text(lines)}
+
+
 # ------------------------------------------------------------------ Voice + call settings page
 VOICE_PAGE = Path(__file__).resolve().parent / "static" / "voice.html"
 
