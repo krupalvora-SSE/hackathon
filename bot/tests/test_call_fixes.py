@@ -223,3 +223,32 @@ def test_mlx_cache_does_not_grow_across_decodes():
     for secs in (1.0, 2.5, 4.0):
         sw.transcribe_detailed((rng.standard_normal(int(16000 * secs)) * 0.01).astype(np.float32))
     assert sw.mlx_memory()["cache"] <= sw.MLX_CACHE_MB
+
+
+@pytest.mark.parametrize("said,band", [("तीन से च्छी के बीच", "evening"), ("तीन से छी के बीच आ सकते हो", "evening"),
+                                       ("तीन बजे", "evening"), ("सुबह दस बजे", "morning"), ("दो बजे", "afternoon")])
+def test_band_from_garbled_or_spoken_hours(said, band):
+    """CALL-e747489c: "तीन से च्छी के बीच" (3 to 6) got "माफ़ कीजिए, मैं समझ नहीं पाया"."""
+    from agent.flow import parse_band
+    from tests.test_flow import SPEC
+
+    assert parse_band(said, SPEC.policies) == band
+
+
+@pytest.mark.parametrize("said", ["कर दो", "दो", "एक भी नहीं", "नहीं चलेगा"])
+def test_number_words_without_baje_are_not_hours(said):
+    from agent.flow import parse_band
+    from tests.test_flow import SPEC
+
+    assert parse_band(said, SPEC.policies) is None
+
+
+def test_evening_asked_when_only_other_bands_are_free_is_not_a_sorry():
+    from tests.test_flow import live
+
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("affirm")
+    assert call.state == "ASK_SLOT" and "evening" not in call._free_bands()
+    r = call.handle("gives_band", {"band": "तीन से च्छी के बीच"})
+    assert not any("समझ नहीं" in s for s in r.speak) and call.state == "ASK_SLOT"

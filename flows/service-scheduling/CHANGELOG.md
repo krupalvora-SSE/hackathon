@@ -2,6 +2,12 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.26.1 — garbled or spoken hours at the time question (2026-11-28)
+From CALL-e747489c, where "तीन से च्छी के बीच आ सकते हो" (3 to 6) got "माफ़ कीजिए, मैं समझ नहीं पाया":
+- "च्छी" / "छी" / "च्छे" are read as 6 in a "<start> से <end>" range.
+- An hour in words right before "बजे" is read as the time ("तीन बजे" -> evening); a bare "दो" ("कर दो") never is.
+- Whisper's memory is wired (`WHISPER_MLX_WIRED_MB`, 2048; 0 = off) so macOS can't compress or swap the model: the bot was 1.4 of 1.8 GB compressed and keep-warm decodes took 5 s; now 0.2 GB and none slow.
+
 ## 0.26.0 — no solar plant / wrong number end the call; no stacked re-asks (2026-11-28)
 From CALL-786626d2, where the customer said four times that there is no solar plant at their home and the bot kept offering dates, asked when the site would be ready, and asked "is this Vikas ji's home?":
 - New global intent `no_solar_plant` ("मेरे घर पे कोई plant है ही नहीं", "SolarSquare है ही नहीं", "हमने solar लगवाया ही नहीं") goes to the new terminal `NO_PLANT_CLOSE` (outcome `no_solar_plant`): "माफ़ कीजिए परेशानी के लिए, शायद हमारे record में यह number गलत है। धन्यवाद, आपका दिन शुभ हो।" No date, no slot, no identity question.

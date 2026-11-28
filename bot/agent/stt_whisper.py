@@ -112,6 +112,10 @@ KEEP_WARM_S = 20.0
 # 16 GB Mac, so macOS swapped the model out within 30 s and the first reply took 15 s. Capped, and cleared after
 # each decode: the process stays at the model (~1.6 GB) plus one decode's working memory.
 MLX_CACHE_MB = int(os.getenv("WHISPER_MLX_CACHE_MB", "256"))
+# Even at 1.8 GB the process was mostly compressed by macOS (VS Code, Chrome, Sophos share the 16 GB) and keep-warm
+# decodes took 5 s. Wired memory can't be compressed or swapped: enough for the model (~1.5 GB) and one decode.
+# 0 turns it off. Needs macOS 15+ (MLX ignores it elsewhere).
+MLX_WIRED_MB = int(os.getenv("WHISPER_MLX_WIRED_MB", "2048"))
 _cache_capped = False
 
 
@@ -121,6 +125,11 @@ def _cap_mlx_cache() -> None:
         import mlx.core as mx
 
         mx.set_cache_limit(MLX_CACHE_MB << 20)
+        if MLX_WIRED_MB and hasattr(mx, "set_wired_limit"):
+            try:
+                mx.set_wired_limit(MLX_WIRED_MB << 20)
+            except Exception as e:  # noqa: BLE001  (older macOS, or above the system's wired limit)
+                logger.warning(f"MLX wired memory not set: {e!r}")
         _cache_capped = True
 
 

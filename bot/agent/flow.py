@@ -264,15 +264,23 @@ def speak_slot(slot: dict, policies: dict, lang: str, with_time: bool = True) ->
 _WORD = re.compile(r"[\w\u0900-\u0963\u0966-\u097F]+")
 
 
+_BAJE = {"बजे", "बज", "baje", "bje", "o'clock"}
+
+
 def _part_and_hour(text: str) -> tuple[str | None, int | None]:
     t = (text or "").strip().lower()
     tokens = set(_WORD.findall(t))
     part = ("morning" if tokens & N.MORNING else "afternoon" if tokens & N.AFTERNOON
             else "evening" if tokens & N.EVENING else None)
     m = re.search(r"\b(\d{1,2})\b", t.translate(N.DEVANAGARI_DIGITS))
-    if not m:
-        return part, None
-    h = int(m[1])
+    if m:
+        h = int(m[1])
+    else:
+        # an hour in words, only right before "बजे": "तीन बजे" (CALL-e747489c), never a bare "दो" ("कर दो")
+        words = _WORD.findall(t)
+        h = next((N._num(w) for w, nxt in zip(words, words[1:]) if nxt in _BAJE and N._num(w)), None)
+        if h is None or not 1 <= h <= 12:
+            return part, None
     if part in ("afternoon", "evening") and h < 12:
         h += 12
     elif part is None and 1 <= h <= 7:
@@ -283,7 +291,8 @@ def _part_and_hour(text: str) -> tuple[str | None, int | None]:
 # How Whisper writes the hours of the offered windows when the customer repeats them ("नौ से बारह" came back
 # as "नो से बारा"). Only used for a "<start> से <end>" pair, never for single words: "नो" alone is also "no".
 _SPOKEN_HOUR = {"नो": 9, "नव": 9, "नौं": 9, "बारा": 12, "बार": 12, "बाराई": 12, "बारे": 12, "बाराह": 12, "ग्यारा": 11,
-                "तिन": 3, "ती": 3, "एतीन": 3, "तीं": 3, "तीना": 3, "थ्री": 3, "छे": 6, "छः": 6, "छह": 6, "छै": 6}
+                "तिन": 3, "ती": 3, "एतीन": 3, "तीं": 3, "तीना": 3, "थ्री": 3, "छे": 6, "छः": 6, "छह": 6, "छै": 6,
+                "च्छी": 6, "छी": 6, "च्छे": 6, "छेह": 6}   # "तीन से च्छी के बीच" (CALL-e747489c)
 # (a range needs both ends to match one band exactly, so short spellings like "ती" are safe here: CALL-2c3e81bb)
 _DASH = re.compile(r"\s*[-–—]\s*")                     # a dash between two hours is "से": "12-3", "9 – 12"
 _RANGE_JOIN = re.compile(r"^(से|सें|se|to|till|tak|-)$|से$")   # "से", or a garbled word ending in it ("अवसे")
