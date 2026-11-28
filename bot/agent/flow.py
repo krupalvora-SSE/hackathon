@@ -418,6 +418,8 @@ class FlowCall:
             step.speak = [f"{self._time_answer()} {step.speak[0]}".strip(), *step.speak[1:]]
         if step.speak:
             step.speak = self._no_praise_after_sorry(step.speak, re_ask=on in ("unclear", "repeat_request"))
+        # just said "माफ़ कीजिए, मैं समझ नहीं पाया…": the next silence must not stack a second re-ask on it
+        self._reasked = bool(step.speak) and not step.end and self._offguard in ("unclear", "not_understood")
         return step
 
     # Keys of _global lines that apologise or re-ask: no "बढ़िया" / "Great" may follow them in the same reply.
@@ -515,6 +517,12 @@ class FlowCall:
         """Customer said nothing for the idle timeout."""
         if self.outcome:
             return Step(end=True)
+        if getattr(self, "_reasked", False):
+            # CALL-786626d2: "माफ़ कीजिए, मैं समझ नहीं पाया। …?" then 6 s later "हैलो, क्या आप मुझे सुन पा रहे हैं?
+            # …?" - two re-asks in a row for one turn. Give them one more silence period to answer, quietly.
+            self._reasked = False
+            return Step(speak=[], state=self.state, allowed=self.spec.allowed_intents(self.state),
+                        idle_timeout=float(self.policies["silence"]["reprompt_after_s"]))
         self.silences += 1
         if self.silences > self.policies["silence"]["max_reprompts"]:
             return self.handle("silence_timeout")

@@ -51,8 +51,16 @@ global:
     label: Says it is the wrong number
     goto: WRONG_NUMBER_CLOSE
     examples:
-      hi: ["wrong number है", "galat number hai", "आपने गलत नंबर लगाया है", "यहाँ कोई Sneha नहीं रहता", "number galat lag gaya", "ये Sneha का number नहीं है"]
+      hi: ["wrong number है", "galat number hai", "आपने गलत नंबर लगाया है", "यहाँ कोई Sneha नहीं रहता", "number galat lag gaya", "ये Sneha का number नहीं है", "नहीं, wrong number", "रॉन्ग नंबर"]
       en: ["wrong number", "you have the wrong number", "nobody by that name lives here"]
+
+  no_solar_plant:
+    label: Has no solar plant / no SolarSquare system at this home
+    goto: NO_PLANT_CLOSE           # apologise and end: no slot, no date, no "is this X's home?" (CALL-786626d2)
+    examples:
+      hi: ["मेरे घर पे कोई plant है ही नहीं", "मेरे घर पे solar system है ही नहीं", "हमारे यहाँ SolarSquare नहीं है",
+           "हमने solar लगवाया ही नहीं", "कोई solar plant नहीं है", "mere ghar pe solar nahi hai", "humne panel nahi lagwaye"]
+      en: ["I don't have a solar plant", "there is no solar system at my house", "we never installed solar"]
 
   not_needed_now:
     label: Not needed yet

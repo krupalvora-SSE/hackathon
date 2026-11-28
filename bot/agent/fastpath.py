@@ -109,7 +109,12 @@ def fast_intent(call, heard: str, unsure: bool) -> dict | None:
     # A repeat request is the safe reading even when Whisper is unsure: the bot just says the question again.
     if "repeat_request" in allowed and _repeat(words):
         return {"intent": "repeat_request", "language": lang}
-    if unsure or not words or len(words) > 8:
+    if unsure or not words:
+        return None
+    # "मेरे घर पे कोई plant है ही नहीं" / "wrong number": end the call now, whatever the step (CALL-786626d2)
+    if (leaving := N.leaving_intent(heard)) and leaving in allowed:
+        return {"intent": leaving, "language": lang}
+    if len(words) > 8:
         return None
     if state in YES_NO_STATES:
         if state == "READINESS_CHECK" and not str(ref[1]).startswith("ask_"):

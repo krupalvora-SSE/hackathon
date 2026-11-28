@@ -23,7 +23,7 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.25.0
+version: 0.26.0
 title: Service scheduling call flow
 ticket: SSE-15559
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
@@ -54,8 +54,8 @@ sections:
     states: [RECALL, APPLY_RECALL, RECALL_CLOSE, ESCALATE_RM, RM_CLOSE]
   anytime:
     title: 6. Can happen any time
-    about: Someone else answers, the customer asks us not to call, or nobody replies.
-    states: [WRONG_PERSON, WRONG_NUMBER_CLOSE, DNC_CLOSE, SENSITIVE_CLOSE, NO_ANSWER_CLOSE]
+    about: Someone else answers, there is no solar plant at this home, the customer asks us not to call, or nobody replies.
+    states: [WRONG_PERSON, WRONG_NUMBER_CLOSE, NO_PLANT_CLOSE, DNC_CLOSE, SENSITIVE_CLOSE, NO_ANSWER_CLOSE]
 
 # Plain-English labels for diagram arrows (events and guard flags).
 labels:
@@ -123,6 +123,7 @@ outcomes:
   - recall_requested
   - do_not_call
   - wrong_number
+  - no_solar_plant
   - no_answer
   - needs_manual_confirmation
   - not_dialled
@@ -646,6 +647,11 @@ states:
     title: Wrong number
     type: terminal
     outcome: wrong_number
+
+  NO_PLANT_CLOSE:
+    title: No solar plant here
+    type: terminal
+    outcome: no_solar_plant              # Beat Plan comment flags the site / number mapping for ops to check
 
   NO_ANSWER_CLOSE:
     title: No answer

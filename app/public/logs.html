@@ -156,13 +156,13 @@
     const LABEL = {
       confirmed: 'Confirmed', slot_confirmed: 'Confirmed', slot_confirmed_alt_band: 'Confirmed (other time)', slot_confirmed_alt_day: 'Confirmed (other day)',
       site_on_hold: 'Site on hold', hold_declined: 'Hold declined', no_slot_available: 'No slot', rm_callback: 'Senior will call',
-      recall_requested: 'Call later', do_not_call: 'Do not call', wrong_number: 'Wrong number', no_answer: 'No answer', hung_up: 'Hung up',
+      recall_requested: 'Call later', do_not_call: 'Do not call', wrong_number: 'Wrong number', no_solar_plant: 'No solar plant', no_answer: 'No answer', hung_up: 'Hung up',
       needs_manual_confirmation: 'Needs manual confirm', not_dialled: 'Not dialled', not_needed_now: 'Not needed yet', date_requested: 'Date requested',
       handed_to_human: 'Handed to human', created: 'Starting', dialing: 'Dialing', connecting: 'Connecting', in_progress: 'On call', ended: 'Ended', failed: 'Failed',
     };
     const TONE = { confirmed: 'good', slot_confirmed: 'good', slot_confirmed_alt_band: 'good', slot_confirmed_alt_day: 'good',
       rm_callback: 'cool', site_on_hold: 'cool', not_needed_now: 'cool', date_requested: 'cool', handed_to_human: 'cool',
-      do_not_call: 'bad', wrong_number: 'bad', failed: 'bad', hung_up: 'bad', no_answer: 'bad', needs_manual_confirmation: 'warm', recall_requested: 'warm', in_progress: 'warm', created: 'warm' };
+      do_not_call: 'bad', wrong_number: 'bad', no_solar_plant: 'bad', failed: 'bad', hung_up: 'bad', no_answer: 'bad', needs_manual_confirmation: 'warm', recall_requested: 'warm', in_progress: 'warm', created: 'warm' };
     const chip = (o) => `<span class="chip ${TONE[o] ?? ''}">${esc(LABEL[o] ?? pretty(o))}</span>`;
     const KIND = { deflected: "Couldn't answer", not_understood: "Couldn't use the reply", unclear: "Didn't understand", other_language: 'Other language' };
 
@@ -191,7 +191,7 @@
       ['hold', 'Site on hold', ['site_on_hold']],
       ['callback', 'Callback / call later', ['recall_requested', 'rm_callback', 'needs_manual_confirmation', 'handed_to_human']],
       ['info', 'Not needed / date requested / no slot', ['not_needed_now', 'date_requested', 'hold_declined', 'no_slot_available']],
-      ['stopped', 'Wrong number / do not call', ['do_not_call', 'wrong_number']],
+      ['stopped', 'Wrong number / do not call', ['do_not_call', 'wrong_number', 'no_solar_plant']],
       ['silent', 'No answer / hung up', ['no_answer', 'hung_up', 'not_dialled']],
       ['failed', 'Failed', ['failed']],
     ];

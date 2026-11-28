@@ -57,7 +57,7 @@ WORDS = {
     "out": "आउट", "station": "स्टेशन", "travel": "ट्रैवल", "family": "फ़ैमिली", "function": "फ़ंक्शन",
     # persona, and common names/surnames the phonetic fallback gets wrong (Patel -> पतेल, Rahul -> रहुल)
     "krupal": "कृपाल", "jasir": "जासिर", "rahul": "राहुल", "patel": "पटेल", "shah": "शाह", "mehta": "मेहता",
-    "ramesh": "रमेश", "rajesh": "राजेश", "sunita": "सुनीता", "anjali": "अंजलि", "vikram": "विक्रम",
+    "ramesh": "रमेश", "rajesh": "राजेश", "vikas": "विकास", "sunita": "सुनीता", "anjali": "अंजलि", "vikram": "विक्रम",
     "manoj": "मनोज", "arjun": "अर्जुन", "sanjay": "संजय", "geeta": "गीता", "amit": "अमित", "deepak": "दीपक",
     "priya": "प्रिया", "meena": "मीना", "nitin": "नितिन", "asha": "आशा", "neha": "नेहा", "suresh": "सुरेश",
     "kavita": "कविता", "pooja": "पूजा", "sneha": "स्नेहा", "rekha": "रेखा",

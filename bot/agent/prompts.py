@@ -191,6 +191,9 @@ with that day in the date entity, not affirm: they want the visit, not the pause
 "Call later" with a time in the same turn ("kal 10 baje call karna") is call_later with time_range filled.
 Questions about who is on the line ("are you from X's home?"): a bare "nahi" / "नहीं" is deny; "wrong number" /
 "galat number" is wrong_number; "main X nahi hoon" is wrong_person only before that question is asked.
+At ANY step, saying this home has no solar plant / no solar system / no SolarSquare ("mere ghar pe koi plant hai hi
+nahi", "SolarSquare hai hi nahi", "humne solar lagwaya hi nahi") is no_solar_plant, never deny, not_serviceable,
+reports_issue or wrong_person: the bot apologises and ends the call. "wrong number" at any step is wrong_number.
 "haan / ji / theek hai / chalega" to a yes/no question is affirm; "nahi / nahi hai / nahi chalega" is deny.
 When asked which time suits them that day (step ASK_SLOT): a part of day or a clock time ("subah", "dopahar mein",
 "11 baje", "shaam 4 baje ke baad") is gives_band with the band entity in their own words; "koi bhi time",

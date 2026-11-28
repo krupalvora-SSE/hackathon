@@ -2,6 +2,17 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.26.0 — no solar plant / wrong number end the call; no stacked re-asks (2026-11-28)
+From CALL-786626d2, where the customer said four times that there is no solar plant at their home and the bot kept offering dates, asked when the site would be ready, and asked "is this Vikas ji's home?":
+- New global intent `no_solar_plant` ("मेरे घर पे कोई plant है ही नहीं", "SolarSquare है ही नहीं", "हमने solar लगवाया ही नहीं") goes to the new terminal `NO_PLANT_CLOSE` (outcome `no_solar_plant`): "माफ़ कीजिए परेशानी के लिए, शायद हमारे record में यह number गलत है। धन्यवाद, आपका दिन शुभ हो।" No date, no slot, no identity question.
+- Code reads "no plant" and "wrong number" itself (`normalize.leaving_intent`) on a transcript Whisper is sure of: FastPath ends the call without the LLM, and an LLM reading of deny / not_serviceable / wrong_person / reports_issue is overridden. Strict: a plant word, glue words only, then a "no" that closes the sentence ("solar panel साफ़ नहीं है" and "solar नहीं, शाम को आना" don't match).
+- The model prompt says no_solar_plant applies at any step and is never deny / not_serviceable / reports_issue / wrong_person.
+- No filler ("जी, एक मिनट।", "अच्छा…", "जी…") after a "no" or a not-our-customer turn; "समझ गया।" is no longer a filler (it claimed understanding and doubled the "समझ गया।" that opens two prompts).
+- Right after a "माफ़ कीजिए, मैं समझ नहीं पाया…" re-ask, the first silence waits one more silence period quietly instead of adding "हैलो, क्या आप मुझे सुन पा रहे हैं? …". Silence still ends the call after the same number of reprompts.
+- Whisper: each call's prompt starts "नमस्ते जी, <name in Devanagari> जी।" ("नमस्टे" unsure -> "नमस्ते"; "विकार दिसे" -> "विकास जी से"); "नमस्ते" is a short-answer candidate; "नमस्टे" / "रॉंग" / "सोलार" are fixed word by word. "Vikas" is spoken "विकास", not "विकस".
+- First reply no longer takes 15–32 s (CALL-786626d2, CALL-26e8229e): MLX's buffer cache had no limit and the bot reached 11 GB after one call, so macOS swapped the Whisper model out. The cache is capped (`WHISPER_MLX_CACHE_MB`, 256) and cleared after each decode; a short keep-warm decode runs every 20 s while idle and when a call connects.
+- Smart Turn waits at most `turn_stop_secs` (default 2 s, was pipecat's 3 s) when it thinks a short Hindi reply is unfinished.
+
 ## 0.25.0 — main's features merged onto the local voice stack (2026-11-28)
 main's flow features (listed below with main's own version numbers) are merged in; the voice stays local (Whisper STT + Piper TTS, no Sarvam) and male.
 - Kept from main: off-guard questions, Questions view and admin-taught answers (`known_question`, `/api/knowledge`), `asks_price` / `deflect_limit`, `asks_other_slots`, `SITE_ISSUES` / `ISSUE_DETAILS` with `site_issues`, the time window in the planned-day offer, "जी, क्या slot है?" as `ask_time`, a bare yes keeps the language, call logs and cost calculator pages.

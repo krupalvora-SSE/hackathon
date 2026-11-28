@@ -193,3 +193,33 @@ def test_run_bot_never_uses_a_local_function_before_it_is_defined():
     early = [(n.id, n.lineno) for stmt in fn.body for n in eager_names(stmt)
              if n.id in defs and n.lineno < defs[n.id]]
     assert not early, early
+
+
+def test_keep_warm_skips_while_a_real_decode_runs(monkeypatch):
+    """CALL-786626d2: weights paged out while idle, first reply took 32 s. The keep-warm decode must never
+    make a customer's decode wait: it skips when the MLX lock is held."""
+    from agent import stt_whisper as sw
+
+    calls = []
+    monkeypatch.setattr(sw, "use_mlx", lambda: True)
+    monkeypatch.setattr(sw, "_warmed", True)
+    monkeypatch.setattr(sw, "_transcribe_mlx", lambda a, p=None: calls.append(len(a)) or {})
+    with sw._mlx_lock:
+        assert sw.refresh() is None
+    assert calls == []
+    assert sw.refresh() is not None and calls == [16000]
+    assert not sw._mlx_lock.locked()
+
+
+@pytest.mark.skipif(not __import__("agent.stt_whisper", fromlist=["use_mlx"]).use_mlx(), reason="needs MLX Whisper")
+def test_mlx_cache_does_not_grow_across_decodes():
+    """CALL-26e8229e: MLX kept every freed buffer; the bot reached 11 GB after one call and macOS swapped the
+    model out, so the first reply took 15 s. After any number of decodes the cache must stay empty."""
+    import numpy as np
+
+    from agent import stt_whisper as sw
+
+    rng = np.random.default_rng(1)
+    for secs in (1.0, 2.5, 4.0):
+        sw.transcribe_detailed((rng.standard_normal(int(16000 * secs)) * 0.01).astype(np.float32))
+    assert sw.mlx_memory()["cache"] <= sw.MLX_CACHE_MB

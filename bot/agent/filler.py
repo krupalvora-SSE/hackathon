@@ -10,7 +10,16 @@ from typing import Awaitable, Callable
 # Neutral on purpose: "हाँ जी…" sounded like agreement right before "माफ़ कीजिए, ठीक से सुनाई नहीं दिया".
 # Varied short acknowledgements, so back-to-back slow turns don't repeat "एक मिनट रुकिए" (all trained words).
 # Left out "बिल्कुल": it agrees, and can land right before "माफ़ कीजिए, उस दिन वह time खाली नहीं है".
-FILLERS = ["जी, एक मिनट।", "अच्छा…", "जी…", "समझ गया।"]
+# Left out "समझ गया।": it claims we understood, and doubled the "समझ गया।" that opens SITE_ON_HOLD / ASK_READY_DATE.
+FILLERS = ["जी, एक मिनट।", "अच्छा…", "जी…"]
+
+
+def _negative(text: str) -> bool:
+    """A "no" / not-our-customer turn: "नहीं, मेरे घर पे कोई plant नहीं है" got "जी, एक मिनट।" then "कोई बात
+    नहीं। आपको कौन सी तारीख…" (CALL-786626d2). Any filler there sounds like the bot didn't listen."""
+    from . import normalize as N
+
+    return N.parse_bool(text) is False or N.leaving_intent(text) is not None
 
 
 class Filler:
@@ -24,13 +33,14 @@ class Filler:
         self._n = 0
         self._task: asyncio.Task | None = None
 
-    def customer_stopped(self, unsure: bool = False) -> None:
+    def customer_stopped(self, unsure: bool = False, text: str = "") -> None:
         """unsure: Whisper doubted what it heard, so the reply will be "माफ़ कीजिए, ठीक से सुनाई नहीं दिया".
-        A filler first sounds like the bot understood (CALL-392c194e: heard as "बढ़िया" before the sorry)."""
+        A filler first sounds like the bot understood (CALL-392c194e: heard as "बढ़िया" before the sorry).
+        text: what the customer said; no filler after a "no" or a not-our-customer turn."""
         self.cancel()
         if self._skip > 0:
             self._skip -= 1
-        elif self._enabled and not unsure:
+        elif self._enabled and not unsure and not _negative(text):
             self._task = asyncio.create_task(self._after_delay())
 
     def cancel(self) -> None:

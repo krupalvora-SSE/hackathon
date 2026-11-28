@@ -373,6 +373,7 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Don't call me | Won't call again |
 | Someone else answered / not the person asked for | Someone else answered |
 | Says it is the wrong number | Wrong number |
+| Has no solar plant / no SolarSquare system at this home | No solar plant here |
 | Not needed yet | Explain why the visit helps now |
 | Wants a time outside 9 am to 6 pm | Bot answers briefly, then repeats its question |
 | Not clear | Bot asks again; after 2 times in a row: Ask a senior to call |
@@ -420,6 +421,7 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | We'll call back | `recall_requested` |
 | Won't call again | `do_not_call` |
 | Wrong number | `wrong_number` |
+| No solar plant here | `no_solar_plant` |
 | No answer | `no_answer` |
 | Team will confirm | `needs_manual_confirmation` |
 | Not needed yet, call later | `not_needed_now` |

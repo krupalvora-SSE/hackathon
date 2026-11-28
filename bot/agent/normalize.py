@@ -370,3 +370,49 @@ def parse_bool(text: str) -> bool | None:
     if any(tok in YES for tok in tokens):
         return True
     return None
+
+
+# ---------------------------------------------------------------- not our customer
+# CALL-786626d2: "मेरे घर पे कोई plant है ही नहीं", "SolarSquare है यह नहीं" were read as deny / not_serviceable /
+# wrong_person and the bot kept offering dates. Code reads these itself, strictly: a plant word, then only
+# "is / at all / this" glue, then the "no" closing the sentence. "solar panel साफ़ नहीं है", "panel पे ladder नहीं
+# है" and "solar नहीं, शाम को आना" never match.
+PLANT_WORDS = {"plant", "प्लांट", "प्लान्ट", "प्लैंट", "solar", "सोलर", "सौलर", "सोलार", "solarsquare",
+               "सोलरस्क्वेयर", "सोलरस्क्वायर", "सौलरस्क्वैर", "system", "सिस्टम", "panel", "panels", "पैनल", "पैनल्स"}
+_PLANT_PHRASES = ("solar square", "सोलर स्क्वेयर", "सोलर स्क्वायर", "सौलर स्क्वैर", "सुदार स्टांड")  # last: Whisper, CALL-786626d2
+_PLANT_GLUE = {"है", "हैं", "ही", "यह", "ये", "तो", "भी", "कोई", "koi", "लगा", "लगाया", "लगवाया", "लगवाए", "लगे",
+               "hai", "hain", "hi", "to", "bhi", "yeh", "ye", "laga", "lagaya", "lagwaya", "lagwaye", "का", "ka"}
+_NO_PLANT_NO = {"नहीं", "नही", "nahi", "nahin", "no"}
+_WRONG = {"wrong", "रॉन्ग", "रॉंग", "रोंग", "रांग", "गलत", "ग़लत", "galat"}
+_NUMBER = {"number", "नंबर", "नम्बर", "no"}
+
+
+def says_no_plant(text: str) -> bool:
+    """The customer says this home has no solar plant / no SolarSquare system at all."""
+    t = _clean(text)
+    for p in _PLANT_PHRASES:
+        t = t.replace(p, "plant")
+    words = t.split()
+    for i, w in enumerate(words):
+        if w not in PLANT_WORDS:
+            continue
+        for j, w2 in enumerate(words[i + 1:i + 6], i + 1):
+            if w2 in _NO_PLANT_NO:          # the "no" ends the sentence: "solar नहीं, शाम को आना" is not one
+                return all(w3 in _PLANT_GLUE for w3 in words[j + 1:])
+            if w2 not in _PLANT_GLUE and w2 not in PLANT_WORDS:
+                break
+    return False
+
+
+def says_wrong_number(text: str) -> bool:
+    """"wrong number" / "गलत नंबर" / "number गलत है" said outright."""
+    words = _clean(text).split()
+    pairs = set(zip(words, words[1:]))
+    return any(a in _WRONG and b in _NUMBER - {"no"} or a in _NUMBER - {"no"} and b in _WRONG for a, b in pairs)
+
+
+def leaving_intent(text: str) -> str | None:
+    """no_solar_plant / wrong_number when the turn plainly says so, else None."""
+    if says_wrong_number(text):
+        return "wrong_number"
+    return "no_solar_plant" if says_no_plant(text) else None

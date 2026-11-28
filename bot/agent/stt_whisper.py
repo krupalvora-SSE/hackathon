@@ -51,6 +51,18 @@ HALLUCINATIONS = {"thank you", "thanks for watching", "thank you for watching", 
 VOCAB_PROMPT = os.getenv("WHISPER_PROMPT", "हाँ जी, ठीक है, नहीं जी, चलेगा, कर दो। शनिवार सुबह, सोमवार शाम। "
                                            "सीढ़ी है, पानी है, light है। SolarSquare, slot, confirm.")
 
+
+def call_prompt(name: str | None) -> str:
+    """VOCAB_PROMPT led by "नमस्ते जी, <name> जी।" for this call (CALL-786626d2, re-decoded): the greeting came back
+    "नमस्टे" (unsure) -> "नमस्ते"; "विकार दिसे बाती" -> "विकास जी से …". The name must be in Devanagari: with the
+    Latin "Vikas" Whisper answered "Namaste" in Roman script, unsure. "solar plant" / "wrong number" in the prompt
+    made it drop the "नहीं" from "कोई सोलर प्लांट नहीं है", so they are left out."""
+    from .devanagari import to_devanagari
+
+    first = str(name or "").split()[:1]
+    lead = f"नमस्ते जी, {to_devanagari(first[0], near_dates=False)} जी।" if first else "नमस्ते जी।"
+    return f"{lead} {VOCAB_PROMPT}"
+
 # Whole replies Whisper keeps writing for short answers it half-hears (live calls, browser mic): the
 # "h" and nasal of "हाँ जी" get lost and it comes back as "अजी"/"आजी" however it is decoded; "confirm"
 # comes back as "कन फो". Only an exact whole-reply match is replaced, so a real "अजी सुनिए" is untouched.
@@ -68,7 +80,7 @@ MISHEARD = {**dict.fromkeys(("अजी", "आजी", "आँजी", "अँ�
 # SHORT_MARGIN. Calibrated on recordings/ + eval/corpus: at -0.9 no "नहीं" clip turns into a yes
 # (one noisy synthetic "नहीं" scores "हाँ" at -1.03); below it the reply stays unsure and is asked again.
 SHORT_YES = ("हाँ", "हाँ जी", "जी", "जी हाँ", "हाँ हाँ", "हाँ बोलिए", "ठीक है", "ओके")
-SHORT_OTHER = ("नहीं", "नहीं जी", "ना", "हेलो", "कौन")
+SHORT_OTHER = ("नहीं", "नहीं जी", "ना", "हेलो", "कौन", "नमस्ते")   # नमस्ते: "नमस्टे" came back unsure (CALL-786626d2)
 SHORT_MIN_LOGPROB = -0.9
 SHORT_MARGIN = 0.25
 # "क्या आप फिर से दोहराएंगे?" / "सुनाई नहीं दिया" garbled on its own ("शलिसे, नहाँ है।", CALL-3f18802d). An unsure
@@ -91,6 +103,34 @@ _warmed = False
 # import; a decode running beside it came back empty after ~40 s or crashed the process (seen in the test suite;
 # two calls at once would hit the same).
 _mlx_lock = threading.Lock()
+# When the Mac is short of RAM, macOS pages Whisper's ~1.6 GB of weights out while the bot sits idle; the next
+# decode then pages them back in: CALL-786626d2's first "नमस्टे" took 32 s (process RSS was 200 MB, swap 11 GB
+# used) and the customer's next three lines queued behind it. A tiny decode every KEEP_WARM_S keeps them resident.
+KEEP_WARM_S = 20.0
+# MLX keeps freed GPU buffers in a cache with no limit by default: every decode shape (prompt + reply length,
+# rescoring candidates) left more behind, and the bot process reached 11 GB after one call (CALL-26e8229e) on a
+# 16 GB Mac, so macOS swapped the model out within 30 s and the first reply took 15 s. Capped, and cleared after
+# each decode: the process stays at the model (~1.6 GB) plus one decode's working memory.
+MLX_CACHE_MB = int(os.getenv("WHISPER_MLX_CACHE_MB", "256"))
+_cache_capped = False
+
+
+def _cap_mlx_cache() -> None:
+    global _cache_capped
+    if not _cache_capped:
+        import mlx.core as mx
+
+        mx.set_cache_limit(MLX_CACHE_MB << 20)
+        _cache_capped = True
+
+
+def mlx_memory() -> dict:
+    """MB the MLX allocator holds: active (model + live arrays), cache (freed, kept for reuse), peak."""
+    import mlx.core as mx
+
+    return {k: round(getattr(mx, f"get_{k}_memory")() / 2**20) for k in ("active", "cache", "peak")}
+_last_decode = 0.0
+_keeper: threading.Thread | None = None
 
 
 def use_mlx() -> bool:
@@ -128,7 +168,49 @@ def warm_up() -> None:
         else:
             _cpu_model()
         _warmed = True
+        _start_keeper()
         logger.info(f"Whisper ready ({'MLX ' + MLX_MODEL if use_mlx() else 'CPU ' + CPU_MODEL})")
+
+
+def refresh() -> float | None:
+    """One short decode so the weights are back in RAM, unless a real decode is running (it does the same).
+    Seconds taken, or None when skipped. Blocking; call it on a thread."""
+    global _last_decode
+    if not use_mlx() or not _warmed or not _mlx_lock.acquire(blocking=False):
+        return None
+    try:
+        import numpy as np
+
+        t = time.monotonic()
+        _cap_mlx_cache()
+        _transcribe_mlx((np.random.default_rng(0).standard_normal(16000) * 0.01).astype(np.float32), VOCAB_PROMPT)
+        import mlx.core as mx
+
+        mx.clear_cache()
+        _last_decode = time.monotonic()
+        secs = _last_decode - t
+        if secs > 3:
+            logger.warning(f"Whisper took {secs:.1f}s to page its weights back in: the Mac is short of RAM")
+        return secs
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Whisper keep-warm decode failed: {e!r}")
+        return None
+    finally:
+        _mlx_lock.release()
+
+
+def _keep_warm_loop() -> None:
+    while True:
+        time.sleep(KEEP_WARM_S / 2)
+        if time.monotonic() - _last_decode >= KEEP_WARM_S:
+            refresh()
+
+
+def _start_keeper() -> None:
+    global _keeper
+    if use_mlx() and _keeper is None:
+        _keeper = threading.Thread(target=_keep_warm_loop, name="whisper-keep-warm", daemon=True)
+        _keeper.start()
 
 
 def _keep(text: str) -> str:
@@ -158,13 +240,21 @@ def _unloop(text: str, ratio: float) -> str:
     return " ".join(out)
 
 
+# Single words Whisper misspells in otherwise fine Hindi; fixed in place (the transcript's confidence is unchanged).
+WORD_FIXES = {"नमस्टे": "नमस्ते", "नमस्टें": "नमस्ते", "नमश्ते": "नमस्ते", "सोलार": "सोलर", "प्लान्ट": "प्लांट",
+              "प्लैंट": "प्लांट", "रॉंग": "wrong", "रोंग": "wrong", "रॉन्ग": "wrong", "रांग": "wrong"}
+_WORD_FIX = re.compile("|".join(sorted(map(re.escape, WORD_FIXES), key=len, reverse=True)))
+
+
 def _fix(r: dict) -> dict:
-    """Replace a known whole-reply mishearing (MISHEARD); such a fix is not an unsure transcript."""
+    """Replace a known whole-reply mishearing (MISHEARD); such a fix is not an unsure transcript.
+    Known misspelt words (WORD_FIXES) are corrected inside any reply."""
     bare = " ".join(re.sub(r"[।॥.,!?;:'\"()\-]", " ", r["text"]).lower().split())
     if bare in MISHEARD:
         logger.debug(f"Whisper [{r['text']}] read as [{MISHEARD[bare]}]")
         return {**r, "text": MISHEARD[bare], "heard_as": r["text"], "fixed": True}
-    return r
+    fixed = _WORD_FIX.sub(lambda m: WORD_FIXES[m.group(0)], r["text"])
+    return {**r, "text": fixed, "heard_as": r["text"]} if fixed != r["text"] else r
 
 
 def is_unsure(r: dict) -> bool:
@@ -184,8 +274,16 @@ def transcribe_detailed(audio, mlx: bool | None = None, prompt: str | None = VOC
     """16 kHz float32 mono -> {text, lang, avg_logprob, compression_ratio, no_speech_prob}. Blocking."""
     mlx = use_mlx() if mlx is None else mlx
     if mlx:
+        global _last_decode
         with _mlx_lock:
-            return _fix(_transcribe_mlx(audio, prompt))
+            _cap_mlx_cache()
+            try:
+                return _fix(_transcribe_mlx(audio, prompt))
+            finally:
+                _last_decode = time.monotonic()
+                import mlx.core as mx
+
+                mx.clear_cache()
 
     def run(language):
         segs, info = _cpu_model().transcribe(audio, language=language, beam_size=1, condition_on_previous_text=False,
@@ -355,8 +453,9 @@ class WhisperHiEnSTTService(SegmentedSTTService):
     made of it in segments.jsonl, to diagnose mishearing on real calls.
     """
 
-    def __init__(self, *, call_id: str | None = None, record: bool = False, **kwargs):
+    def __init__(self, *, call_id: str | None = None, record: bool = False, prompt: str = VOCAB_PROMPT, **kwargs):
         super().__init__(**kwargs)
+        self._prompt = prompt
         self.turn_unsure = False
         self.turn_heard: list[dict] = []
         self.turn_consumed = True
@@ -426,9 +525,10 @@ class WhisperHiEnSTTService(SegmentedSTTService):
                 # second half came back as "शलिसे, नहाँ है।" (CALL-3f18802d); decoded with the first half it is
                 # exact. Whisper pads every input to 30 s, so the joined decode costs about the same.
                 gap = bytes(2 * int(16000 * JOIN_GAP_S))
-                rj = await asyncio.to_thread(transcribe_detailed, pcm(b"".join(p + gap for p in prev) + audio))
+                rj = await asyncio.to_thread(transcribe_detailed, pcm(b"".join(p + gap for p in prev) + audio),
+                                             None, self._prompt)
                 joined = continuation(" ".join(h["text"] for h in self.turn_heard), rj)
-            r = joined or await asyncio.to_thread(transcribe_detailed, pcm(audio))
+            r = joined or await asyncio.to_thread(transcribe_detailed, pcm(audio), None, self._prompt)
         except Exception as e:  # noqa: BLE001
             logger.exception("Whisper transcription failed")
             yield ErrorFrame(f"Whisper: {e}")
@@ -460,5 +560,5 @@ class WhisperHiEnSTTService(SegmentedSTTService):
             yield TranscriptionFrame(text, self._user_id, time_now_iso8601(), language)
 
 
-def make_whisper_stt(call_id: str | None = None, record: bool = False):
-    return WhisperHiEnSTTService(call_id=call_id, record=record)
+def make_whisper_stt(call_id: str | None = None, record: bool = False, name: str | None = None):
+    return WhisperHiEnSTTService(call_id=call_id, record=record, prompt=call_prompt(name))

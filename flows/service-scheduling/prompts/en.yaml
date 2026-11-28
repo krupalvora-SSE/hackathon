@@ -157,6 +157,9 @@ DNC_CLOSE:
 WRONG_NUMBER_CLOSE:
   main: "Sorry, I may have dialled the wrong number. Have a good day."
 
+NO_PLANT_CLOSE:
+  main: "Sorry for the trouble, this number may be wrong in our records. Thank you, have a good day."
+
 NO_ANSWER_CLOSE:
   main: "I can't seem to hear you, we'll call you back. Thank you."
 

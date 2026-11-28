@@ -48,7 +48,7 @@
     .pending, .callback, .dialing, .connecting, .created { background: var(--sun-50); color: var(--sun-700); }
     .in_progress { background: var(--blue-50); color: var(--blue-700); }
     .confirmed { background: #E8F6EC; color: var(--leaf-600); }
-    .rejected, .do_not_call, .wrong_number, .failed, .hung_up { background: #FBEAE4; color: var(--rust-600); }
+    .rejected, .do_not_call, .wrong_number, .no_solar_plant, .failed, .hung_up { background: #FBEAE4; color: var(--rust-600); }
     .handed_to_human { background: var(--blue-100); color: var(--blue-800); }
     .slot_confirmed, .slot_confirmed_alt_band, .slot_confirmed_alt_day { background: #E8F6EC; color: var(--leaf-600); }
     .site_on_hold, .rm_callback, .recall_requested, .needs_manual_confirmation, .not_needed_now, .date_requested { background: var(--blue-100); color: var(--blue-800); }
@@ -289,7 +289,7 @@
     const WINDOWS = { '09-12': '9am–12pm', '12-15': '12–3pm', '15-18': '3–6pm', morning: '9am–12pm', afternoon: '12–3pm', evening: '3–6pm' };
     const LABEL = {
       pending: 'Pending', confirmed: 'Confirmed', rejected: 'Rejected', callback: 'Callback', do_not_call: 'Do not call',
-      wrong_number: 'Wrong number', no_answer: 'No answer', hung_up: 'Hung up', handed_to_human: 'Handed to human',
+      wrong_number: 'Wrong number', no_solar_plant: 'No solar plant', no_answer: 'No answer', hung_up: 'Hung up', handed_to_human: 'Handed to human',
       slot_confirmed: 'Confirmed', slot_confirmed_alt_band: 'Confirmed (other time)', slot_confirmed_alt_day: 'Confirmed (other day)',
       site_on_hold: 'Site on hold', hold_declined: 'Hold declined', no_slot_available: 'No slot', rm_callback: 'RM callback',
       recall_requested: 'Call later', not_needed_now: 'Not needed yet', date_requested: 'Date requested', needs_manual_confirmation: 'Needs manual confirm', not_dialled: 'Not dialled',

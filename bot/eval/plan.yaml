@@ -53,6 +53,7 @@ stages:
 
 # Settings deliberately not swept. A reason is required.
 pinned:
+  turn_stop_secs: {reason: "Smart Turn runs only in live calls, not in the clip replay; set from live calls (CALL-786626d2: 3 s waits on short Hindi replies)."}
   stt_provider: {reason: "Whisper is the only engine; it is the stt stage arm."}
   llm_provider: {reason: "Compared as arms of the conv stage."}
   llm_model: {reason: "Compared as arms of the conv stage; add an arm per model to try."}

@@ -49,7 +49,7 @@ def test_whisper_service_flags_unsure_turns_and_records(tmp_path, monkeypatch):
     # the second segment of the same turn is decoded joined with the first (CALL-3f18802d): longer audio
     joined = {"text": "हाँ जी कर दो कर दो कर दो कर दो", "lang": "hi", "avg_logprob": -0.4, "compression_ratio": 3.1,
               "no_speech_prob": 0.02}
-    monkeypatch.setattr(W, "transcribe_detailed", lambda x: joined if len(x) > 16000 else first)
+    monkeypatch.setattr(W, "transcribe_detailed", lambda x, *_: joined if len(x) > 16000 else first)
     monkeypatch.setattr(W, "RECORDINGS", tmp_path)
     svc = W.make_whisper_stt("CALL-T", record=True)
 

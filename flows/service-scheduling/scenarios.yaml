@@ -403,6 +403,31 @@
   steps: [context_ready, wrong_number]
   expect: wrong_number
 
+# CALL-786626d2: "मेरे घर पे कोई plant है ही नहीं" at every step; the bot kept offering dates.
+- name: no solar plant at the date offer -> sorry, end (no other date)
+  steps: [context_ready, affirm, no_solar_plant]
+  expect: no_solar_plant
+
+- name: no solar plant straight at the greeting
+  steps: [context_ready, no_solar_plant]
+  expect: no_solar_plant
+
+- name: no solar plant after "it's not them" -> end, not "is this their home?" again
+  steps: [context_ready, wrong_person, no_solar_plant]
+  expect: no_solar_plant
+
+- name: no solar plant while asked for another date
+  steps: [context_ready, affirm, deny, no_solar_plant]
+  expect: no_solar_plant
+
+- name: no solar plant while asked when the site is ready
+  steps: [context_ready, affirm, not_serviceable, no_solar_plant]
+  expect: no_solar_plant
+
+- name: wrong number while another date is asked
+  steps: [context_ready, affirm, deny, wrong_number]
+  expect: wrong_number
+
 - name: ill customer -> sympathy, asks when to call back
   steps: [context_ready, affirm, personal_reason, time_range_given, action_ok]
   expect: recall_requested

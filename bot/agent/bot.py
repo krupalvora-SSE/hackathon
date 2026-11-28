@@ -45,7 +45,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.llm_service import FunctionCallParams
 from pipecat.services.openai.llm import OpenAILLMService
-from pipecat.turns.user_turn_strategies import UserTurnStrategies, default_user_turn_stop_strategies
+from pipecat.turns.user_turn_strategies import TurnAnalyzerUserTurnStopStrategy, UserTurnStrategies
 
 from . import config as call_config
 from . import normalize as N
@@ -251,6 +251,18 @@ COMMIT_STATES = {"RECAP", "HOLD_CONSENT"}
 KEEP_ON_UNSURE = {"unclear", "other_language", "repeat_request"}  # already the safe reading
 
 
+def _leaving_heard(args: dict, stt, engine) -> str | None:
+    """no_solar_plant / wrong_number when Whisper was sure and the words plainly say so, whatever the LLM read
+    ("कोई plant है ही नहीं" came back as deny, not_serviceable, wrong_person in CALL-786626d2)."""
+    if getattr(stt, "turn_unsure", False) or args.get("intent") in ("no_solar_plant", "wrong_number"):
+        return None
+    heard = " ".join(h["text"] for h in getattr(stt, "turn_heard", []))
+    call = getattr(engine, "call", None)
+    intent = N.leaving_intent(heard)
+    allowed = call.spec.allowed_intents(call.state) if call is not None and hasattr(call, "spec") else ()
+    return intent if intent and intent in allowed else None
+
+
 def _offered_day_heard(args: dict, stt, engine) -> str | None:
     """At the day question, a turn we would otherwise ask again ("सुमार थीस लंड", CALL-418d20ee) that sounds
     like exactly one of the days just offered: that day (ISO). Never on a "no"; ASK_SLOT then names the
@@ -358,10 +370,15 @@ def _once(handler):
 
 def _turn_strategies(cfg: dict) -> UserTurnStrategies:
     """Local Silero VAD + Smart Turn decide when the customer starts and stops (Whisper doesn't stream);
-    talking over the bot needs barge_in_secs of speech (agent/barge_in.py)."""
+    talking over the bot needs barge_in_secs of speech (agent/barge_in.py). Smart Turn waits at most
+    turn_stop_secs when it thinks a short Hindi reply is unfinished."""
+    from pipecat.audio.turn.smart_turn.base_smart_turn import SmartTurnParams
+    from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
+
     return UserTurnStrategies(
         start=[PatientBargeInStrategy(barge_in_secs=cfg["barge_in_secs"], enable_interruptions=cfg["barge_in"])],
-        stop=default_user_turn_stop_strategies(),
+        stop=[TurnAnalyzerUserTurnStopStrategy(turn_analyzer=LocalSmartTurnAnalyzerV3(
+            params=SmartTurnParams(stop_secs=cfg["turn_stop_secs"])))],
     )
 
 
@@ -415,13 +432,14 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     logger.info(f"call {call_id} booking={booking.get('id')} telephony={telephony} flow={engine.name}")
 
     cfg = call_config.load()  # read per call: /voice page edits apply from the next call
-    from .stt_whisper import make_whisper_stt, status as whisper_status, warm_up
+    from .stt_whisper import make_whisper_stt, refresh as whisper_refresh, status as whisper_status, warm_up
 
     if not whisper_status()["ready"]:
         raise RuntimeError(f"no local STT available: {whisper_status()['message']}")
     await asyncio.to_thread(warm_up)  # no-op once loaded
+    asyncio.get_running_loop().run_in_executor(None, whisper_refresh)  # page weights back in during the opener
     logger.info(f"call {call_id} config {cfg}")
-    stt = make_whisper_stt(call_id, record=cfg["record_stt_audio"])
+    stt = make_whisper_stt(call_id, record=cfg["record_stt_audio"], name=(booking or {}).get("customerName"))
     tts = _piper_tts(cfg, call_id, sample_rate)
     await tts.warm(engine.opener())  # cold ONNX run / converter calibration must not delay the opener
     llm = _llm(cfg)
@@ -566,7 +584,10 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
     async def handle_tool(params: FunctionCallParams) -> None:
         filler.cancel()  # the LLM has answered; the real line follows in a moment
         args = dict(params.arguments or {})
-        if params.function_name == "customer_said" and (guess := _offered_day_heard(args, stt, engine)):
+        if params.function_name == "customer_said" and (leaving := _leaving_heard(args, stt, engine)):
+            logger.info(f"call {call_id} {leaving} read by code: heard {stt.turn_heard}, LLM said {args}")
+            args = {"intent": leaving, "language": args.get("language", "hi")}
+        elif params.function_name == "customer_said" and (guess := _offered_day_heard(args, stt, engine)):
             logger.info(f"call {call_id} day matched by sound: heard {stt.turn_heard}, LLM said {args} -> {guess}")
             args = {"intent": "proposes_date", "date": guess, "language": args.get("language", "hi")}
         elif params.function_name == "customer_said" and _identity_yes_heard(args, stt, engine):
@@ -623,7 +644,7 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if getattr(message, "content", None):
             engine.heard_customer()
             await end_hold()
-            filler.customer_stopped(unsure=getattr(stt, "turn_unsure", False))
+            filler.customer_stopped(unsure=getattr(stt, "turn_unsure", False), text=message.content)
             yielded["turns"] += 1
             spoken.human(message.content)
             emitter.emit({"type": "transcript", "role": "customer", "text": message.content})
@@ -636,7 +657,10 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if not gate.greeted:  # no reply to "Hello?": give the greeting itself, not a second "Hello?"
             await gate.greet()
             return
-        await perform(engine.on_silence())
+        action = engine.on_silence()
+        if not action.speak and action.idle_timeout:   # quiet wait after a re-ask: one more normal silence period
+            action.idle_timeout = cfg["silence_secs"]
+        await perform(action)
 
     @aggregators.assistant().event_handler("on_assistant_turn_stopped")
     async def _agent_said(_agg, message):

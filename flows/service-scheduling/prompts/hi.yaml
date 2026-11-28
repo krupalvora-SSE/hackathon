@@ -166,6 +166,9 @@ DNC_CLOSE:
 WRONG_NUMBER_CLOSE:
   main: "माफ़ कीजिए, शायद number गलत लग गया। आपका दिन शुभ हो।"
 
+NO_PLANT_CLOSE:
+  main: "माफ़ कीजिए परेशानी के लिए, शायद हमारे record में यह number गलत है। धन्यवाद, आपका दिन शुभ हो।"
+
 NO_ANSWER_CLOSE:
   main: "लगता है आवाज़ नहीं आ रही, हम आपको दोबारा call करेंगे। धन्यवाद।"
 

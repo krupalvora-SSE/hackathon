@@ -56,6 +56,12 @@ FIELDS: list[dict[str, Any]] = [
     {"key": "vad_stop_secs", "group": "Interruptions", "type": "float", "default": 0.2,
      "min": 0.05, "max": 2, "step": 0.05, "env": "VAD_STOP_SECS", "label": "Silero stop (s)",
      "help": "Silence needed before speech counts as stopped."},
+    {"key": "turn_stop_secs", "group": "Interruptions", "type": "float", "default": 2.0,
+     "min": 0.8, "max": 5, "step": 0.1, "env": "TURN_STOP_SECS", "label": "Smart Turn max wait (s)",
+     "help": "When Smart Turn thinks the customer hasn't finished, the bot waits at most this long in silence. "
+             "It is trained mostly on English and often marks a short Hindi \"हाँ\" / \"नहीं\" / \"Hello?\" as "
+             "unfinished: pipecat's 3 s default added 3 s to those replies (CALL-786626d2). Lower answers sooner; "
+             "too low cuts off customers who pause mid-sentence."},
     {"key": "vad_min_volume", "group": "Interruptions", "type": "float", "default": 0.6,
      "min": 0, "max": 1, "step": 0.05, "env": "VAD_MIN_VOLUME", "label": "Silero min volume",
      "help": "Quieter audio is never speech. Raise it for loud lines."},
