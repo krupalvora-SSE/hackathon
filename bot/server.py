@@ -17,7 +17,7 @@ load_dotenv()
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 from fastapi import FastAPI, Form, Request, UploadFile  # noqa: E402
-from fastapi.responses import FileResponse, JSONResponse, Response  # noqa: E402
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from loguru import logger  # noqa: E402
 from pipecat.transports.base_transport import TransportParams  # noqa: E402
@@ -86,7 +86,11 @@ async def flow_outline():
     spec = FlowSpec.load(mode)
     sections = [{"title": v["title"], "about": v.get("about", ""), "states": v["states"]}
                 for v in (spec.flow.get("sections") or {}).values()]
+    intents = [{"name": n, "label": (i or {}).get("label") or n, "scope": scope}
+               for scope, group in (("any time", spec.global_intents), ("one step", spec.local_intents))
+               for n, i in group.items()]
     return {"title": spec.flow.get("title"), "version": str(spec.flow.get("version")), "sections": sections,
+            "intents": intents,
             "states": {n: {"title": st.get("title") or n, "type": st.get("type")} for n, st in spec.states.items()}}
 
 
@@ -141,7 +145,9 @@ VOICE_PAGE = Path(__file__).resolve().parent / "static" / "voice.html"
 
 @app.get("/voice")
 async def voice_page():
-    return FileResponse(VOICE_PAGE)
+    # The page's top navigation links back to the dashboard.
+    html = VOICE_PAGE.read_text(encoding="utf-8").replace("__APP_URL__", os.getenv("APP_URL", "http://localhost:3000").rstrip("/"))
+    return HTMLResponse(html)
 
 
 # ------------------------------------------------------------------ Local open-source voice (/voice page)

@@ -3,15 +3,22 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { createStore } from './src/bookings.js';
 import { createCalls } from './src/calls.js';
+import { createOffguard } from './src/offguard.js';
+import { createCalculator } from './src/calculator.js';
 
 try { process.loadEnvFile(); } catch {} // .env is optional (git-ignored)
 
 const port = process.env.PORT || 3000;
 const store = createStore();
-const calls = createCalls(store);
+const offguard = createOffguard({ file: process.env.OFFGUARD_FILE || join(import.meta.dirname, 'data', 'offguard.json') });
+const calculator = createCalculator({ file: process.env.CALCULATOR_FILE || join(import.meta.dirname, 'data', 'calculator.json') });
+const calls = createCalls(store, {
+  onOffguard: (x) => offguard.capture(x),
+  file: process.env.CALLS_FILE || join(import.meta.dirname, 'data', 'calls.json'),
+});
 const PUBLIC = join(import.meta.dirname, 'public');
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.ttf': 'font/ttf' };
-const STATUS = { not_found: 404, already_decided: 409, invalid_mode: 400, invalid_event: 400 };
+const STATUS = { empty_text: 400, invalid_question: 400, invalid_answer: 400, invalid_intent: 400, invalid_settings: 400, intent_not_teachable: 400, invalid_update: 400, not_found: 404, already_decided: 409, invalid_mode: 400, invalid_event: 400 };
 
 const json = (res, code, body) => {
   res.writeHead(code, { 'content-type': 'application/json' });
@@ -43,6 +50,30 @@ createServer(async (req, res) => {
   if (req.method === 'GET' && pathname === '/api/config') return json(res, 200, { botUrl: process.env.BOT_URL || 'http://localhost:7860' });
   if (req.method === 'GET' && pathname === '/api/bookings') return json(res, 200, store.list());
 
+  // Settings of the channel cost calculator.
+  if (pathname === '/api/calculator' && req.method === 'GET') return json(res, 200, calculator.get());
+  if (pathname === '/api/calculator' && req.method === 'PUT') {
+    let body;
+    try { body = await readJson(req); } catch { return json(res, 400, { error: 'invalid_json' }); }
+    const r = calculator.put(body);
+    return r.error ? json(res, STATUS[r.error], r) : json(res, 200, r.settings);
+  }
+  if (req.method === 'GET' && pathname === '/calculator') return res.writeHead(302, { location: '/calculator.html' }).end();
+
+  // Questions the bot could not handle, and what an admin taught it (the "Questions" view).
+  if (req.method === 'GET' && pathname === '/api/offguard') return json(res, 200, offguard.list());
+  if (req.method === 'GET' && pathname === '/api/knowledge') return json(res, 200, offguard.knowledge());
+  const og = pathname.match(/^\/api\/offguard\/([\w-]+)$/);
+  if (og && req.method === 'PATCH') {
+    let body;
+    try { body = await readJson(req); } catch { return json(res, 400, { error: 'invalid_json' }); }
+    const r = offguard.update(og[1], body);
+    return r.error ? json(res, STATUS[r.error], r) : json(res, 200, r.item);
+  }
+  if (req.method === 'GET' && pathname === '/questions') {
+    return res.writeHead(302, { location: '/questions.html' }).end();
+  }
+
   // The generated whole-workflow page (tools/flowcheck.py --write), read-only.
   if (req.method === 'GET' && pathname === '/flow') {
     try {
@@ -71,6 +102,9 @@ createServer(async (req, res) => {
     if (r.error) return json(res, STATUS[r.error], r);
     return json(res, 201, calls.get(r.call.id));
   }
+
+  if (req.method === 'GET' && pathname === '/api/calls') return json(res, 200, calls.list({ bookingId: url.searchParams.get('bookingId') ?? undefined }));
+  if (req.method === 'GET' && pathname === '/logs') return res.writeHead(302, { location: '/logs.html' }).end();
 
   const sid = pathname.match(/^\/api\/calls\/by-sid\/([\w-]+)$/);
   if (sid && req.method === 'GET') {

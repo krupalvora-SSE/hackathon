@@ -2,6 +2,49 @@
 
 Bump `version` in `flow.yaml` with every change and add a line here. The version is stamped on every call record (`flow_version`), so results can be compared across flow changes.
 
+## 0.25.0 — main's features merged onto the local voice stack (2026-11-28)
+main's flow features (listed below with main's own version numbers) are merged in; the voice stays local (Whisper STT + Piper TTS, no Sarvam) and male.
+- Kept from main: off-guard questions, Questions view and admin-taught answers (`known_question`, `/api/knowledge`), `asks_price` / `deflect_limit`, `asks_other_slots`, `SITE_ISSUES` / `ISSUE_DETAILS` with `site_issues`, the time window in the planned-day offer, "जी, क्या slot है?" as `ask_time`, a bare yes keeps the language, call logs and cost calculator pages.
+- Not taken: main's female "Aarti" persona (persona stays Krupal with male verb forms), Sarvam voice cloning, Exotel phone calls.
+- Both branches' new steps are in the flow: ASK_SLOT after a day is agreed, and SITE_ISSUES between RECAP and BOOK.
+
+### main 0.22.0 (2026-11-27, SSE-15551)
+From a call where "पानी का source क्या होता है?" was answered with an approved answer about the socket distance ("30 ft ke andar ... socket chahiye"):
+- The model prompt now says an approved answer is only for exactly the same question; what ladder / water / light means or why it is needed is always `asks_meaning`.
+- `explain_water` now says what a water source is (a tap or tank near the panels), not only why water is needed.
+
+### main 0.21.0 (2026-11-27, SSE-15551)
+From a call where the offer named only the day, and "जी क्या slot है?" was taken as a yes and the bot went straight on to the readiness questions:
+- The planned-day offer now also says the time window ("बुधवार, 2 दिसंबर को शाम तीन से छह बजे के बीच...").
+- At that offer a yes that also asks about the time ("जी, क्या slot है?") is treated as the time question: the bot tells the window and asks if it suits.
+
+### main 0.20.0 (2026-11-27, SSE-15551)
+From a call where a bare "Yes." at the recap made the bot ask the site question in English, and a reported rusting was not acknowledged:
+- After the greeting, a bare yes / no / maybe / don't know no longer switches the language; only a fuller answer can.
+- When the customer told us about a site problem, the closing line adds "I have noted the problem you told me about, and our Service Hero will check it" (`{issue_line}`, from `_global.issue_noted`).
+
+### main 0.19.0 (2026-11-27, SSE-15551)
+- New last question before booking: after the customer says yes to the recap, `SITE_ISSUES` asks "is there any problem on your site, like rusting?". A "yes" without detail goes to `ISSUE_DETAILS` ("which problem?"); a "no" or "don't know" books straight away.
+- New local intent `reports_issue` with entity `site_issue`. What they say is kept as `site_issues` in the call record, in the Beat Plan comment summary, in the dashboard `slots`, and sent with `confirm_slot`.
+
+### main 0.18.0 (2026-11-27, SSE-15551)
+From a call where the customer answered the planned-date question with "कोई और alternate slot है?" twice and the bot said "ठीक से सुनाई नहीं दिया" both times:
+- New intent `asks_other_slots` ("koi aur slot hai?", "any other dates"). At the planned-date offer and at the time-window step it goes straight to `ALTERNATE_DAYS`, which reads out the real days. While other days are being offered it gives the next options, or ends with no slot when none are left.
+
+### main 0.17.0 (2026-11-26, SSE-15559)
+Off-guard questions can be reviewed and taught:
+- Every turn the bot could not handle (`deflected`, `not_understood`, `unclear`, `other_language`) is sent to the dashboard app with the customer's words and the step it happened at, and listed on the new Questions view.
+- An admin can write the answer the bot should say, or teach an existing intent (for example `wants_human`, `do_not_call`) with that phrase, or ignore it.
+- At the start of every call the bot reads the approved answers and taught phrases (`GET /api/knowledge`). New global intent `known_question` (with a `faq_id` entity) speaks an approved answer and re-asks the question; taught phrases are added to that intent's examples in the classifier prompt. An answer saved now is used from the next call.
+- `GET /api/flow` on the bot also lists the intents, for the admin's "teach an intent" choice.
+
+### main 0.16.0 (2026-11-26, SSE-15557)
+From a call where the customer asked the price three times and got "our team will tell you separately" each time:
+- New global intent `asks_price` ("आप पैसे लोगे क्या?", "is it free"): the bot says "फ़िलहाल यह visit free है।" and asks the question again. Controlled by `policies.price_answer: free`; clear it to go back to the deflection. No amount is ever stated (`never_promise` now lists `price_amounts`, savings, generation, subsidy). NOTE: this relaxes the organisers' hard rule "never promises prices" for this one sentence and needs the owner's confirmation.
+- "Our team will tell you separately" is said at most `policies.deflect_limit` (2) times in a row (off-topic questions, a "what does that mean?" with no explanation, or a price question when `price_answer` is cleared). The third time the bot says "इस बारे में मुझे अभी जानकारी नहीं है।" and a senior is asked to call back (reason `unanswered_question`).
+- A plain "हाँ, बोलिए" at the greeting is the customer saying yes; the `household_member` examples now need a stated relationship, so family wording is no longer used on the customer himself.
+- `price_or_offtopic` now covers generation, savings, subsidy and inverter questions only.
+
 ## 0.24.0 — re-ask wording, repeat requests, opener (2026-11-28)
 From test call CALL-3f18802d:
 - `_global.didnt_catch` (hi): "माफ़ कीजिए, मैं समझ नहीं पाया।" instead of "…ठीक से सुनाई नहीं दिया।". The krupal voice says "बढ़िया" after "…नहीं दिया" (its training clip 0032 held the next line's first word), so the re-ask came out as "माफ़ कीजिए, ठीक से सुनाई नहीं दिया। बढ़िया, आपके पास A-type ladder है?".

@@ -23,9 +23,9 @@
 #   terminal     : bot says goodbye, hangs up; POST_CALL then always runs
 
 flow_id: service_scheduling
-version: 0.24.0
+version: 0.25.0
 title: Service scheduling call flow
-ticket: SSE-15557
+ticket: SSE-15559
 summary: How the AI voice bot turns a Beat Plan soft slot into a confirmed visit, a site on hold, or a callback.
 start: PRE_CALL
 
@@ -42,8 +42,8 @@ sections:
     states: [OFFER_PRIMARY, ASK_SLOT, CHECK_SLOT, TIME_BAND, CHECK_BAND, ALTERNATE_DAYS, ASK_OWN_DATE, NOT_NEEDED, ASK_BAND_FOR_DATE, NO_SLOT_CLOSE, NOT_NEEDED_CLOSE, REQUEST_CLOSE]
   confirm:
     title: 3. Check readiness and book
-    about: Make sure the ladder, water and light are ready, repeat the details and book the visit.
-    states: [READINESS_CHECK, RECAP, RECAP_CHANGE, BOOK, CONFIRMED_CLOSE, MANUAL_CONFIRM_CLOSE]
+    about: Make sure the ladder, water and light are ready, repeat the details, ask about any issue on the site and book the visit.
+    states: [READINESS_CHECK, RECAP, RECAP_CHANGE, SITE_ISSUES, ISSUE_DETAILS, BOOK, CONFIRMED_CLOSE, MANUAL_CONFIRM_CLOSE]
   hold:
     title: 4. Pause the site
     about: If the site isn't ready, get a date and the customer's OK to stop calls until then.
@@ -80,11 +80,11 @@ sample_values:
   hi: {name: राहुल, bot_name: Krupal, weekday: शनिवार, date_spoken: 28 नवंबर, band_spoken: सुबह आठ से बारह बजे, bands_spoken: "सुबह नौ से बारह बजे या शाम तीन से छह बजे",
        options_spoken: "सोमवार, 30 नवंबर, सुबह या बुधवार, 2 दिसंबर, शाम", missing_item: A-type ladder,
        hold_until_spoken: 5 दिसंबर, recall_window_spoken: कल शाम 5 से 7 बजे,
-       requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह, sms_line: ""}
+       requested_date_spoken: "गुरुवार, 10 दिसंबर", requested_band_spoken: सुबह, sms_line: "", issue_line: ""}
   en: {name: Rahul, bot_name: Krupal, weekday: Saturday, date_spoken: 28 November, band_spoken: 8 am and 12 pm, bands_spoken: "the morning (9 am to 12 pm) or the evening (3 pm to 6 pm)",
        options_spoken: "Monday, 30 November, morning or Wednesday, 2 December, evening", missing_item: A-type ladder,
        hold_until_spoken: 5 December, recall_window_spoken: tomorrow 5 to 7 pm,
-       requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning, sms_line: ""}
+       requested_date_spoken: "Thursday, 10 December", requested_band_spoken: morning, sms_line: "", issue_line: ""}
 
 # Events raised by code (timers, action results), not by the customer.
 events:
@@ -192,6 +192,8 @@ states:
         say: no_exact_guarantee
       - on: wants_other_band
         to: CHECK_BAND
+      - on: asks_other_slots            # "koi aur slot hai?": offer the other days right away
+        to: ALTERNATE_DAYS
       - on: deny
         to: ALTERNATE_DAYS
       - on: proposes_date
@@ -229,6 +231,8 @@ states:
         when: exact_time_limit_reached
         to: ESCALATE_RM
         set: {rm_callback_reason: insists_on_exact_time}
+      - on: asks_other_slots            # "koi aur din hai?" instead of a time: offer the other days
+        to: ALTERNATE_DAYS
       - on: deny
         to: ALTERNATE_DAYS
       - on: proposes_date
@@ -271,6 +275,8 @@ states:
         set: {rm_callback_reason: insists_on_exact_time}
       - on: wants_other_band
         to: CHECK_BAND
+      - on: asks_other_slots
+        to: ALTERNATE_DAYS
       - on: deny
         to: ALTERNATE_DAYS
 
@@ -318,6 +324,13 @@ states:
       - on: proposes_date
         to: ASK_SLOT
         set: {slot_source: alt_day}
+      - on: asks_other_slots            # asking for more after the options were read out
+        when: options_remaining
+        to: ALTERNATE_DAYS
+        say: next_options
+      - on: asks_other_slots
+        when: "!options_remaining"
+        to: ASK_OWN_DATE                 # same as a "no" with no day left: ask theirs before giving up
       - on: deny
         when: options_remaining
         to: ALTERNATE_DAYS
@@ -432,7 +445,7 @@ states:
     type: conversation
     transitions:
       - on: affirm
-        to: BOOK
+        to: SITE_ISSUES                  # one last question, then book
       - on: deny
         to: RECAP_CHANGE
       - on: corrects_readiness           # "actually I have no ladder": the checklist re-runs with the corrected answer
@@ -460,6 +473,36 @@ states:
       - on: proposes_date
         to: RECAP
         set: {slot_source: alt_day}
+
+  SITE_ISSUES:
+    title: Ask about any issue on the site
+    type: conversation
+    # Last question before booking: rusting, cracks, leaks... What they say is saved as `site_issues` (call record,
+    # Beat Plan comment and the confirm_slot call) so the team can look at it during the visit.
+    collects: [site_issues]
+    transitions:
+      - on: reports_issue
+        to: BOOK
+      - on: affirm                       # "yes, there is a problem" without saying which
+        to: ISSUE_DETAILS
+      - on: deny
+        to: BOOK
+      - on: dont_know
+        to: BOOK
+
+  ISSUE_DETAILS:
+    title: Ask which issue
+    type: conversation
+    collects: [site_issues]
+    transitions:
+      - on: reports_issue
+        to: BOOK
+      - on: affirm
+        to: BOOK
+      - on: deny
+        to: BOOK
+      - on: dont_know
+        to: BOOK
 
   BOOK:
     title: Book the visit

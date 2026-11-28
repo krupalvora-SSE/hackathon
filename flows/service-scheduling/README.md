@@ -102,9 +102,11 @@ flowchart LR
   P3["3. Ask which time suits"]:::talk
   P4["4. Ask: ladder, water, light ready?"]:::talk
   P5["5. Repeat the details, get a yes"]:::talk
-  P6["Book the visit"]:::sys
-  P7(["Visit booked"]):::end_
-  P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7
+  P6["6. Ask about any issue on the site"]:::talk
+  P7["7. Ask which issue"]:::talk
+  P8["Book the visit"]:::sys
+  P9(["Visit booked"]):::end_
+  P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7 --> P8 --> P9
   classDef talk fill:#E8F0FE,stroke:#4A6FA5,color:#1B2A41
   classDef sys fill:#FFF4E0,stroke:#C98A1B,color:#4A3200
   classDef end_ fill:#E6F4EA,stroke:#3C8D50,color:#1E4620
@@ -130,6 +132,7 @@ flowchart LR
 | Asks the time | Find another date or time: Tell the time window |
 | Wants exact time | Find another date or time: Tell the time window |
 | Wants another time | Find another date or time: Check another time that day |
+| Asks for other slots | Find another date or time: Offer other days |
 | No | Find another date or time: Offer other days |
 | Suggests their own date (Beat Plan has that day) | Step 3: Ask which time suits |
 | Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
@@ -147,6 +150,7 @@ flowchart LR
 | Asks the time | Bot answers and asks again |
 | Wants exact time (first time) | Bot answers and asks again |
 | Wants exact time (asks again) | Call back or hand over: Ask a senior to call |
+| Asks for other slots | Find another date or time: Offer other days |
 | No | Find another date or time: Offer other days |
 | Suggests their own date (Beat Plan has that day) | Bot answers and asks again |
 | Suggests their own date (not in Beat Plan) | Find another date or time: Ask the time for their date |
@@ -171,11 +175,33 @@ flowchart LR
 
 | Customer says | What happens |
 |---|---|
-| Yes | System: Book the visit |
+| Yes | Step 6: Ask about any issue on the site |
 | No | Check readiness and book: Ask what to change |
 | Corrects an earlier ladder / water / light answer | Step 4: Ask: ladder, water, light ready? |
 | Change day | Find another date or time: Offer other days |
 | Change time | Find another date or time: Tell the time window |
+
+#### Step 6. Ask about any issue on the site
+
+> Alright. One last thing: is there any problem on your site you would like us to know about, like rusting or damage?
+
+| Customer says | What happens |
+|---|---|
+| Reports a site issue | System: Book the visit |
+| Yes | Step 7: Ask which issue |
+| No | System: Book the visit |
+| Can't say / doesn't know | System: Book the visit |
+
+#### Step 7. Ask which issue
+
+> Which problem is it, could you tell me?
+
+| Customer says | What happens |
+|---|---|
+| Reports a site issue | System: Book the visit |
+| Yes | System: Book the visit |
+| No | System: Book the visit |
+| Can't say / doesn't know | System: Book the visit |
 
 ### Detours
 
@@ -198,6 +224,7 @@ The bot doesn't speak here. **Free** → Step 4: Ask: ladder, water, light ready
 | Wants exact time (first time) | Bot answers and asks again |
 | Wants exact time (asks again) | Call back or hand over: Ask a senior to call |
 | Wants another time | Check another time that day |
+| Asks for other slots | Offer other days |
 | No | Offer other days |
 
 **Check another time that day**
@@ -217,6 +244,8 @@ The bot doesn't speak here. **Free (already checked)** → Step 5: Repeat the de
 | Suggests their own date (not in Beat Plan) | Ask the time for their date |
 | Suggests their own date (already checked) | Step 5: Repeat the details, get a yes |
 | Suggests their own date | Step 3: Ask which time suits |
+| Asks for other slots (more days to offer) | Bot answers and asks again |
+| Asks for other slots (no more days) | Ask which date suits them |
 | No (more days to offer) | Bot answers and asks again |
 | No (no more days) | Ask which date suits them |
 
@@ -254,7 +283,7 @@ The bot doesn't speak here. **Free (already checked)** → Step 5: Repeat the de
 
 #### Check readiness and book
 
-Make sure the ladder, water and light are ready, repeat the details and book the visit.
+Make sure the ladder, water and light are ready, repeat the details, ask about any issue on the site and book the visit.
 
 **Ask what to change**
 
@@ -360,7 +389,9 @@ The bot doesn't speak here. **Done** → Call ends: Senior will call; **System e
 | Speaks a language other than Hindi or English | Bot asks again; after 2 times in a row: Ask a senior to call |
 | Chit-chat that is not an answer | Bot answers briefly, then repeats its question |
 | Asks what something means or why it is needed | Bot answers briefly, then repeats its question |
-| Asks price or something else | Bot answers briefly, then repeats its question |
+| Asks if the visit costs anything | Bot answers briefly, then repeats its question |
+| Asks something an admin has approved an answer for | Bot answers briefly, then repeats its question |
+| Asks something we can't answer (generation, inverter, savings...) | Bot answers briefly, then repeats its question |
 | No reply | No answer |
 
 **Someone else answered**

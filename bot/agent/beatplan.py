@@ -125,7 +125,8 @@ class MockBeatPlan:
             return "action_failed"          # never book a day we don't visit: the team confirms by hand
         call._report("confirm_slot", {"site_id": call.context["site_id"], **s,
                                       "readiness": call.ctx["readiness"],
-                                      "preferred_exact_time": call.ctx.get("preferred_exact_time")})
+                                      "preferred_exact_time": call.ctx.get("preferred_exact_time"),
+                                      "site_issues": call.ctx.get("site_issues", [])})
         return None
 
     def site_on_hold(self, call: "FlowCall", state: str):

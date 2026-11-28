@@ -13,8 +13,11 @@ _global:
   opener: "नमस्ते जी?"
   recall_as_told: "आपके बताए time पर"   # call-back time we could not turn into words (RECALL_CLOSE)
   deflection: "इसकी जानकारी हमारी टीम आपको अलग से देगी।"
+  price_free: "फ़िलहाल यह visit free है।"
+  unknown_handover: "इस बारे में मुझे अभी जानकारी नहीं है।"
   reprompt: "हैलो, क्या आप मुझे सुन पा रहे हैं?"
   sms_reminder: "Visit से पहले आपको reminder SMS भी आ जाएगा।"
+  issue_noted: "आपने site की जो problem बताई, वह हमने note कर ली है, हमारा Service Hero उसे check करेगा।"
   service_hours: "हमारी visits सुबह 9 से शाम 6 बजे के बीच ही होती हैं।"
   time_window: "उस दिन हमारे service hero {band_spoken} के बीच आएँगे।"
   didnt_catch: "माफ़ कीजिए, मैं समझ नहीं पाया।"   # "…नहीं दिया।" made the krupal voice add "बढ़िया" (CALL-3f18802d)
@@ -95,7 +98,7 @@ READINESS_CHECK:
   repeat_arrange_water: "क्या पानी का इंतज़ाम हो जाएगा?"
   repeat_arrange_light: "क्या light का connection हो जाएगा?"
   explain_ladder: "A-type ladder वह सीढ़ी है जो दोनों तरफ़ से खड़ी होकर टिकती है; hero उससे छत तक पहुँचता है।"
-  explain_water: "Panels साफ़ करने के लिए पानी चाहिए होता है।"
+  explain_water: "Water source यानी panels के पास कोई नल या टंकी, जिससे panels साफ़ करने के लिए पानी मिल सके।"
   explain_light: "काम के लिए बिजली का connection चाहिए होता है।"
 
 ASK_READY_DATE:
@@ -124,11 +127,19 @@ RECALL:
   main: "जी बिल्कुल। आपको किस time पर call करना ठीक रहेगा?"
   repeat_main: "आपको किस time call करूँ?"
 
+SITE_ISSUES:
+  main: "ठीक है। आख़िरी बात, क्या आपकी site पर कोई problem है जो आप हमें बताना चाहेंगे, जैसे जंग लगना या कोई टूट-फूट?"
+  repeat_main: "क्या site पर कोई problem है, जैसे जंग?"
+
+ISSUE_DETAILS:
+  main: "कौन सी problem है, ज़रा बताइए?"
+  repeat_main: "बताइए, site पर क्या problem है?"
+
 CONFIRMED_CLOSE:
-  main: "आपकी visit {weekday}, {date_spoken} के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
-  with_time: "आपकी visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
-  main_family: "{name} जी की visit {weekday}, {date_spoken} के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
-  with_time_family: "{name} जी की visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+  main: "आपकी visit {weekday}, {date_spoken} के लिए confirm हो गई है।{issue_line}{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+  with_time: "आपकी visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{issue_line}{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+  main_family: "{name} जी की visit {weekday}, {date_spoken} के लिए confirm हो गई है।{issue_line}{sms_line} धन्यवाद, आपका दिन शुभ हो!"
+  with_time_family: "{name} जी की visit {weekday}, {date_spoken}, {band_spoken} के बीच के लिए confirm हो गई है।{issue_line}{sms_line} धन्यवाद, आपका दिन शुभ हो!"
 
 SENSITIVE_CLOSE:
   main: "ओह, यह जानकर बहुत दुख हुआ। हमारी संवेदनाएँ आपके और आपके परिवार के साथ हैं। हम आपको अभी परेशान नहीं करेंगे। कृपया अपना और परिवार का ध्यान रखिए।"

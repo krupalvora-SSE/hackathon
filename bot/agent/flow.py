@@ -306,6 +306,15 @@ def band_from_range(text: str, policies: dict) -> str | None:
     return found.pop() if len(found) == 1 else None
 
 
+def best_faq(faqs: list[dict], said: str) -> dict | None:
+    """The approved answer whose question shares at least two longer words with what the customer said
+    (first five letters, so "report" matches "reports"). shortcut: word overlap, upgrade to embeddings if it misfires."""
+    stems = lambda t: {w[:5] for w in re.findall(r"\w+", (t or "").lower()) if len(w) >= 5}
+    mine = stems(said)
+    scored = sorted(((len(mine & stems(f.get("question"))), f) for f in faqs), key=lambda x: -x[0])
+    return scored[0][1] if scored and scored[0][0] >= 2 else None
+
+
 def parse_band(text: str, policies: dict) -> str | None:
     """Customer's words -> morning/afternoon/evening, using the policy's band hours."""
     t = (text or "").strip().lower()
@@ -338,6 +347,7 @@ class Step:
     state: str | None = None
     allowed: list[str] = field(default_factory=list)
     idle_timeout: float | None = None   # new silence timeout in seconds (customer asked us to hold)
+    offguard: str | None = None         # the customer said something we could not handle: why (see FlowCall._offguard)
 
 
 @dataclass
@@ -346,6 +356,7 @@ class FlowCall:
     booking: dict
     spec: FlowSpec = field(default_factory=FlowSpec.load)
     beatplan: BeatPlan | None = None
+    knowledge: dict = field(default_factory=dict)       # what an admin taught us: {"faqs": [...], "intents": {...}}
     today: date = field(default_factory=N.today_ist)
     on_event: Callable[[dict], None] = lambda e: None
     auto: bool = True        # run system-state actions; False = paper mode (events come from the caller)
@@ -359,6 +370,8 @@ class FlowCall:
     exact_time_asks: int = 0
     unclear_streak: int = 0
     lang_streak: int = 0                    # consecutive turns in a language we don't speak
+    deflect_streak: int = 0                 # consecutive "our team will tell you separately" replies
+    _offguard: str | None = None            # deflected | not_understood | unclear | other_language, for this turn
     _prev_streak: int = 0                   # unclear_streak before this turn (a failed answer adds to it)
     readiness_idx: int = 0
     backup_queue: list | None = None
@@ -396,7 +409,9 @@ class FlowCall:
 
     def handle(self, on: str, entities: dict | None = None, flags: dict | None = None) -> Step:
         """Feed one intent (from the LLM) or event (paper mode) into the flow."""
+        self._offguard = None
         step = self._handle(on, entities, flags)
+        step.offguard = self._offguard
         # "yes, Friday - but what time?": answer the time in front of the next line, whatever step we moved to
         if ((entities or {}).get("asks_time") is True and on != "ask_time" and not step.error and not step.end
                 and step.speak and step.state not in ("TIME_BAND", "ASK_SLOT")):   # those lines say the time themselves
@@ -436,7 +451,9 @@ class FlowCall:
         entities = {k: v for k, v in (entities or {}).items() if v not in (None, "")}
         st = self.spec.states[self.state]
         lang = entities.get("language")
-        if lang in self.spec.prompts:
+        # A bare yes/no says little about language ("Yes." in the middle of a Hindi call): after the greeting only
+        # a fuller answer may switch it.
+        if lang in self.spec.prompts and not (self.state != "GREET" and on in ("affirm", "deny", "unsure", "dont_know")):
             self.lang = lang
 
         if st.get("type") == "conversation":
@@ -450,6 +467,8 @@ class FlowCall:
                 d = N.parse_date(str(entities["date"]), self.today)
                 if d and d.isoformat() != self.ctx.get("hold_until"):
                     on = "proposes_date"  # "haan, Monday ko karwa lo": a day to visit, not a yes to the hold
+            if on == "affirm" and entities.get("asks_time") is True and self.state == "OFFER_PRIMARY":
+                on = "ask_time"         # "जी, क्या slot है?" is a question, not a yes: tell the window and ask again
             self._prev_streak = self.unclear_streak
             gi0 = self.spec.global_intents.get(on)
             if (gi0 and on not in (st.get("disable_global") or []) and gi0.get("goto") == self.state
@@ -459,6 +478,8 @@ class FlowCall:
                 self.unclear_streak = 0
             if on != "other_language":
                 self.lang_streak = 0
+            if on not in ("price_or_offtopic", "asks_price", "asks_meaning"):
+                self.deflect_streak = 0
             self.silences = 0
 
         if self.state == "ASK_SLOT" and on == "wants_exact_time" and entities.get("exact_time") \
@@ -596,17 +617,31 @@ class FlowCall:
 
     def _global(self, name: str, gi: dict) -> Step:
         if name == "unclear":
+            self._offguard = "unclear"
             self.unclear_streak += 1
             if gi.get("escalate_to") and self.unclear_streak > int(gi.get("escalate_after", 2)):
                 self.ctx["rm_callback_reason"] = "repeated_misunderstanding"
                 return self._step(self._enter(gi["escalate_to"]))
         if name == "repeat_request":
             return self._step([self._repeat_line()])
+        if name == "known_question":              # an admin taught us the answer to this
+            faq = next((f for f in self.knowledge.get("faqs", []) if f.get("id") == self.ctx.pop("_faq_id", None)), None)
+            if not faq:
+                return self._deflection()
+            return self._step([f"{faq['answer']} {self._reask()}".strip()])
         if name == "asks_meaning":                 # "ye A type ladder kya hota hai?"
             state, key = self.last_ref
             item = key.split("_", 1)[1] if key.startswith(("ask_", "arrange_")) else None
             line = self._line(state, f"explain_{item}") if item else ""
-            return self._step([f"{line or self._global_line('deflection')} {self._reask()}".strip()])
+            if not line:
+                return self._deflection()
+            return self._step([f"{line} {self._reask()}".strip()])
+        if name == "price_or_offtopic":
+            return self._deflection()
+        if name == "asks_price":
+            if self.policies.get("price_answer") == "free":
+                return self._step([f"{self._global_line('price_free')} {self._reask()}".strip()])
+            return self._deflection()
         if name in ("sensitive_situation", "upset_customer"):
             # a death / emergency, or an upset customer: say sorry, ask nothing, no date, and pause our calls
             until = self.today + timedelta(days=int(self.policies.get("sensitive_pause_days", 14)))
@@ -622,6 +657,7 @@ class FlowCall:
             self.ctx["rm_callback_reason"] = "complaint"
             return self._step([self._global_line("complaint_ack"), *self._enter("ESCALATE_RM")])
         if name == "other_language":
+            self._offguard = "other_language"
             self.lang_streak += 1
             if gi.get("escalate_to") and self.lang_streak > int(gi.get("escalate_after", 2)):
                 self.ctx["rm_callback_reason"] = "language_not_supported"
@@ -645,9 +681,19 @@ class FlowCall:
             return self._step([f"{self._global_line(gi.get('say'))} {self._reask()}".strip()])
         return self._step(self._enter(gi["goto"]))
 
+    def _deflection(self) -> Step:
+        """"Our team will tell you separately" - twice at most, then say we don't know and a senior will call back."""
+        self._offguard = "deflected"
+        self.deflect_streak += 1
+        if self.deflect_streak > int(self.policies.get("deflect_limit", 2)):
+            self.ctx["rm_callback_reason"] = "unanswered_question"
+            return self._step([self._global_line("unknown_handover"), *self._enter("ESCALATE_RM")])
+        return self._step([f"{self._global_line('deflection')} {self._reask()}".strip()])
+
     def _not_understood(self, key: str = "didnt_catch") -> Step:
         """Heard, but the answer can't be used (no date, no time of day...): ask again, and hand over to a senior
         after repeated misses instead of looping."""
+        self._offguard = "not_understood"
         self.unclear_streak = self._prev_streak + 1
         gi = self.spec.global_intents.get("unclear") or {}
         if gi.get("escalate_to") and self.unclear_streak > int(gi.get("escalate_after", 2)):
@@ -676,12 +722,26 @@ class FlowCall:
         intent = {**self.spec.global_intents, **self.spec.local_intents}.get(on) or {}
         if intent.get("shares_time") or e.get("asks_time") is True:
             self.ctx["time_shared"] = True
+        if e.get("faq_id"):
+            self.ctx["_faq_id"] = str(e["faq_id"])
+        elif on == "known_question":          # the model chose it but forgot the id: match on the customer's words
+            faq = best_faq(self.knowledge.get("faqs", []), e.get("_said") or "")
+            if faq:
+                self.ctx["_faq_id"] = faq["id"]
         if e.get("exact_time"):
             self.ctx["preferred_exact_time"] = e["exact_time"]
         self.ctx.pop("_band_outside_hours", None)
         if e.get("band"):
             self.ctx["preferred_band"] = parse_band(e["band"], self.policies)
             self.ctx["_band_outside_hours"] = band_outside_hours(e["band"], self.policies)
+        if e.get("site_issue"):
+            issues = self.ctx.setdefault("site_issues", [])
+            note = str(e["site_issue"]).strip()[:300]
+            if note and note not in issues and len(issues) < 5:
+                issues.append(note)
+                self.on_event({"type": "slot", "key": "site_issues", "ok": True, "value": list(issues), "display": "; ".join(issues)})
+        elif self.state in ("SITE_ISSUES", "ISSUE_DETAILS") and on in ("deny", "dont_know") and not self.ctx.get("site_issues"):
+            self.on_event({"type": "slot", "key": "site_issues", "ok": True, "value": [], "display": "None reported"})
         if e.get("reason"):
             self.ctx["hold_reason"] = self.ctx.get("hold_reason") or e["reason"]
             if on == "wants_human":
@@ -935,6 +995,8 @@ class FlowCall:
                                                  for s in self.offered)
         sms = (self.spec.prompts[self.lang].get("_global") or {}).get("sms_reminder") or ""
         v["sms_line"] = (" " + sms) if sms and self.policies.get("sms_reminder") else ""
+        noted = (self.spec.prompts[self.lang].get("_global") or {}).get("issue_noted") or ""
+        v["issue_line"] = (" " + noted) if noted and self.ctx.get("site_issues") else ""      # they told us about a problem: say it was noted
         labels = {i["id"]: i["labels"][self.lang] for i in self.policies["readiness_items"]}
         miss = [labels[m] for m in self.ctx["missing_items"]]
         v["missing_item"] = (" और " if self.lang == "hi" else " and ").join(miss) if miss else ""
@@ -1021,6 +1083,8 @@ class FlowCall:
             parts.append(f"Call back: {c['recall_window']}.")
         if c.get("will_arrange"):
             parts.append(f"Customer will arrange: {', '.join(c['will_arrange'])}.")
+        if c.get("site_issues"):
+            parts.append(f"Site issues reported: {'; '.join(c['site_issues'])}.")
         if o == "date_requested":
             parts.append(f"Requested {c.get('requested_date')} {c.get('requested_band')}; team to confirm.")
         if c.get("rm_callback_reason"):
@@ -1056,6 +1120,7 @@ class FlowCall:
             "requested_slot": ({"date": c.get("requested_date"), "band": c.get("requested_band")}
                                if self.outcome == "date_requested" else None),
             "will_arrange": c.get("will_arrange", []),
+            "site_issues": c.get("site_issues", []),
             "summary": self.summary(),
             "path": self.path,
             "slots": {
@@ -1064,6 +1129,7 @@ class FlowCall:
                 "ladder_available": readiness.get("ladder"),
                 "water_source_available": readiness.get("water"),
                 "light_available": readiness.get("light"),
+                "site_issues": "; ".join(c.get("site_issues", [])) or None,
             },
             "started_at": self.started_at.isoformat(),
             "ended_at": ended.isoformat(),

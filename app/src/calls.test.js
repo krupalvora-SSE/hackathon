@@ -1,4 +1,7 @@
 import { test } from 'node:test';
+import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import { createStore } from './bookings.js';
 import { createCalls } from './calls.js';
@@ -75,4 +78,68 @@ test('YAML flow outcomes: slot_confirmed* counts as confirmed, hold is kept', ()
   const c = calls.create({ bookingId: 'BK-1', mode: 'browser' }).call;
   calls.addEvent(c.id, { type: 'result', record: { outcome: 'slot_confirmed', slots } });
   assert.equal(bookings.get('BK-1').hold, null);
+});
+
+const rows = [{ id: 'BK-1', customerName: 'Rahul Joshi', phone: '1' }, { id: 'BK-2', customerName: 'Sneha K', phone: '2' }];
+const record = (extra = {}) => ({ outcome: 'slot_confirmed', duration_s: 66.2, cost_inr: 1.88, latency: { p50: 900, p95: 1500, turns: 8 },
+  flow_version: '0.17.0', slots: { ladder_available: true, water_source_available: true, light_available: false }, ...extra });
+
+test('the call list is one summary per call, newest first, and can be filtered by booking', async () => {
+  const calls = createCalls(createStore(rows));
+  const a = calls.create({ bookingId: 'BK-1', mode: 'browser' }).call;
+  await new Promise((r) => setTimeout(r, 5));
+  const b = calls.create({ bookingId: 'BK-2', mode: 'browser' }).call;
+  calls.addEvent(a.id, { type: 'result', record: record() });
+  const all = calls.list();
+  assert.deepEqual(all.map((c) => c.id), [b.id, a.id]);
+  assert.deepEqual(all[1], { id: a.id, bookingId: 'BK-1', customerName: 'Rahul Joshi', mode: 'browser', status: 'ended',
+    outcome: 'slot_confirmed', createdAt: a.createdAt, durationS: 66.2, costInr: 1.88, latency: { p50: 900, p95: 1500, turns: 8 }, flowVersion: '0.17.0' });
+  assert.equal(all[0].status, 'created');                                  // still running: no duration yet
+  assert.deepEqual(calls.list({ bookingId: 'BK-1' }).map((c) => c.id), [a.id]);
+  assert.ok(!('events' in all[0]));                                       // the events stay on the single-call endpoint
+});
+
+test('finished calls are saved and come back after a restart, running ones are not', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'calls-'));
+  const file = join(dir, 'data', 'calls.json');
+  const one = createCalls(createStore(rows), { file });
+  const done = one.create({ bookingId: 'BK-1', mode: 'browser' }).call;
+  const running = one.create({ bookingId: 'BK-2', mode: 'browser' }).call;
+  one.addEvent(done.id, { type: 'transcript', role: 'agent', text: 'Hello?' });
+  one.addEvent(done.id, { type: 'beatplan', action: 'confirm_slot', status: 'stub', payload: {} });
+  assert.equal(existsSync(file), false);                                   // nothing is written while calls run
+  one.addEvent(done.id, { type: 'result', record: record() });
+  one.addEvent(running.id, { type: 'status', status: 'in_progress' });
+
+  const two = createCalls(createStore(rows), { file });                    // a restart
+  assert.deepEqual(two.list().map((c) => c.id), [done.id]);
+  const back = two.get(done.id);
+  assert.equal(back.record.cost_inr, 1.88);
+  assert.deepEqual(back.events.map((e) => e.type), ['transcript', 'beatplan', 'result']);
+  assert.equal(back.booking.customerName, 'Rahul Joshi');
+  rmSync(dir, { recursive: true });
+});
+
+test('a failed call is saved too, and a damaged file just starts empty', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'calls-'));
+  const file = join(dir, 'calls.json');
+  const one = createCalls(createStore(rows), { file });
+  const c = one.create({ bookingId: 'BK-1', mode: 'browser' }).call;
+  one.addEvent(c.id, { type: 'status', status: 'failed', error: 'KeyError' });
+  assert.equal(createCalls(createStore(rows), { file }).list()[0].status, 'failed');
+  writeFileSync(file, '{ not json');
+  assert.deepEqual(createCalls(createStore(rows), { file }).list(), []);
+  rmSync(dir, { recursive: true });
+});
+
+test('only the newest 200 finished calls are kept on disk', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'calls-'));
+  const file = join(dir, 'calls.json');
+  const calls = createCalls(createStore(rows), { file });
+  for (let i = 0; i < 205; i++) {
+    const { call } = calls.create({ bookingId: 'BK-1', mode: 'browser' });
+    calls.addEvent(call.id, { type: 'result', record: record() });
+  }
+  assert.equal(createCalls(createStore(rows), { file }).list().length, 200);
+  rmSync(dir, { recursive: true });
 });

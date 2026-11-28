@@ -76,6 +76,8 @@ def test_happy_path_checks_every_readiness_item_then_confirms():
     r = call.handle("affirm")
     assert call.state == "RECAP" and "सुबह नौ से बारह बजे" in r.speak[0]   # the time they agreed to
     r = call.handle("affirm")
+    assert call.state == "SITE_ISSUES" and "problem" in r.speak[0]      # last question before booking
+    r = call.handle("deny")                                             # no issues
     assert r.end and call.outcome == "slot_confirmed"
     sent = beatplan(events, "confirm_slot")[0]
     assert sent["date"] == "2026-11-28" and sent["band"] == "morning" and sent["readiness"] == {
@@ -106,6 +108,7 @@ def test_other_band_free_same_day():
     assert call.state == "READINESS_CHECK"
     for _ in range(4):
         r = call.handle("affirm")
+    call.handle("deny")                                                 # no site issues
     assert call.outcome == "slot_confirmed_alt_band"
     assert call.record()["confirmed_slot"]["band"] == "afternoon"
 
@@ -121,6 +124,7 @@ def test_other_band_full_offers_closest_backups_two_at_a_time():
     call.handle("affirm", {"option": 2})
     for _ in range(5):                               # time, ladder, water, light, recap
         call.handle("affirm")
+    call.handle("deny")                                                 # no site issues
     assert call.outcome == "slot_confirmed_alt_day"
     assert beatplan(events, "confirm_slot")[0]["date"] == "2026-12-03"
 
@@ -227,6 +231,7 @@ def test_yes_with_a_visit_day_at_the_hold_question_books_that_day():
     while call.state == "READINESS_CHECK":
         call.handle("affirm")
     call.handle("affirm")                                          # recap
+    call.handle("deny")                                            # no site issues
     rec = call.record()
     assert call.outcome == "slot_confirmed_alt_day" and rec["hold"] is None
     assert rec["confirmed_slot"]["date"] == "2026-11-30"
@@ -426,6 +431,7 @@ def test_changing_the_time_at_the_recap_keeps_the_chosen_day_and_skips_the_check
     assert "क्या आपके पास A-type ladder" not in r.speak[-1]                  # the checklist is not asked again
     assert call.ctx["selected_slot"]["date"] == "2026-11-30" and call.ctx["slot_source"] == "alt_day"
     call.handle("affirm")
+    call.handle("deny")                                                 # no site issues
     assert call.outcome == "slot_confirmed_alt_day"
     assert call.record()["confirmed_slot"]["date"] == "2026-11-30"
 
@@ -919,7 +925,8 @@ def test_a_family_member_is_spoken_to_as_family_not_as_the_customer():
     assert "घर पर कोई available" in r.speak[0]
     assert call.handle("price_or_offtopic").speak[0].endswith("घर पर कोई available रहेगा?")      # short form too
     for _ in range(6):                                              # offer, time, ladder, water, light, recap
-        last = call.handle("affirm")
+        call.handle("affirm")
+    last = call.handle("deny")                                      # no site issues
     assert call.outcome == "slot_confirmed" and "Rahul जी की visit" in last.speak[-1] and "आपकी visit" not in last.speak[-1]
 
 
@@ -1108,6 +1115,83 @@ def test_a_firm_no_to_calling_ends_the_call_politely():
     assert r.end and call.outcome == "do_not_call"
 
 
+# ---- seventh sample call: the price question (SSE-15557)
+def test_a_price_question_is_answered_free_for_now_with_no_amount():
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("asks_price")                                           # "आप पैसे लोगे क्या इसके लिए?"
+    assert r.speak[0].startswith("फ़िलहाल यह visit free है।") and r.speak[0].endswith(call._reask())
+    assert call.state == "OFFER_PRIMARY" and not any(c.isdigit() for c in r.speak[0].split("।")[0]) and "₹" not in r.speak[0]
+    call, _, _ = live(lang="en")
+    call.handle("affirm")
+    assert call.handle("asks_price").speak[0].startswith("This visit is free for now.")
+
+
+def test_asking_the_price_again_and_again_never_escalates_because_it_is_answered():
+    call, _, _ = live()
+    call.handle("affirm")
+    for _ in range(4):
+        r = call.handle("asks_price")
+        assert not r.end and "free" in r.speak[0]
+
+
+def test_with_the_price_answer_switched_off_the_price_question_is_deflected(monkeypatch):
+    monkeypatch.setitem(SPEC.policies, "price_answer", None)
+    call, _, _ = live()
+    call.handle("affirm")
+    r = call.handle("asks_price")
+    assert r.speak[0].startswith(call._global_line("deflection")) and "free" not in r.speak[0]
+
+
+def test_after_two_deflections_a_senior_is_asked_to_call_back():
+    call, _, _ = live()
+    call.handle("affirm")
+    deflection = call._global_line("deflection")
+    for _ in range(2):                                                      # the reported call asked three times
+        r = call.handle("price_or_offtopic")
+        assert r.speak[0].startswith(deflection) and not r.end
+    r = call.handle("price_or_offtopic")
+    assert r.end and call.outcome == "rm_callback" and call.record()["rm_callback_reason"] == "unanswered_question"
+    assert r.speak[0] == "इस बारे में मुझे अभी जानकारी नहीं है।" and "senior" in r.speak[-1]
+    assert deflection not in " ".join(r.speak)
+
+
+def test_the_deflection_count_resets_when_the_customer_moves_on():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("price_or_offtopic")
+    call.handle("price_or_offtopic")
+    call.handle("affirm")                                                   # answers the question: back on track
+    r = call.handle("price_or_offtopic")
+    assert not r.end and r.speak[0].startswith(call._global_line("deflection"))
+
+
+def test_deflections_from_different_questions_add_up():
+    call, _, _ = live()
+    call.handle("affirm")
+    call.handle("price_or_offtopic")
+    call.handle("asks_meaning")                                             # nothing to explain here: deflected too
+    r = call.handle("price_or_offtopic")
+    assert r.end and call.outcome == "rm_callback"
+
+
+def test_the_handover_line_in_english():
+    call, _, _ = live(lang="en")
+    call.handle("affirm")
+    for _ in range(2):
+        call.handle("price_or_offtopic")
+    r = call.handle("price_or_offtopic")
+    assert r.speak[0] == "I don't have this information right now." and "senior" in r.speak[-1] and r.end
+
+
+def test_a_plain_yes_at_the_greeting_is_not_a_family_member():
+    examples = " ".join(SPEC.local_intents["household_member"]["examples"]["hi"])
+    assert "haan ghar ka hi hoon" not in examples and "भाई" in examples          # a relationship is needed
+    call, _, _ = live()
+    r = call.handle("affirm")                                               # "हाँ, बोलिए"
+    assert "आपके solar system" in r.speak[0] and "family_member" != call.ctx.get("spoke_to")
+
+
 def test_price_question_deflects_and_repeats_question():
     call, _, _ = live()
     call.handle("affirm")
@@ -1151,6 +1235,7 @@ def test_confirm_api_failure_needs_manual_confirmation():
     call, _, events = live(b)
     for _ in range(7):
         call.handle("affirm")
+    call.handle("deny")                                             # no site issues
     assert call.outcome == "needs_manual_confirmation" and beatplan(events, "create_rm_callback")
 
 
@@ -1229,6 +1314,7 @@ def test_ladder_can_be_arranged_keeps_booking():
     call.handle("affirm")
     assert call.state == "RECAP"
     call.handle("affirm")
+    call.handle("deny")                                                 # no site issues
     rec = call.record()
     assert call.outcome == "slot_confirmed" and rec["will_arrange"] == ["ladder"] and rec["readiness"]["ladder"] is True
     assert any(e.get("display") == "will arrange before the visit" for e in events if e["type"] == "slot")
@@ -1274,6 +1360,7 @@ def test_own_date_that_beat_plan_has_is_booked():
     assert call.state == "ASK_SLOT"
     for _ in range(5):
         call.handle("affirm")
+    call.handle("deny")                                                 # no site issues
     assert call.outcome == "slot_confirmed_alt_day"
     assert beatplan(events, "confirm_slot")[0]["date"] == "2026-12-03"
 
@@ -1293,17 +1380,17 @@ def test_own_date_not_in_beat_plan_is_a_request():
 
 def test_sms_line_only_when_policy_on():
     call, _, _ = live()
-    for _ in range(6):
+    for _ in range(7):
         call.handle("affirm")
-    r = call.handle("affirm")
-    assert "SMS" not in r.speak[0]
+    r = call.handle("deny")                                             # no site issues
+    assert "SMS" not in r.speak[-1] and call.outcome == "slot_confirmed"
     spec = FlowSpec.load()
     spec.policies["sms_reminder"] = True
     call = FlowCall(call_id="S", booking=BOOKING, spec=spec, today=TODAY)
     call.start()
-    for _ in range(6):
+    for _ in range(7):
         call.handle("affirm")
-    r = call.handle("affirm")
+    r = call.handle("deny")                                             # no site issues
     assert "SMS" in r.speak[0] and call.outcome == "slot_confirmed"
 
 
@@ -1314,6 +1401,7 @@ def test_a_plain_yes_to_the_date_is_asked_the_time_and_the_close_says_it():
     lines = []
     for _ in range(7):                                               # greet, date, time, ladder, water, light, recap
         lines += call.handle("affirm").speak
+    lines += call.handle("deny").speak                               # no site issues
     assert call.outcome == "slot_confirmed" and "ASK_SLOT" in call.path
     assert "सुबह नौ से बारह बजे के बीच" in lines[-1]                 # "visit booked" says the time
     assert call.record()["time_window_told"] is True
@@ -1327,7 +1415,8 @@ def test_picking_another_free_time_books_that_band():
     r = call.handle("gives_band", {"band": "dopahar"})
     assert call.state == "READINESS_CHECK" and call.ctx["selected_slot"]["band"] == "afternoon"
     for _ in range(4):
-        r = call.handle("affirm")
+        call.handle("affirm")
+    r = call.handle("deny")                                         # no site issues
     assert "दोपहर बारह से तीन बजे" in r.speak[-1] and call.outcome == "slot_confirmed"
     assert beatplan(events, "confirm_slot")[0]["band"] == "afternoon"
     assert call.record()["requested_slot"] is None                  # a Beat Plan band, not a request for the team
@@ -1376,7 +1465,8 @@ def test_asking_the_time_shares_it_in_recap_and_close():
         call.handle("affirm")                                        # window ok, ladder, water
     r = call.handle("affirm")                                        # light -> recap
     assert "सुबह नौ से बारह बजे" in r.speak[0]
-    r = call.handle("affirm")
+    call.handle("affirm")
+    r = call.handle("deny")                                             # no site issues
     assert "सुबह नौ से बारह बजे" in r.speak[-1] and call.record()["time_window_told"] is True
 
 
@@ -1507,3 +1597,77 @@ def test_spoken_lines_never_contain_action_or_step_names():
         for line in lines:
             words = set(re.findall(r"[A-Za-z_]+", re.sub(r"\{[^}]*\}", "", line)))
             assert not words & internal, (lang, line, words & internal)
+
+
+def test_site_issue_is_asked_before_booking_and_saved_everywhere():
+    call, _, events = live()
+    for _ in range(6):
+        call.handle("affirm")                                           # greeting, offer, time, ladder, water, light
+    assert call.state == "RECAP"
+    r = call.handle("affirm")
+    assert call.state == "SITE_ISSUES" and not r.end and not call.outcome
+    r = call.handle("reports_issue", {"site_issue": "panels ke frame pe zang lag raha hai"})
+    assert r.end and call.outcome == "slot_confirmed"
+    assert beatplan(events, "confirm_slot")[0]["site_issues"] == ["panels ke frame pe zang lag raha hai"]
+    rec = call.record()
+    assert rec["site_issues"] == ["panels ke frame pe zang lag raha hai"] and rec["slots"]["site_issues"]
+    assert "zang" in rec["summary"] and beatplan(events, "post_beatplan_comment")[0]["record"]["site_issues"] == rec["site_issues"]
+
+
+def test_a_yes_to_the_site_question_asks_which_issue_and_none_is_recorded_as_empty():
+    call, _, events = live()
+    for _ in range(7):
+        call.handle("affirm")                                           # ... recap yes -> SITE_ISSUES
+    assert call.state == "SITE_ISSUES"
+    call.handle("affirm")                                               # "yes, there is a problem"
+    assert call.state == "ISSUE_DETAILS"
+    call.handle("reports_issue", {"site_issue": "roof leaks near the panels"})
+    assert call.outcome == "slot_confirmed" and call.record()["site_issues"] == ["roof leaks near the panels"]
+    call2, _, _ = live()
+    for _ in range(7):
+        call2.handle("affirm")
+    call2.handle("deny")
+    assert call2.outcome == "slot_confirmed" and call2.record()["site_issues"] == [] and call2.record()["slots"]["site_issues"] is None
+
+
+def test_a_bare_yes_in_english_does_not_switch_a_hindi_call_but_a_fuller_answer_does():
+    call, _, _ = live()
+    for _ in range(6):
+        call.handle("affirm")                                           # ... to the recap, in Hindi
+    r = call.handle("affirm", {"language": "en"})                       # "Yes." heard as English
+    assert call.lang == "hi" and call.state == "SITE_ISSUES" and "problem" not in r.speak[0].lower().split()[:3]
+    assert "आख़िरी बात" in r.speak[0]
+    r = call.handle("reports_issue", {"site_issue": "थोड़ी rusting", "language": "hi"})
+    assert call.outcome == "slot_confirmed" and "note कर ली" in r.speak[-1]
+
+
+def test_the_close_does_not_mention_a_problem_when_none_was_reported():
+    call, _, _ = live()
+    for _ in range(7):
+        call.handle("affirm")
+    r = call.handle("deny")
+    assert call.outcome == "slot_confirmed" and "note कर ली" not in r.speak[-1]
+
+
+def test_site_issue_shows_live_on_the_dashboard_and_none_is_shown_too():
+    call, _, events = live()
+    for _ in range(7):
+        call.handle("affirm")
+    call.handle("reports_issue", {"site_issue": "rusting on the frame"})
+    shown = [e for e in events if e.get("type") == "slot" and e.get("key") == "site_issues"]
+    assert shown and shown[-1]["display"] == "rusting on the frame"
+    call2, _, events2 = live()
+    for _ in range(7):
+        call2.handle("affirm")
+    call2.handle("deny")
+    assert [e["display"] for e in events2 if e.get("key") == "site_issues"] == ["None reported"]
+
+
+def test_ji_kya_slot_hai_at_the_offer_is_a_question_not_a_yes():
+    call, _, _ = live()
+    call.handle("affirm")                                               # greeting -> the offer
+    r = call.handle("affirm", {"asks_time": True})                      # "जी क्या slot है?" heard as a yes + time question
+    assert call.state == "TIME_BAND" and "ready रखनी" not in " ".join(r.speak)
+    assert "ठीक लगेगा" in r.speak[-1]                                   # asks again whether the window suits
+    r = call.handle("affirm")
+    assert call.state == "READINESS_CHECK"

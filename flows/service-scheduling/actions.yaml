@@ -40,7 +40,7 @@ confirm_slot:
   system: zeus
   status: contract_pending
   does: Convert the soft allocation into a confirmed visit (date, band, hero)
-  input: [site_id, date, band, hero_id, readiness, "preferred_exact_time?"]
+  input: [site_id, date, band, hero_id, readiness, "preferred_exact_time?", "site_issues?"]
 
 site_on_hold:
   system: zeus

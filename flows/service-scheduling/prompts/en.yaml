@@ -4,8 +4,11 @@ _global:
   opener: "Hello?"                 # first words of the call, before the customer speaks
   recall_as_told: "at the time you mentioned"   # call-back time we could not turn into words (RECALL_CLOSE)
   deflection: "Our team will share those details with you separately."
+  price_free: "This visit is free for now."
+  unknown_handover: "I don't have this information right now."
   reprompt: "Hello, can you hear me?"
   sms_reminder: "You'll also get a reminder SMS before the visit."
+  issue_noted: "I have noted the problem you told me about on your site, and our Service Hero will check it."
   service_hours: "Our visits happen only between 9 am and 6 pm."
   time_window: "Our service hero will come between {band_spoken} that day."
   didnt_catch: "Sorry, I didn't catch that."
@@ -86,7 +89,7 @@ READINESS_CHECK:
   repeat_arrange_water: "Can you arrange water before the visit?"
   repeat_arrange_light: "Can you arrange a light connection?"
   explain_ladder: "An A-type ladder is a folding ladder shaped like the letter A that stands on its own; our hero uses it to reach the roof."
-  explain_water: "We need water to clean the panels."
+  explain_water: "A water source means a tap or tank near the panels, so our hero can get water to clean them."
   explain_light: "We need a power connection for the work."
 
 ASK_READY_DATE:
@@ -115,11 +118,19 @@ RECALL:
   main: "Of course. What time would be good to call you back?"
   repeat_main: "What time should I call you back?"
 
+SITE_ISSUES:
+  main: "Alright. One last thing: is there any problem on your site you would like us to know about, like rusting or damage?"
+  repeat_main: "Is there any problem on the site, like rusting?"
+
+ISSUE_DETAILS:
+  main: "Which problem is it, could you tell me?"
+  repeat_main: "Please tell me, what is the problem on the site?"
+
 CONFIRMED_CLOSE:
-  main: "Your visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
-  with_time: "Your visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{sms_line} Thank you, have a great day!"
-  main_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}.{sms_line} Thank you, have a great day!"
-  with_time_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{sms_line} Thank you, have a great day!"
+  main: "Your visit is confirmed for {weekday}, {date_spoken}.{issue_line}{sms_line} Thank you, have a great day!"
+  with_time: "Your visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{issue_line}{sms_line} Thank you, have a great day!"
+  main_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}.{issue_line}{sms_line} Thank you, have a great day!"
+  with_time_family: "{name}'s visit is confirmed for {weekday}, {date_spoken}, between {band_spoken}.{issue_line}{sms_line} Thank you, have a great day!"
 
 SENSITIVE_CLOSE:
   main: "I'm so sorry to hear that. Our thoughts are with you and your family. We won't trouble you now. Please take care of yourselves."

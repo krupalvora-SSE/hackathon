@@ -109,12 +109,25 @@ def flow_system_prompt(call) -> str:
     spec = call.spec
     persona = spec.policies["persona"]
     lines = []
+    taught_faqs = (getattr(call, "knowledge", None) or {}).get("faqs", [])
     for name, i in {**spec.global_intents, **spec.local_intents}.items():
+        if name == "known_question" and not taught_faqs:
+            continue                                    # nothing approved yet: the model must not pick it
         ex = (i or {}).get("examples") or {}
-        sample = "; ".join([*ex.get("hi", [])[:6], *ex.get("en", [])[:3]])
+        taught = (getattr(call, "knowledge", None) or {}).get("intents", {}).get(name, [])    # phrases an admin taught us
+        sample = "; ".join([*ex.get("hi", [])[:6], *ex.get("en", [])[:3], *taught[:6]])
         scope = " (any time)" if name in spec.global_intents else ""
         lines.append(f"- {name}{scope}: e.g. {sample}")
     intents = "\n".join(lines)
+    faqs = (getattr(call, "knowledge", None) or {}).get("faqs", [])
+    approved = ""
+    if faqs:
+        approved = ("\nApproved answers: when the customer asks one of these, even in other words, use the intent "
+                    "known_question with that faq_id (the system speaks the answer). Match on the same topic and need: "
+                    "if the approved answer would really answer what they asked, pick it even when the wording, language or "
+                    "extra words (a yes, 'but', a name) differ. Sharing a single word is not enough, and a question about what "
+                    "ladder / water / light means or why it is needed is asks_meaning, never an approved answer about something else:\n"
+                    + "\n".join(f'- faq_id={f["id"]}: "{f["question"]}"' for f in faqs[:40]) + "\n")
     c = call.context
     primary = c.get("primary_slot") or {}
     return f"""You are the listening brain of {persona['name']}, a SolarSquare phone agent calling an existing customer
@@ -130,7 +143,7 @@ pick only from those. If nothing fits or you could not understand, use "unclear"
 
 Intents:
 {intents}
-
+{approved}
 Entities (fill only when the customer said them, using their own words):
 - date: a date they mention (when the site will be ready, which alternate day, back from travel)
 - option: 1 or 2 when they pick one of the two days just offered
@@ -138,12 +151,13 @@ Entities (fill only when the customer said them, using their own words):
 - exact_time: the exact time they asked for
 - time_range: when to call them back
 - reason: why the site can't be serviced, or why they want a person
+- site_issue: a problem on their site or panels they mention (rust, crack, leak, damage), in their own words
 - language: "en" only if the customer answered in full English sentences (phone ASR may write English
   in Devanagari, e.g. "आई एम नॉट अवेलेबल" is English); "hi" if Hindi/Hinglish. A Hindi sentence with a
   few English words ("haan available hoon") is "hi". Send it on every turn so the call follows them.
 - asks_time: true when the customer also asks about the time of the visit in the same turn
   ("chalega shukrawar, but kya time hoga?"). The intent is still their answer (affirm / deny / ...); a bare
-  question about the time with no answer is the intent ask_time.
+  question about the time with no answer is the intent ask_time, even if it starts with "जी" ("जी, क्या slot है?").
 - hedged: true when the customer says yes but hedges in the same sentence ("ji haan, shayad hai", "haan, lagta hai").
   Any hedge makes the answer unsure, so set hedged = true instead of answering a plain affirm.
 - will_arrange: true when, to the ladder / water / light question, they say it isn't there now but they will
@@ -159,6 +173,11 @@ other_language; do not guess an answer from garbled text.
 Correcting an earlier answer at the recap ("mere paas ladder nahi hai", "light nahi hai asal mein") is
 corrects_readiness with the readiness entity (false = they don't have it), not change_date or change_time.
 For "when will it be ready?" put the customer's own words in the date entity, including "1 mahine baad" or "after 2 weeks".
+"Do you charge / is it free / kitne paise" is asks_price. A question that matches an "Approved answers" entry is
+known_question with its faq_id (only when an "Approved answers" list is shown below), checked before
+price_or_offtopic. Other things we can't answer (generation, savings, subsidy,
+inverter problems) are price_or_offtopic. A plain "haan, boliye / haan bolo" at the greeting is affirm: the customer
+saying yes, not household_member (that needs a relationship: brother, son, wife...).
 A death, funeral, accident or serious emergency in the family is ALWAYS sensitive_situation (never personal_reason,
 call_later or not_serviceable): the bot says sorry and ends the call without asking anything. If the customer is upset
 with the bot ("aap mein sensitivity hai?") use upset_customer. "Kabhi mat kariye" / "mat kijiye call" is do_not_call.

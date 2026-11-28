@@ -54,6 +54,7 @@ from .events import Emitter, save_result
 from .engine import make_engine
 from .flow import band_from_range, parse_band
 from .filler import Filler
+from .knowledge import fetch_knowledge
 from .prompts import HANDOVER_BROWSER_NOTE
 from .recording import CallRecorder
 from .tools import Action
@@ -409,7 +410,8 @@ def _piper_tts(cfg: dict, call_id: str, sample_rate: int | None = None):
 async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, sample_rate: int,
                    call_sid: str | None = None) -> None:
     emitter = Emitter(call_id)
-    engine = make_engine(call_id, booking, on_event=emitter.emit)  # CALL_FLOW picks YAML flow or checklist
+    knowledge = await fetch_knowledge()      # answers and phrases an admin taught on the Questions view
+    engine = make_engine(call_id, booking, on_event=emitter.emit, knowledge=knowledge)  # CALL_FLOW picks YAML flow or checklist
     logger.info(f"call {call_id} booking={booking.get('id')} telephony={telephony} flow={engine.name}")
 
     cfg = call_config.load()  # read per call: /voice page edits apply from the next call
@@ -559,6 +561,8 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
         if text and not engine.outcome:
             await worker.queue_frames([TTSSpeakFrame(text, append_to_context=True)])
 
+    last_said = {"text": ""}                 # the customer's latest words, for the Questions view
+
     async def handle_tool(params: FunctionCallParams) -> None:
         filler.cancel()  # the LLM has answered; the real line follows in a moment
         args = dict(params.arguments or {})
@@ -585,8 +589,13 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
             engine._last_unsure_reading = None
         if name == "customer_said" and hasattr(stt, "consume_turn"):
             stt.consume_turn()
+        if name == "customer_said" and args.get("intent") == "known_question" and not args.get("faq_id"):
+            args["_said"] = last_said["text"]        # lets the flow pick the approved answer itself
         action = engine.dispatch(name, args)
         logger.info(f"tool {name}({args}){' [fast path, no LLM]' if fast else ''} -> {action.result}")
+        if action.offguard and last_said["text"]:        # shown on the dashboard's Questions view for an admin
+            emitter.emit({"type": "offguard", "kind": action.offguard, "text": last_said["text"],
+                          "state": action.result.get("state"), "intent": args.get("intent")})
         if action.ask_next:
             pending_ask["text"] = action.ask_next
             if not pending_ask["task"]:
@@ -607,6 +616,8 @@ async def _run_bot(transport, *, call_id: str, booking: dict, telephony: bool, s
 
     @aggregators.user().event_handler("on_user_turn_stopped")
     async def _user_said(_agg, _strategy, message):
+        if getattr(message, "content", None):
+            last_said["text"] = message.content
         yielded["answered"] = bool(getattr(message, "content", None))
         turn_over.set()
         if getattr(message, "content", None):
